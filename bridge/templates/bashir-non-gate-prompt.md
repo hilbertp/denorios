@@ -1,6 +1,6 @@
 # Bashir Invocation — Non-Gate Slice
 
-Read `roles/bashir/ROLE.md` at the start of this session. It is your anchor.
+Read `.claude/roles/bashir/ROLE.md` at the start of this session. It is your anchor.
 
 ---
 
