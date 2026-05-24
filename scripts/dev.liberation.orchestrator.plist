@@ -2,38 +2,32 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>Label</key>
-    <string>dev.liberation.orchestrator</string>
-
-    <key>ProgramArguments</key>
-    <array>
-        <string>/Users/phillyvanilly/.nvm/versions/node/v24.11.1/bin/node</string>
-        <string>--env-file=/Users/phillyvanilly/01 - The Liberation of Bajor/repo/.env</string>
-        <string>/Users/phillyvanilly/01 - The Liberation of Bajor/repo/bridge/orchestrator.js</string>
-    </array>
-
-    <key>WorkingDirectory</key>
-    <string>/Users/phillyvanilly/01 - The Liberation of Bajor/repo</string>
-
-    <key>EnvironmentVariables</key>
-    <dict>
-        <key>HOME</key>
-        <string>/Users/phillyvanilly</string>
-    </dict>
-
-    <key>RunAtLoad</key>
-    <false/>
-
-    <key>KeepAlive</key>
-    <true/>
-
-    <key>ThrottleInterval</key>
-    <integer>30</integer>
-
-    <key>StandardOutPath</key>
-    <string>/Users/phillyvanilly/01 - The Liberation of Bajor/repo/bridge/logs/orchestrator.stdout.log</string>
-
-    <key>StandardErrorPath</key>
-    <string>/Users/phillyvanilly/01 - The Liberation of Bajor/repo/bridge/logs/orchestrator.stderr.log</string>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>HOME</key>
+		<string>/Users/phillyvanilly</string>
+		<key>PATH</key>
+		<string>/usr/local/bin:/Users/phillyvanilly/.nvm/versions/node/v24.11.1/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+	</dict>
+	<key>KeepAlive</key>
+	<true/>
+	<key>Label</key>
+	<string>dev.liberation.orchestrator</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/phillyvanilly/.nvm/versions/node/v24.11.1/bin/node</string>
+		<string>--env-file=/Users/phillyvanilly/01 - The Liberation of Bajor/repo/.env</string>
+		<string>/Users/phillyvanilly/01 - The Liberation of Bajor/repo/bridge/orchestrator.js</string>
+	</array>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>StandardErrorPath</key>
+	<string>/Users/phillyvanilly/01 - The Liberation of Bajor/repo/bridge/logs/orchestrator.stderr.log</string>
+	<key>StandardOutPath</key>
+	<string>/Users/phillyvanilly/01 - The Liberation of Bajor/repo/bridge/logs/orchestrator.stdout.log</string>
+	<key>ThrottleInterval</key>
+	<integer>30</integer>
+	<key>WorkingDirectory</key>
+	<string>/Users/phillyvanilly/01 - The Liberation of Bajor/repo</string>
 </dict>
 </plist>
