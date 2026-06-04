@@ -3,6 +3,7 @@
 const http = require('http');
 const fs   = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 
 const PORT         = process.env.DASHBOARD_PORT ? parseInt(process.env.DASHBOARD_PORT, 10) : 4747;
 const HOST         = process.env.DASHBOARD_HOST ?? '0.0.0.0';
@@ -27,6 +28,97 @@ const CORS_ORIGIN  = 'https://dax-dashboard.lovable.app';
 // Hide DONE slices older than this many days from the Queue panel.
 // Pre-lifecycle stragglers sit in DONE forever; this keeps them out of sight.
 const STALE_DONE_DAYS = 7;
+
+// ── GitHub state cache (TTL-based) ──────────────────────────────────────────
+// Caches origin/main + origin/dev tips, CI status, and promote result.
+// Uses git fetch (network) + gh CLI; both are best-effort and non-blocking
+// on cache hit. TTL: 30s for git, 60s for gh (separate sub-caches).
+const GIT_TTL_MS = 30 * 1000;
+const GH_TTL_MS  = 60 * 1000;
+let _gitTipsCache = { value: null, fetchedAt: 0 };
+let _ghCiCache    = { value: null, fetchedAt: 0 };
+
+function _getGitTips() {
+  const now = Date.now();
+  if (_gitTipsCache.value && now - _gitTipsCache.fetchedAt < GIT_TTL_MS) {
+    return _gitTipsCache.value;
+  }
+  const result = { origin_main_sha: null, origin_dev_sha: null, commits_ahead: 0,
+                   dev_commits: [], promote: null, fetched_at: null, error: null };
+  try {
+    execFileSync('git', ['fetch', 'origin', 'main', 'dev', '--quiet'],
+      { cwd: REPO_ROOT, encoding: 'utf8', timeout: 10000, stdio: ['ignore', 'pipe', 'pipe'] });
+    const mainFull = execFileSync('git', ['rev-parse', 'origin/main'],
+      { cwd: REPO_ROOT, encoding: 'utf8', timeout: 5000 }).trim();
+    const devFull  = execFileSync('git', ['rev-parse', 'origin/dev'],
+      { cwd: REPO_ROOT, encoding: 'utf8', timeout: 5000 }).trim();
+    result.origin_main_sha = mainFull ? mainFull.slice(0, 7) : null;
+    result.origin_dev_sha  = devFull  ? devFull.slice(0, 7)  : null;
+
+    const aheadStr = execFileSync('git', ['rev-list', '--count', 'origin/main..origin/dev'],
+      { cwd: REPO_ROOT, encoding: 'utf8', timeout: 5000 }).trim();
+    result.commits_ahead = parseInt(aheadStr, 10) || 0;
+
+    const logOut = execFileSync('git',
+      ['log', 'origin/dev', '--not', 'origin/main', '--format=%H %s', '--max-count=10', '--reverse'],
+      { cwd: REPO_ROOT, encoding: 'utf8', timeout: 5000 }).trim();
+    if (logOut) {
+      result.dev_commits = logOut.split('\n').filter(Boolean).map(line => {
+        const sp = line.indexOf(' ');
+        const sha = sp !== -1 ? line.slice(0, sp) : line;
+        const subj = sp !== -1 ? line.slice(sp + 1) : '';
+        const m = subj.match(/^slice[/\s]+(\d+)/i);
+        return { sha: sha.slice(0, 7), full_sha: sha, slice_id: m ? m[1] : null };
+      });
+    }
+
+    const mainLog = execFileSync('git', ['log', 'origin/main', '--max-count=1', '--format=%H %ct'],
+      { cwd: REPO_ROOT, encoding: 'utf8', timeout: 5000 }).trim();
+    if (mainLog) {
+      const [sha, ctStr] = mainLog.split(' ');
+      const ct = parseInt(ctStr, 10) * 1000;
+      result.promote = { sha: sha ? sha.slice(0, 7) : null, full_sha: sha || null,
+                         age_s: isNaN(ct) ? null : Math.round((now - ct) / 1000) };
+    }
+    result.fetched_at = new Date(now).toISOString();
+  } catch (e) {
+    result.error = String(e.message || e).slice(0, 200);
+  }
+  _gitTipsCache = { value: result, fetchedAt: now };
+  return result;
+}
+
+function _getGhCi() {
+  const now = Date.now();
+  if (_ghCiCache.fetchedAt > 0 && now - _ghCiCache.fetchedAt < GH_TTL_MS) {
+    return _ghCiCache.value;
+  }
+  let result = null;
+  try {
+    const out = execFileSync('gh',
+      ['run', 'list', '--workflow=ci.yml', '--branch=dev',
+       '--json=status,conclusion,number,url,headSha', '--limit=1'],
+      { cwd: REPO_ROOT, encoding: 'utf8', timeout: 15000 }).trim();
+    const runs = JSON.parse(out);
+    if (runs && runs.length > 0) {
+      const run = runs[0];
+      let state;
+      if (run.status === 'in_progress' || run.status === 'queued') state = 'running';
+      else if (run.conclusion === 'success') state = 'passing';
+      else if (run.conclusion === 'failure' || run.conclusion === 'cancelled') state = 'failing';
+      else state = 'unknown';
+      result = { state, run_number: run.number, url: run.url, head_sha: run.headSha };
+    }
+  } catch (_) { /* gh not installed or not authenticated — non-fatal */ }
+  _ghCiCache = { value: result, fetchedAt: now };
+  return result;
+}
+
+function getGitHubState() {
+  const tips = _getGitTips();
+  const ci   = _getGhCi();
+  return { ...tips, ci };
+}
 
 // ── Mtime-based in-memory cache ─────────────────────────────────────────────
 // Eliminates per-request re-parse of large files (register.jsonl is 27MB+).
@@ -1589,17 +1681,31 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // ── Branch state (slice 262) ───────────────────────────────────────────────
+  // ── Branch state (slice 262, extended slice 314) ──────────────────────────
+  // Returns local gate/queue state overlaid with real GitHub origin tips,
+  // commits-ahead count, CI run status, and promote result from git+gh.
   if (pathname === '/api/branch-state' && req.method === 'GET') {
-    try {
-      const raw = fs.readFileSync(BRANCH_STATE, 'utf8');
-      const parsed = JSON.parse(raw);
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-      res.end(JSON.stringify(parsed));
-    } catch (err) {
-      res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-      res.end(JSON.stringify({ error: 'branch-state-unavailable' }));
+    let base = {};
+    try { base = JSON.parse(fs.readFileSync(BRANCH_STATE, 'utf8')); } catch (_) {}
+
+    const gh = getGitHubState();
+    base.github = gh;
+
+    // Overlay GitHub tips into the existing main/dev subobjects so the
+    // topology renderer picks up real origin SHAs without code changes there.
+    if (gh && !gh.error) {
+      base.main = base.main || {};
+      base.main.tip_sha = gh.origin_main_sha || base.main.tip_sha || null;
+      base.dev  = base.dev  || {};
+      base.dev.tip_sha              = gh.origin_dev_sha  || base.dev.tip_sha  || null;
+      base.dev.commits_ahead_of_main = gh.commits_ahead;
+      if (gh.dev_commits && gh.dev_commits.length > 0) {
+        base.dev.commits = gh.dev_commits;
+      }
     }
+
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify(base));
     return;
   }
 

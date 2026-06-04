@@ -2061,26 +2061,6 @@
   }
   .topo-foot-stats { font-weight: 500; }
   .topo-foot-stats strong { font-weight: 700; }
-  .merge-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 16px;
-    background: var(--ok);
-    color: #fff;
-    border: none;
-    border-radius: var(--radius-pill);
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    box-shadow: var(--shadow-cta);
-    transition: opacity var(--motion-fast);
-  }
-  .merge-btn:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-    box-shadow: none;
-  }
   .gate-status-pill {
     display: inline-flex;
     align-items: center;
@@ -2939,16 +2919,9 @@
   .btn-primary { background: var(--ink); color: #fff; border-color: var(--ink); }
   .btn-primary:hover { filter: brightness(1.1); }
 
-  .merge-btn {
-    background: var(--ok); color: #fff; border-color: var(--ok);
-    box-shadow: var(--shadow-cta);
-    padding: 7px 16px; border-radius: var(--radius-pill); font-weight: 600;
-  }
-  .merge-btn:hover { filter: brightness(1.05); }
-
   /* Universal active press */
   .btn:active, .btn-ghost:active, .btn-stop:active, .btn-approve:active,
-  .btn-reject:active, .btn-primary:active, .merge-btn:active {
+  .btn-reject:active, .btn-primary:active {
     transform: translateY(1px); transition: transform var(--motion-fast);
   }
 
@@ -5165,27 +5138,16 @@
       const orchStatus = w ? w.status : 'down';       // 'up' | 'stale' | 'down'
       const hbAge = w ? w.heartbeatAge_s : null;
 
-      // Detect batch-gate / paused state:
-      // 1. Check branch-state gate status (slice 265)
-      // 2. Explicit flag from watcher (placeholder — not yet in heartbeat payload)
-      // 3. Fall back to checking if the active slice is paused via register events
-      const bsGateRunning = _lastBranchState && _lastBranchState.gate
-                            && _lastBranchState.gate.status === 'GATE_RUNNING';
-      const watcherPaused = w && w.paused;
-      const activePaused  = w && w.currentSlice && typeof isSlicePaused === 'function'
-                            && isSlicePaused(w.currentSlice);
-      const isBatchGate   = !!(bsGateRunning || watcherPaused || activePaused);
-
-      // Tri-state: BATCH GATE (amber) > OFFLINE (red) > ONLINE (green)
+      // Tri-state liveness: DEGRADED (stale heartbeat) > OFFLINE (down) > ONLINE
       let pillClass, pillText, dotCls;
-      if (isBatchGate && orchStatus !== 'down') {
-        pillClass = 'health-pill degraded';
-        pillText  = 'BATCH GATE';
-        dotCls    = 'stale';
-      } else if (orchStatus === 'down' || hbAge == null || hbAge >= 60) {
+      if (orchStatus === 'down' || hbAge == null || hbAge >= 60) {
         pillClass = 'health-pill offline';
         pillText  = 'OFFLINE';
         dotCls    = 'down';
+      } else if (orchStatus === 'stale' || (hbAge != null && hbAge >= 30)) {
+        pillClass = 'health-pill degraded';
+        pillText  = 'DEGRADED';
+        dotCls    = 'stale';
       } else {
         pillClass = 'health-pill';
         pillText  = 'ONLINE';
@@ -5202,10 +5164,6 @@
         `<span class="health-tooltip-dot ${dotCls}"></span>` +
         `${esc(orchStatus)} <span class="health-tooltip-meta">· ${hbAge != null ? fmtAge(hbAge) : 'no heartbeat'}</span>`
       );
-      if (isBatchGate) {
-        const reason = (w && w.pausedReason) ? esc(w.pausedReason) : 'build paused';
-        tipLines.push(`<span class="health-tooltip-meta">${reason}</span>`);
-      }
       if (w && w.currentSlice && w.elapsedSeconds != null) {
         const lastAct = w.lastActivityAge_s != null ? ` · last output ${fmtAge(w.lastActivityAge_s)}` : '';
         tipLines.push(`<span class="health-tooltip-meta">processing #${esc(w.currentSlice)} · ${fmtElapsedCompact(w.elapsedSeconds)}${lastAct}</span>`);
@@ -6357,7 +6315,7 @@
     const gateStatus = bs.gate ? bs.gate.status : null;
 
     // Build aria label
-    const ariaLabel = `Branch topology: dev ${ahead} commits ahead of main, gate ${gateStatus || 'idle'}`;
+    const ariaLabel = `Branch topology: origin/dev ${ahead} commits ahead of origin/main`;
 
     // Track positions
     const xStart = 80, xEnd = 840;
@@ -6404,14 +6362,16 @@
       if (md.isMerge) {
         // Merge dot with check
         svg += `<circle cx="${mx}" cy="${mainY}" r="7.5" fill="var(--branch-main)">`;
-        svg += `<title>Merge: ${(md.sha || '').slice(0, 7)}</title></circle>`;
+        svg += `<title>origin/main: ${(md.sha || '').slice(0, 7)}</title></circle>`;
         // White check mark
         svg += `<path d="M${mx - 3} ${mainY} l2 3 l4 -5" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round" />`;
-        // Hash annotation above (merge style)
+        // origin/main label + hash above
+        svg += `<text x="${mx}" y="32" text-anchor="middle" font-size="9" font-weight="600" fill="var(--branch-main)">origin/main</text>`;
         svg += `<text x="${mx}" y="42" text-anchor="middle" font-size="10" font-weight="600" fill="var(--ok)">${(md.sha || '').slice(0, 7)}</text>`;
       } else {
         svg += `<circle cx="${mx}" cy="${mainY}" r="6" fill="var(--branch-main)">`;
-        svg += `<title>main: ${(md.sha || '').slice(0, 7)}</title></circle>`;
+        svg += `<title>origin/main: ${(md.sha || '').slice(0, 7)}</title></circle>`;
+        svg += `<text x="${mx}" y="32" text-anchor="middle" font-size="9" font-weight="600" fill="var(--branch-main)">origin/main</text>`;
         svg += `<text x="${mx}" y="42" text-anchor="middle" font-size="10" fill="var(--ink-4)">${(md.sha || '').slice(0, 7)}</text>`;
       }
     }
@@ -6425,12 +6385,12 @@
       const isHead = (i === devDots.length - 1);
 
       if (isHead) {
-        // HEAD dot — larger
+        // HEAD dot — larger, labelled origin/dev
         svg += `<circle cx="${dx}" cy="${devY}" r="7.5" fill="var(--branch-dev)">`;
-        svg += `<title>HEAD: ${sha7}</title></circle>`;
-        // HEAD badge above
-        svg += `<rect x="${dx - 20}" y="${devY - 28}" width="40" height="14" rx="3" fill="var(--rom)" />`;
-        svg += `<text x="${dx}" y="${devY - 18}" text-anchor="middle" font-size="9" font-weight="700" letter-spacing="0.5" fill="#fff">HEAD</text>`;
+        svg += `<title>origin/dev: ${sha7}</title></circle>`;
+        // origin/dev badge above
+        svg += `<rect x="${dx - 32}" y="${devY - 28}" width="64" height="14" rx="3" fill="var(--branch-dev)" />`;
+        svg += `<text x="${dx}" y="${devY - 18}" text-anchor="middle" font-size="9" font-weight="700" letter-spacing="0.5" fill="#fff">origin/dev</text>`;
       } else {
         svg += `<circle cx="${dx}" cy="${devY}" r="6" fill="var(--branch-dev)">`;
         svg += `<title>dev: ${sha7}</title></circle>`;
@@ -6484,22 +6444,8 @@
     renderRRPill(bs);
 
     const ahead = bs.dev ? (bs.dev.commits_ahead_of_main || 0) : 0;
-    statsEl.innerHTML = `<strong>${ahead}</strong> commit${ahead !== 1 ? 's' : ''} ahead of main`;
-
-    const gateStatus = bs.gate ? bs.gate.status : null;
-
-    if (!gateStatus || gateStatus === 'IDLE' || gateStatus === 'ACCUMULATING') {
-      const disabled = ahead === 0 ? ' disabled' : '';
-      actionEl.innerHTML = `<button class="merge-btn"${disabled} onclick="mergeButtonClick()" aria-label="Merge dev to main via Bashir gate">Merge to main</button>`;
-    } else if (gateStatus === 'GATE_RUNNING') {
-      actionEl.innerHTML = '<span class="gate-status-pill warn">GATE RUNNING</span>';
-    } else if (gateStatus === 'GATE_FAILED') {
-      actionEl.innerHTML = '<span class="gate-status-pill err">GATE FAILED</span>';
-    } else if (gateStatus === 'GATE_ABORTED') {
-      actionEl.innerHTML = '<span class="gate-status-pill warn">GATE ABORTED</span>';
-    } else {
-      actionEl.innerHTML = `<span class="gate-status-pill warn">${gateStatus}</span>`;
-    }
+    statsEl.innerHTML = `<strong>${ahead}</strong> commit${ahead !== 1 ? 's' : ''} ahead of origin/main`;
+    actionEl.innerHTML = '<span style="font-size:12px;color:var(--ink-3)">auto-promotes on green</span>';
   }
 
   function renderTopoMini(bs) {
@@ -6633,43 +6579,6 @@
     _prevGateStatus = gateStatus;
   }
 
-  async function mergeButtonClick() {
-    const bs = _lastBranchState;
-    const ahead = bs && bs.dev ? (bs.dev.commits_ahead_of_main || 0) : 0;
-    if (ahead === 0) return;
-
-    // Disable button immediately
-    const btn = document.querySelector('.merge-btn');
-    if (btn) btn.disabled = true;
-
-    try {
-      const res = await fetch('/api/gate/start', { method: 'POST' });
-      if (res.status === 202) {
-        // Optimistic UI update: flip health pill to BATCH GATE
-        const pill = document.getElementById('ops-health-pill');
-        const label = document.getElementById('ops-health-label');
-        if (pill) pill.className = 'health-pill degraded';
-        if (label) label.textContent = 'BATCH GATE';
-
-        // Show step 1 active immediately
-        updateGateStepCards('GATE_RUNNING', null);
-
-        // Force a branch-state refresh to pick up GATE_RUNNING
-        fetchBranchState();
-      } else if (res.status === 409) {
-        const err = await res.json();
-        showGateError(err.error === 'nothing-to-gate' ? 'Nothing to gate — no commits ahead' : `Gate unavailable: ${err.status || err.error}`);
-        if (btn) btn.disabled = false;
-      } else {
-        showGateError('Gate start failed');
-        if (btn) btn.disabled = false;
-      }
-    } catch (err) {
-      showGateError('Network error');
-      if (btn) btn.disabled = false;
-    }
-  }
-
   async function fetchBranchState() {
     try {
       const res = await fetch('/api/branch-state');
@@ -6699,19 +6608,6 @@
       }
       updateBashirLane(data.gate, hbAge);
 
-      // Health pill BATCH GATE override (slice 265, updated slice 271)
-      const pill = document.getElementById('ops-health-pill');
-      const label = document.getElementById('ops-health-label');
-      if (pill && label) {
-        if (gateStatus === 'GATE_RUNNING' || gateStatus === 'GATE_FAILED') {
-          // Stay in BATCH GATE while running OR failed — only abort/new-gate clears
-          pill.className = 'health-pill degraded';
-          label.textContent = 'BATCH GATE';
-        } else if ((_prevGateStatus === 'GATE_RUNNING' || _prevGateStatus === 'GATE_FAILED') &&
-                   gateStatus !== 'GATE_RUNNING' && gateStatus !== 'GATE_FAILED') {
-          // Gate ended (abort or merge-complete) — let the regular health poll restore the pill
-        }
-      }
     } catch (_) {
       renderBranchTopology({ error: 'fetch-failed' });
     }
@@ -6738,11 +6634,6 @@
       const stepsEl = document.getElementById('gate-steps');
       if (stepsEl) stepsEl.style.display = '';
       setStepCard('gate-step-1', 'active', 'Running regression gate\u2026');
-      // Health pill → BATCH GATE
-      const pill = document.getElementById('ops-health-pill');
-      const label = document.getElementById('ops-health-label');
-      if (pill) pill.className = 'health-pill degraded';
-      if (label) label.textContent = 'BATCH GATE';
       // Bashir lane → authoring
       _bashirLaneState = 'authoring';
       fetchBranchState();
