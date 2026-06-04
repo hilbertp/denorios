@@ -6053,8 +6053,9 @@ function invokeBashirNonGate(sliceContent, donePath, inProgressPath, errorPath, 
   // Heartbeat polling — check every 30s, abort if stale > 90s
   const heartbeatPoll = setInterval(() => {
     try {
-      const hb = JSON.parse(fs.readFileSync(BASHIR_HEARTBEAT_PATH, 'utf-8'));
-      const age = Date.now() - new Date(hb.ts).getTime();
+      // Liveness by file mtime (OS clock), not Bashir's self-reported ts — same LLM-clock
+      // fix as the gate poll (an LLM hallucinates timestamps, tripping a false stale).
+      const age = Date.now() - fs.statSync(BASHIR_HEARTBEAT_PATH).mtimeMs;
       if (age > BASHIR_HEARTBEAT_STALE_MS) {
         log('warn', 'bashir_non_gate', { id, msg: 'Bashir heartbeat stale', age_ms: age });
         clearInterval(heartbeatPoll);
@@ -6181,11 +6182,17 @@ function startGate() {
     writeJsonAtomic(path.resolve(__dirname, 'state', 'gate-running.json'), mutex);
   } catch (_) { /* best effort */ }
 
+  // Reset heartbeat at spawn so a stale leftover file can't insta-abort the gate.
+  // Starts the staleness clock at spawn; Bashir has the full window to take over.
+  try { writeJsonAtomic(BASHIR_HEARTBEAT_PATH, { ts: new Date().toISOString() }); } catch (_) {}
+
   // 6. Heartbeat polling — check every 30s, abort if stale > 90s
   const heartbeatPoll = setInterval(() => {
     try {
-      const hb = JSON.parse(fs.readFileSync(BASHIR_HEARTBEAT_PATH, 'utf-8'));
-      const age = Date.now() - new Date(hb.ts).getTime();
+      // Liveness by file mtime (OS clock), NOT Bashir's self-reported ts: an LLM has no
+      // clock and hallucinates timestamps (observed 2026-06-04: Bashir wrote a midnight ts
+      // ~7.6h off, tripping a false heartbeat_stale). Trust the write time, not the value.
+      const age = Date.now() - fs.statSync(BASHIR_HEARTBEAT_PATH).mtimeMs;
       if (age > BASHIR_HEARTBEAT_STALE_MS) {
         log('warn', 'gate', { msg: 'Bashir heartbeat stale', age_ms: age });
         clearInterval(heartbeatPoll);
@@ -6222,7 +6229,10 @@ function _checkForEvent(eventName, afterTs) {
     const registerPath = path.resolve(__dirname, 'register.jsonl');
     const lines = fs.readFileSync(registerPath, 'utf-8').trim().split('\n').filter(Boolean);
     for (const line of lines) {
-      const entry = JSON.parse(line);
+      // Per-line guard: a single malformed line (register.jsonl has had corrupt
+      // entries) must NOT poison the whole scan and cause a false-negative miss.
+      let entry;
+      try { entry = JSON.parse(line); } catch (_) { continue; }
       if (entry.event === eventName && entry.ts >= afterTs) {
         return entry;
       }
@@ -6258,6 +6268,10 @@ function _parseFailedAcs(output) {
 
     if (match) {
       const testDesc = match[1].trim();
+
+      // Skip node:test structural lines (e.g. the "✖ failing tests:" section header)
+      // that match the failure regex but are not real test cases.
+      if (testDesc === '' || testDesc === 'failing tests:' || testDesc === 'tests:') { i++; continue; }
 
       // Dedupe: skip if we've already recorded this test
       if (seen.has(testDesc)) { i++; continue; }
@@ -6783,8 +6797,12 @@ function mergeDevToMain() {
   process.env.DS9_WATCHER_MERGE = '1';
 
   try {
-    // 3. git checkout main
-    execSync('git checkout main', { cwd: PROJECT_DIR, stdio: 'pipe' });
+    // 3. Switch to main — FUSE-safe (the working dir is a FUSE mount where plain
+    //    `git checkout` can't reliably replace tracked files). First discard the
+    //    runtime-state dirt the gate run just wrote (Bashir heartbeat, branch-state,
+    //    suite logs) so the switch isn't blocked by "local changes would be overwritten".
+    try { execSync('git checkout -- bridge/state/', { cwd: PROJECT_DIR, stdio: 'pipe' }); } catch (_) {}
+    fuseSafeCheckoutMain('gate-merge');
 
     // 4. git merge --no-ff dev
     const msgFile = path.join(PROJECT_DIR, '.dev-merge-msg');
@@ -6809,17 +6827,26 @@ function mergeDevToMain() {
       return { success: false, merge_sha: null, error: 'push_rejected' };
     }
 
-    // 6. Fast-forward dev to main (ADR §1)
-    execSync('git checkout dev', { cwd: PROJECT_DIR, stdio: 'pipe' });
-    execSync('git merge --ff-only main', { cwd: PROJECT_DIR, stdio: 'pipe' });
+    // 6. Fast-forward dev to main (ADR §1). BEST-EFFORT: main is already merged AND
+    //    pushed above, so any failure here (FUSE checkout, non-ff dev push) must NOT
+    //    trigger the outer catch's rollback — the merge has already succeeded.
     try {
-      execSync('git push origin dev', { cwd: PROJECT_DIR, stdio: 'pipe' });
-    } catch (devPushErr) {
-      log('warn', 'dev-to-main', { msg: 'git push origin dev failed (ff succeeded locally)', error: devPushErr.message });
+      execSync('git checkout -- bridge/state/', { cwd: PROJECT_DIR, stdio: 'pipe' });
+    } catch (_) {}
+    try {
+      execSync('git checkout dev', { cwd: PROJECT_DIR, stdio: 'pipe' });
+      execSync('git merge --ff-only main', { cwd: PROJECT_DIR, stdio: 'pipe' });
+      try {
+        execSync('git push origin dev', { cwd: PROJECT_DIR, stdio: 'pipe' });
+      } catch (devPushErr) {
+        log('warn', 'dev-to-main', { msg: 'git push origin dev failed (ff succeeded locally)', error: devPushErr.message });
+      }
+    } catch (devFfErr) {
+      log('warn', 'dev-to-main', { msg: 'dev fast-forward failed (main already merged+pushed)', error: devFfErr.message });
     }
 
-    // Switch back to main for working tree consistency
-    execSync('git checkout main', { cwd: PROJECT_DIR, stdio: 'pipe' });
+    // Switch back to main for working-tree consistency (best-effort, FUSE-safe).
+    try { fuseSafeCheckoutMain('gate-merge-switchback'); } catch (_) {}
 
     // 7. Update branch-state
     const ts = new Date().toISOString();
