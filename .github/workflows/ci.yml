@@ -1,0 +1,27 @@
+name: CI
+
+# Regression gate for the dev → main model (docs/adr/ADR-GITHUB-CI-MERGE-MODEL.md).
+# Runs the full Node test suite. The repo has no npm deps (pure Node), so no install step.
+# Additive for now: this reports a status check but does not gate anything until branch
+# protection on `main` is armed (migration step 6 — only after the orchestrator rework).
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    name: node --test (test/ + regression/)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Run test suite
+        run: node --test 'test/**/*.test.js' 'regression/**/*.test.js'
