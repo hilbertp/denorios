@@ -6759,6 +6759,23 @@ function drainDeferredAfterGate() {
 function mergeDevToMain() {
   const ctx = { registerEvent, log };
 
+  // RETIRED — GitHub-CI merge model (docs/adr/ADR-GITHUB-CI-MERGE-MODEL.md).
+  // dev→main is owned by ci.yml (Bashir's regression gate) + promote.yml (fast-forwards
+  // main to the green dev commit). squashSliceToDev already pushes dev; the orchestrator
+  // no longer checks out / merges / pushes main. Stand the gate down; GitHub promotes.
+  log('info', 'dev-to-main', { msg: 'mergeDevToMain retired — GitHub CI + promote own dev→main' });
+  try {
+    const _st = JSON.parse(fs.readFileSync(BRANCH_STATE_PATH, 'utf-8'));
+    _st.gate = _st.gate || {};
+    _st.gate.status = 'IDLE';
+    _st.gate.current_run = null;
+    writeJsonAtomic(BRANCH_STATE_PATH, _st);
+  } catch (_) { /* best effort */ }
+  releaseGateMutex('dev_to_main_ci', ctx);
+  drainDeferredAfterGate();
+  return { success: true, merge_sha: null, error: null, retired: true };
+
+  // ── legacy local-merge logic below is now unreachable (kept for history / revert) ──
   // 1. Read branch-state for batch info
   let branchState;
   try {
