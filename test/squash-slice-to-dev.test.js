@@ -18,7 +18,7 @@ const assert = require('assert');
 const { execSync } = require('child_process');
 
 const BRIDGE_DIR = path.join(__dirname, '..', 'bridge');
-const { squashSliceToDev, _testSetProjectDir, _testSetRegisterFile } = require('../bridge/orchestrator');
+const { squashSliceToDev, _testSetProjectDir, _testSetRegisterFile, _testSetDirs } = require('../bridge/orchestrator');
 
 let passed = 0;
 let failed = 0;
@@ -88,9 +88,17 @@ function setupTestRepo(opts = {}) {
     execSync('git commit -m "slice work"', { cwd: workDir, stdio: 'pipe' });
   }
 
-  // Set up bridge/state dir and branch-state.json in the work dir
-  const bridgeStateDir = path.join(workDir, 'bridge', 'state');
+  // Set up bridge dirs in the work dir
+  const bridgeDir = path.join(workDir, 'bridge');
+  const bridgeStateDir = path.join(bridgeDir, 'state');
+  const queueDir = path.join(bridgeDir, 'queue');
+  const stagedDir = path.join(bridgeDir, 'staged');
+  const trashDir = path.join(bridgeDir, 'trash');
   fs.mkdirSync(bridgeStateDir, { recursive: true });
+  fs.mkdirSync(queueDir, { recursive: true });
+  fs.mkdirSync(stagedDir, { recursive: true });
+  fs.mkdirSync(trashDir, { recursive: true });
+
   const branchStatePath = path.join(bridgeStateDir, 'branch-state.json');
   fs.writeFileSync(branchStatePath, JSON.stringify({
     schema_version: 1,
@@ -101,18 +109,19 @@ function setupTestRepo(opts = {}) {
   }, null, 2) + '\n');
 
   // Set up register file
-  const registerPath = path.join(workDir, 'bridge', 'register.jsonl');
+  const registerPath = path.join(bridgeDir, 'register.jsonl');
   fs.writeFileSync(registerPath, '');
 
-  // Redirect orchestrator to use temp repo
+  // Redirect orchestrator to use temp repo (including queue dirs so ERROR files don't land in real queue)
   _testSetProjectDir(workDir);
   _testSetRegisterFile(registerPath);
+  _testSetDirs(queueDir, stagedDir, trashDir);
 
   function cleanup() {
     try { fs.rmSync(tmp, { recursive: true, force: true }); } catch (_) {}
   }
 
-  return { repoDir: workDir, branchStatePath, registerPath, bareDir, cleanup, sliceBranch };
+  return { repoDir: workDir, branchStatePath, registerPath, queueDir, trashDir, bareDir, cleanup, sliceBranch };
 }
 
 console.log('\n-- squashSliceToDev unit tests --');
@@ -162,20 +171,27 @@ test('A — happy path: squash commit on dev with correct subject, trailers, and
 });
 
 // ---------------------------------------------------------------------------
-// B — Conflict path
+// B — Conflict path → loud error state (AC1, AC3)
 // ---------------------------------------------------------------------------
-test('B — conflict path: returns { success: false, error: "conflict" }, no partial state', () => {
-  const { repoDir, branchStatePath, registerPath, cleanup } = setupTestRepo({ conflict: true });
+test('B — conflict path: ERROR file written, register event emitted, conflicting files named, no partial dev state', () => {
+  const { repoDir, branchStatePath, registerPath, queueDir, cleanup } = setupTestRepo({ conflict: true });
 
   try {
     const result = squashSliceToDev('042', 'Test Feature', 'slice/042');
 
     assert.strictEqual(result.success, false);
-    assert.strictEqual(result.error, 'conflict');
+    // Error must name the conflict — not the opaque "conflict" string that masked FUSE failures
+    assert.ok(
+      result.error && result.error.startsWith('merge_conflict:'),
+      `Expected error starting with "merge_conflict:", got: ${result.error}`
+    );
+    // Conflicting file should be identified
+    assert.ok(Array.isArray(result.conflicting_files), 'conflicting_files should be an array');
+    assert.ok(result.conflicting_files.includes('conflict.txt'), `Expected conflict.txt in ${JSON.stringify(result.conflicting_files)}`);
 
     // Verify no partial state — dev should still be at its original tip
     const devLog = execSync('git log --oneline dev', { cwd: repoDir, encoding: 'utf-8' }).trim();
-    assert.ok(devLog.includes('dev conflict'), 'dev should have its original commits');
+    assert.ok(devLog.includes('dev conflict'), 'dev should retain its original commits');
     assert.ok(!devLog.includes('slice 042'), 'dev should NOT have any squash commit');
 
     // branch-state should be untouched
@@ -183,9 +199,21 @@ test('B — conflict path: returns { success: false, error: "conflict" }, no par
     assert.strictEqual(state.dev.commits.length, 0, 'No commits should be added to branch-state');
     assert.strictEqual(state.dev.commits_ahead_of_main, 0);
 
-    // register should be empty (no event emitted for conflict)
+    // A register ERROR event must have been emitted (AC3 — not silently stranded)
     const reg = fs.readFileSync(registerPath, 'utf-8').trim();
-    assert.strictEqual(reg, '', 'No register event should be emitted on conflict');
+    assert.ok(reg.length > 0, 'A register event must be emitted on conflict');
+    const regEntry = JSON.parse(reg.split('\n').pop());
+    assert.strictEqual(regEntry.event, 'ERROR', `Expected ERROR event, got: ${regEntry.event}`);
+    assert.strictEqual(regEntry.reason, 'merge_conflict', `Expected reason merge_conflict, got: ${regEntry.reason}`);
+    assert.ok(Array.isArray(regEntry.conflicting_files) && regEntry.conflicting_files.includes('conflict.txt'),
+      `conflicting_files missing from event: ${JSON.stringify(regEntry.conflicting_files)}`);
+
+    // ERROR file must be written so the slice is not silently stranded (AC3)
+    const errorFile = path.join(queueDir, '042-ERROR.md');
+    assert.ok(fs.existsSync(errorFile), 'ERROR file must be written to queue for the conflicting slice');
+    const errorContent = fs.readFileSync(errorFile, 'utf-8');
+    assert.ok(errorContent.includes('reason: "merge_conflict"'), 'ERROR file must state reason: merge_conflict');
+    assert.ok(errorContent.includes('conflict.txt'), 'ERROR file must name the conflicting file');
   } finally {
     cleanup();
   }

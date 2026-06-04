@@ -6556,20 +6556,81 @@ function squashSliceToDev(sliceId, sliceTitle, sliceBranch) {
     return { success: false, error: `invalid_branch_name: ${err.message}` };
   }
 
-  // Step 1: Resolve drift — merge dev into slice branch
+  // Step 1: FUSE-safe checkout to slice branch (plain git checkout is unsafe on the FUSE mount)
   try {
-    execSync(`git checkout ${sliceBranch}`, { cwd: PROJECT_DIR, stdio: 'pipe' });
-    execSync('git merge --no-ff dev', { cwd: PROJECT_DIR, stdio: 'pipe' });
-  } catch (mergeErr) {
-    // Abort any in-progress merge, return conflict
-    try { execSync('git merge --abort', { cwd: PROJECT_DIR, stdio: 'pipe' }); } catch (_) {}
-    try { execSync('git checkout dev', { cwd: PROJECT_DIR, stdio: 'pipe' }); } catch (_) {}
-    return { success: false, error: 'conflict' };
+    fuseSafeCheckoutBranch(sliceId, sliceBranch);
+  } catch (checkoutErr) {
+    return { success: false, error: `checkout_failed: ${checkoutErr.message}` };
   }
 
-  // Step 2: Squash to dev
+  // Step 1b: Resolve drift — merge dev into slice branch
   try {
-    execSync('git checkout dev', { cwd: PROJECT_DIR, stdio: 'pipe' });
+    execSync('git merge --no-ff dev', { cwd: PROJECT_DIR, stdio: 'pipe' });
+  } catch (mergeErr) {
+    // Capture conflicting paths before aborting so they appear in the error state
+    let conflictingFiles = [];
+    try {
+      const raw = execSync('git diff --name-only --diff-filter=U', { cwd: PROJECT_DIR, encoding: 'utf-8' }).trim();
+      conflictingFiles = raw ? raw.split('\n').filter(Boolean) : [];
+    } catch (_) {}
+
+    // Abort: restores working tree to pre-merge state
+    try { execSync('git merge --abort', { cwd: PROJECT_DIR, stdio: 'pipe' }); } catch (_) {}
+
+    // FUSE-safe return to dev
+    try { fuseSafeCheckoutBranch(sliceId, 'dev'); } catch (_) {}
+
+    const conflictPaths = conflictingFiles.length > 0 ? conflictingFiles.join(',') : 'unknown';
+
+    // Emit a loud register event — slice must never be silently stranded
+    registerEvent(sliceId, 'ERROR', {
+      slice_id: String(sliceId),
+      reason: 'merge_conflict',
+      conflicting_files: conflictingFiles,
+    });
+
+    // Write a visible ERROR file so the slice is not left accepted-but-unmerged
+    const completed = new Date().toISOString();
+    const conflictedList = conflictingFiles.length > 0
+      ? conflictingFiles.map(f => `- \`${f}\``).join('\n')
+      : '- (could not determine conflicting files)';
+    const errorContent = [
+      '---',
+      `id: "${sliceId}"`,
+      `title: "Slice ${sliceId} — merge_conflict"`,
+      'from: orchestrator',
+      'to: chiefobrien',
+      'status: ERROR',
+      `slice_id: "${sliceId}"`,
+      `completed: "${completed}"`,
+      'reason: "merge_conflict"',
+      '---',
+      '',
+      '## Merge conflict during drift-resolve',
+      '',
+      `The drift-resolve step (\`git merge --no-ff dev\` into \`${sliceBranch}\`) hit a content conflict.`,
+      'The merge was aborted. This slice requires manual intervention.',
+      '',
+      '## Conflicting files',
+      '',
+      conflictedList,
+    ].join('\n');
+    const errorPath = path.join(QUEUE_DIR, `${sliceId}-ERROR.md`);
+    try { fs.writeFileSync(errorPath, errorContent); } catch (_) {}
+    try { archiveSiblingStateFiles(sliceId, 'ERROR'); } catch (_) {}
+
+    return { success: false, error: `merge_conflict:${conflictPaths}`, conflicting_files: conflictingFiles };
+  }
+
+  // Step 2: FUSE-safe checkout to dev
+  try {
+    fuseSafeCheckoutBranch(sliceId, 'dev');
+  } catch (checkoutErr) {
+    return { success: false, error: `dev_checkout_failed: ${checkoutErr.message}` };
+  }
+
+  // Step 2b: Squash merge the slice onto dev
+  try {
     execSync(`git merge --squash ${sliceBranch}`, { cwd: PROJECT_DIR, stdio: 'pipe' });
   } catch (squashErr) {
     try { execSync('git merge --abort', { cwd: PROJECT_DIR, stdio: 'pipe' }); } catch (_) {}
