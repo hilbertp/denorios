@@ -1,0 +1,41 @@
+name: Promote dev to main
+
+# dev = staging, main = prod (ADR-GITHUB-CI-MERGE-MODEL).
+# When the CI workflow passes on dev, fast-forward main to THAT exact green commit.
+# main therefore only ever advances to a commit that passed CI on dev — no merge
+# commits, no drift (main stays an ancestor of dev).
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    # Only when CI ran on dev AND went green.
+    if: >-
+      github.event.workflow_run.head_branch == 'dev' &&
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fast-forward main to the green dev commit
+        run: |
+          set -euo pipefail
+          GREEN_SHA='${{ github.event.workflow_run.head_sha }}'
+          echo "CI passed on dev@$GREEN_SHA — promoting to main"
+          git fetch origin main "$GREEN_SHA"
+          if git merge-base --is-ancestor origin/main "$GREEN_SHA"; then
+            git push origin "$GREEN_SHA:refs/heads/main"
+            echo "main promoted to $GREEN_SHA"
+          else
+            echo "::error::main diverged from dev; $GREEN_SHA is not a fast-forward of main. Reconcile dev/main."
+            exit 1
+          fi
