@@ -3937,6 +3937,7 @@
   let _bashirPassFadeTimer = null;
 
   function updateBashirLane(gate, heartbeatAgeMs) {
+    const HEARTBEAT_STALE_MS = 90000;
     const lane          = document.getElementById('bashir-lane');
     const laneStatus    = document.getElementById('bashir-lane-status');
     const idleState     = document.getElementById('bashir-idle-state');
@@ -3955,7 +3956,7 @@
 
     // Heartbeat staleness warning (only during GATE_RUNNING)
     if (hbWarn) {
-      if (gateStatus === 'GATE_RUNNING' && heartbeatAgeMs != null && heartbeatAgeMs > 90000) {
+      if (gateStatus === 'GATE_RUNNING' && heartbeatAgeMs != null && heartbeatAgeMs > HEARTBEAT_STALE_MS) {
         hbWarn.className = 'bashir-heartbeat-warn';
         hbWarn.textContent = 'Bashir \u00b7 heartbeat stale';
         hbWarn.style.display = '';
@@ -4036,9 +4037,21 @@
         if (batchDetail) batchDetail.textContent = acCount ? '\u00b7 ' + acCount + ' ACs' : '';
       }
 
-      // Elapsed timer with drift-rebase
+      // Elapsed timer \u2014 freeze when gate is not genuinely alive
+      // A stale heartbeat (> 90s) or missing current_run means the gate may be
+      // orphaned; counting up from a stale started_ts produces runaway numbers.
+      const heartbeatStale = heartbeatAgeMs != null && heartbeatAgeMs > HEARTBEAT_STALE_MS;
       const startTs = currentRun && currentRun.started_ts ? new Date(currentRun.started_ts) : null;
-      if (startTs) {
+
+      if (heartbeatStale || !startTs) {
+        // Gate not genuinely alive: stop ticker and show dash
+        clearInterval(bashirElapsedInterval);
+        bashirElapsedInterval = null;
+        bashirStartTime = null;
+        const elapsedEl = document.getElementById('bashir-elapsed-val');
+        if (elapsedEl) elapsedEl.textContent = '\u2014';
+      } else {
+        // Fresh heartbeat \u2014 rebase if needed and tick
         const serverElapsedMs = Date.now() - startTs.getTime();
         const localElapsedMs = bashirStartTime != null ? (Date.now() - bashirStartTime) : null;
         const drift = (localElapsedMs != null) ? Math.abs(localElapsedMs - serverElapsedMs) : Infinity;
@@ -4046,24 +4059,22 @@
         if (bashirStartTime == null || drift > DRIFT_TOLERANCE_MS) {
           bashirStartTime = startTs.getTime();
         }
-      } else {
-        bashirStartTime = null;
+        const formatBashirElapsed = () => {
+          if (bashirStartTime == null) return '\u2014';
+          const s = Math.floor((Date.now() - bashirStartTime) / 1000);
+          if (s < 0) return '0s';
+          const m = Math.floor(s / 60);
+          const sec = s % 60;
+          return m > 0 ? m + 'm ' + String(sec).padStart(2, '0') + 's' : sec + 's';
+        };
+        const elapsedEl = document.getElementById('bashir-elapsed-val');
+        if (elapsedEl) elapsedEl.textContent = formatBashirElapsed();
+        clearInterval(bashirElapsedInterval);
+        bashirElapsedInterval = setInterval(() => {
+          const el = document.getElementById('bashir-elapsed-val');
+          if (el) el.textContent = formatBashirElapsed();
+        }, 1000);
       }
-      function formatBashirElapsed() {
-        if (bashirStartTime == null) return '\u2014';
-        const s = Math.floor((Date.now() - bashirStartTime) / 1000);
-        if (s < 0) return '0s';
-        const m = Math.floor(s / 60);
-        const sec = s % 60;
-        return m > 0 ? m + 'm ' + String(sec).padStart(2, '0') + 's' : sec + 's';
-      }
-      const elapsedEl = document.getElementById('bashir-elapsed-val');
-      if (elapsedEl) elapsedEl.textContent = formatBashirElapsed();
-      clearInterval(bashirElapsedInterval);
-      bashirElapsedInterval = setInterval(() => {
-        const el = document.getElementById('bashir-elapsed-val');
-        if (el) el.textContent = formatBashirElapsed();
-      }, 1000);
       return;
     }
 
