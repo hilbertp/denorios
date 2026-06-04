@@ -1,9 +1,12 @@
 name: CI
 
 # Regression gate for the dev → main model (docs/adr/ADR-GITHUB-CI-MERGE-MODEL.md).
-# Runs the full Node test suite. The repo has no npm deps (pure Node), so no install step.
-# Additive for now: this reports a status check but does not gate anything until branch
-# protection on `main` is armed (migration step 6 — only after the orchestrator rework).
+# Runs BASHIR'S REGRESSION SUITE (regression/) — his behavioral gate, which he authors
+# and grows per use case. The repo has no npm deps (pure Node), so no install step.
+#
+# NOTE: test/ (the orchestrator's own unit/integration tests) is intentionally NOT in the
+# prod gate yet — much of it is slow integration and tests the local-merge internals being
+# retired by this migration. Harden + re-include it after the orchestrator rework. See ADR.
 
 on:
   push:
@@ -14,7 +17,7 @@ on:
 
 jobs:
   test:
-    name: node --test (test/ + regression/)
+    name: node --test (regression/)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,5 +26,5 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Run test suite
-        run: node --test 'test/**/*.test.js' 'regression/**/*.test.js'
+      - name: Run Bashir's regression suite
+        run: node --test 'regression/**/*.test.js'
