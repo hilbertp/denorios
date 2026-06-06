@@ -1702,6 +1702,14 @@ const server = http.createServer(async (req, res) => {
       if (gh.dev_commits && gh.dev_commits.length > 0) {
         base.dev.commits = gh.dev_commits;
       }
+      // Replace the stale local last_merge (written by retired local-merge gate)
+      // with the live promote result so the topology dot reflects origin/main now.
+      if (gh.promote && gh.promote.sha) {
+        base.last_merge = { sha: gh.promote.sha, full_sha: gh.promote.full_sha,
+                            age_s: gh.promote.age_s };
+      } else {
+        base.last_merge = null;
+      }
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
