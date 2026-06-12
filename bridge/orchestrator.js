@@ -4,7 +4,6 @@ const fs = require('fs');
 const path = require('path');
 const { execFile, execSync } = require('child_process');
 const { appendTimesheet, updateTimesheet, rebuildMerged } = require('./slicelog');
-const { appendKiraEvent } = require('./kira-events');
 const { buildNogPrompt } = require('./nog-prompt');
 const { translateEvent, translateVerdict, resetDedupeState } = require('./lifecycle-translate');
 const gitFinalizer = require('./git-finalizer');
@@ -79,7 +78,7 @@ const NOG_ACTIVE_FILE = path.resolve(__dirname, 'nog-active.json');
 let TRASH_DIR        = path.resolve(QUEUE_DIR, '..', 'trash');
 const WORKTREE_BASE  = '/tmp/ds9-worktrees';
 const LOGS_DIR       = path.resolve(__dirname, 'logs');
-const ESCALATIONS_DIR = path.resolve(__dirname, 'kira-escalations');
+const ESCALATIONS_DIR = path.resolve(__dirname, 'escalations');
 const CONTROL_DIR    = path.resolve(__dirname, 'control');
 const PIPELINE_PAUSED_FILE = path.resolve(__dirname, '.pipeline-paused');
 const MAX_ROUNDS     = 5; // Absolute cap — no round 6, ever, on any path.
@@ -647,6 +646,11 @@ function registerEvent(id, event, extra) {
     // Register write failure must not crash the orchestrator.
     log('warn', 'register_error', { id, msg: 'Failed to write register entry', error: err.message });
   }
+}
+
+function appendOperationalEvent(_event) {
+  // Legacy side-drain hook removed. The append-only register is now the
+  // canonical event stream for operator-visible escalation and error state.
 }
 
 /**
@@ -1785,6 +1789,15 @@ function verifyRomActuallyWorked(id, branchName, actualDurationMs, actualTokensO
     }
   } catch (_) {}
 
+  const highClaimOnSkeleton = commitCount === 1 && claimedTokensOut > 1000;
+  if (commitCount === 0 || highClaimOnSkeleton) {
+    return {
+      ok: false,
+      reason: 'rom_no_commits',
+      detail: `Branch ${branchName} has ${commitCount} commit(s) ahead of main; DONE claimed ${claimedTokensOut} tokens_out and ${claimedElapsedMs} elapsed_ms.`,
+    };
+  }
+
   // Advisory: metrics divergence (soft flag, not blocking)
   if (actualTokensOut && claimedTokensOut > 10 * actualTokensOut) {
     log('warn', 'rom_verify', {
@@ -2018,7 +2031,7 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
       exit_code: err.status != null ? err.status : null,
       stderr_tail: truncStderr(err.stderr ? err.stderr.toString() : err.message),
     });
-    appendKiraEvent({
+    appendOperationalEvent({
       event: 'ERROR',
       slice_id: id,
       root_id: sliceMeta.root_commission_id || null,
@@ -2224,7 +2237,7 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
               invalid: metricsValid.invalid,
               durationMs,
             });
-            appendKiraEvent({
+            appendOperationalEvent({
               event: 'ERROR',
               slice_id: id,
               root_id: sliceMeta.root_commission_id || null,
@@ -2247,7 +2260,7 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
                 actualTokensOut: tokensOut,
                 stderr_tail: truncStderr(stderr),
               });
-              appendKiraEvent({
+              appendOperationalEvent({
                 event: 'ERROR',
                 slice_id: id,
                 root_id: sliceMeta.root_commission_id || null,
@@ -2335,7 +2348,7 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
             durationMs,
             rescue_path: rescuePath,
           });
-          appendKiraEvent({
+          appendOperationalEvent({
             event: 'ERROR',
             slice_id: id,
             root_id: sliceMeta.root_commission_id || null,
@@ -2510,7 +2523,7 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
           stderr_tail: truncStderr(stderr),
           durationMs,
         });
-        appendKiraEvent({
+        appendOperationalEvent({
           event: 'ERROR',
           slice_id: id,
           root_id: sliceMeta.root_commission_id || null,
@@ -3236,7 +3249,7 @@ function countNogRounds(sliceContent) {
  *
  * PASS → proceed to existing evaluator flow (ACCEPTED path).
  * RETURN → rewrite slice in-place and re-queue for O'Brien.
- * Round 6 → escalate to Kira.
+ * Round 6 → escalate to O'Brien.
  */
 function invokeNog(id) {
   const parkedPath = path.join(QUEUE_DIR, `${id}-PARKED.md`);
@@ -3287,7 +3300,7 @@ function invokeNog(id) {
 
   // Round 6 escalation: do not invoke Nog again.
   if (round > MAX_ROUNDS) {
-    log('warn', 'nog', { id, msg: `Round ${round} — escalating to Kira`, round });
+    log('warn', 'nog', { id, msg: `Round ${round} — escalating to O'Brien`, round });
 
     // Write escalation file.
     const escalationContent = [
@@ -3295,7 +3308,7 @@ function invokeNog(id) {
       `id: "${id}"`,
       `title: "NOG ESCALATION — slice ${id}"`,
       'from: nog',
-      'to: kira',
+      'to: obrien',
       `created: "${new Date().toISOString()}"`,
       `round: ${round}`,
       `branch: "${branchName || ''}"`,
@@ -3310,7 +3323,7 @@ function invokeNog(id) {
       '',
       sliceContent,
       '',
-      "## O'Brien's latest DONE report",
+      "## Rom's latest DONE report",
       '',
       doneReportContents,
     ].join('\n');
@@ -3322,13 +3335,13 @@ function invokeNog(id) {
       log('error', 'nog', { id, msg: 'Failed to write NOG-ESCALATION file', error: err.message });
     }
 
-    appendKiraEvent({
+    appendOperationalEvent({
       event: 'NOG_ESCALATION',
       slice_id: id,
       root_id: rootId !== id ? rootId : null,
       cycle: round,
       branch: branchName || null,
-      details: `Slice ${id} failed Nog review after 5 rounds — escalating to Kira`,
+      details: `Slice ${id} failed Nog review after 5 rounds — escalating to O'Brien`,
     });
 
     // Append round entry for the exhausted round to PARKED file.
@@ -3368,7 +3381,7 @@ function invokeNog(id) {
 
     updateTimesheet(id, { result: 'STUCK', cycle: round, ts_result: new Date().toISOString() });
 
-    print(`${B.vert}    ${C.red}${SYM.cross}${C.reset} MAX_ROUNDS_EXHAUSTED${SYM.sep}Slice ${id} exhausted 5 Nog rounds — escalated to Kira`);
+    print(`${B.vert}    ${C.red}${SYM.cross}${C.reset} MAX_ROUNDS_EXHAUSTED${SYM.sep}Slice ${id} exhausted 5 Nog rounds — escalated to O'Brien`);
     print(`${B.bl}${B.sng.repeat(W - 1)}`);
     print('');
 
@@ -3533,7 +3546,7 @@ function invokeNog(id) {
         });
 
         registerEvent(id, 'NOG_DECISION', { round, verdict: 'REJECTED', reason: 'verdict_unreadable', apendment_cycle: round });
-        appendKiraEvent({
+        appendOperationalEvent({
           event: 'NOG_ESCALATION',
           slice_id: id,
           root_id: rootId !== id ? rootId : null,
@@ -3617,7 +3630,7 @@ function invokeNog(id) {
           reason: summary || 'Nog determined acceptance criteria cannot be satisfied as written',
         });
 
-        appendKiraEvent({
+        appendOperationalEvent({
           event: 'ESCALATED_TO_OBRIEN',
           slice_id: id,
           root_id: rootId !== id ? rootId : null,
@@ -4758,7 +4771,7 @@ function poll() {
     // ALL_COMPLETE check: pipeline is idle after processing at least one slice this session.
     const hasInProgress = files.some(f => f.endsWith('-IN_PROGRESS.md'));
     if (sessionHasProcessed && !hasInProgress) {
-      appendKiraEvent({
+      appendOperationalEvent({
         event: 'ALL_COMPLETE',
         slice_id: null,
         root_id: null,
@@ -4879,7 +4892,7 @@ function poll() {
       stderr_tail: '',
       missingFields,
     });
-    appendKiraEvent({
+    appendOperationalEvent({
       event: 'ERROR',
       slice_id: errId,
       root_id: null,
@@ -5598,7 +5611,7 @@ if (require.main === module) {
 
   // -------------------------------------------------------------------------
   // Writer-split: watch for external changes to per-role JSONL files.
-  // When Kira (or any other role) appends to e.g. timesheet-kira.jsonl via
+  // When O'Brien (or any other role) appends to e.g. timesheet-obrien.jsonl via
   // Wormhole, rebuild the merged view so readers see the new data.
   // -------------------------------------------------------------------------
   const SPLIT_BASES = ['timesheet', 'anchors', 'tt-audit'];
@@ -5607,7 +5620,7 @@ if (require.main === module) {
   fs.watch(__dirname, (eventType, filename) => {
     if (!filename || !filename.endsWith('.jsonl')) return;
     for (const base of SPLIT_BASES) {
-      // Match per-role files like timesheet-kira.jsonl but not the merged timesheet.jsonl
+      // Match per-role files like timesheet-obrien.jsonl but not the merged timesheet.jsonl
       if (filename.startsWith(`${base}-`) && filename !== `${base}.jsonl`) {
         // Debounce: multiple change events fire in rapid succession
         if (rebuildDebounce[base]) clearTimeout(rebuildDebounce[base]);
@@ -5770,7 +5783,7 @@ function invokeBashirNonGate(sliceContent, donePath, inProgressPath, errorPath, 
       exit_code: err.status != null ? err.status : null,
       stderr_tail: truncStderr(err.stderr ? err.stderr.toString() : err.message),
     });
-    appendKiraEvent({
+    appendOperationalEvent({
       event: 'ERROR',
       slice_id: id,
       root_id: sliceMeta.root_commission_id || null,
@@ -5913,7 +5926,7 @@ function invokeBashirNonGate(sliceContent, donePath, inProgressPath, errorPath, 
           exit_code: err.code,
           stderr_tail: truncStderr(stderr || err.message),
         });
-        appendKiraEvent({
+        appendOperationalEvent({
           event: 'ERROR',
           slice_id: id,
           root_id: sliceMeta.root_commission_id || null,
