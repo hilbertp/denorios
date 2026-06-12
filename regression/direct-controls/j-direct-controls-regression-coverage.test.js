@@ -203,6 +203,45 @@ test('J-direct-controls-ops-ui slice-99809-ac-2 — the shipped dashboard explai
     'held microcopy must explain the operator gate');
 });
 
+test('J-direct-controls-ops-ui slice-99810-ac-1 — branch-state enrichment: server exposes run recency, commit subjects/ages, and churn split for the topology panel', () => {
+  const src = fs.readFileSync(SERVER_SRC, 'utf8');
+
+  // CI run recency: gh run list must request updatedAt and surface it.
+  assert.match(src, /--json=status,conclusion,number,url,headSha,updatedAt/,
+    'ci query must request the run timestamp');
+  assert.match(src, /updated_at:\s*run\.updatedAt\s*\|\|\s*null/,
+    'ci payload must carry updated_at');
+
+  // Topology dots: dev commits must carry subject + age (format %H %ct %s).
+  assert.match(src, /--format=%H %ct %s/,
+    'dev_commits log must include commit time and subject');
+  assert.match(src, /subject:\s*subj/, 'dev_commits entries must carry the subject');
+  assert.match(src, /age_s:\s*isNaN\(ct\)/, 'dev_commits entries must carry age_s');
+
+  // Churn split for the footer detail line.
+  assert.match(src, /churn_ins:\s*churnIns/, 'rr must expose insertions');
+  assert.match(src, /churn_del:\s*churnDel/, 'rr must expose deletions');
+});
+
+test('J-direct-controls-ops-ui slice-99810-ac-2 — fast green runs stay visible: stale-coverage notice, run age, and run-change flash are wired in the shipped dashboard', () => {
+  const html = fs.readFileSync(DASHBOARD_SRC, 'utf8');
+
+  // A verdict for an older commit must be called out, not silently shown green.
+  assert.match(html, /awaiting CI/, 'stale-coverage notice must exist');
+  assert.match(html, /devTip7 && ciSha7 && devTip7 !== ciSha7/,
+    'staleness must be derived from ci.head_sha vs origin/dev tip');
+
+  // Run age on terminal states + flash on run-number change.
+  assert.match(html, /ci\.updated_at/, 'run age must come from the real run timestamp');
+  assert.match(html, /ci-strip-row-flash/, 'run-change flash class must be wired');
+  assert.match(html, /_ciLastSeenSig/, 'run-change detection state must exist');
+
+  // Topology dots carry subject + age tooltips; footer carries churn split.
+  assert.match(html, /d\.subject \? _promoteEsc\(d\.subject\)/, 'dot tooltips must carry commit subjects');
+  assert.match(html, /churn_ins/, 'footer must use the churn split');
+  assert.match(html, /critical file/, 'footer must surface critical-file touches');
+});
+
 test('J-direct-controls-ops-ui slice-99808-ac-3 — the shipped dashboard wires the Bashir crew card: active, clickable, opens the coverage overlay', () => {
   const html = fs.readFileSync(DASHBOARD_SRC, 'utf8');
 

@@ -78,7 +78,9 @@ function _getGitTips() {
         { cwd: REPO_ROOT, encoding: 'utf8', timeout: 5000 }).trim();
       const insM = shortstat.match(/(\d+) insertion/);
       const delM = shortstat.match(/(\d+) deletion/);
-      const churn = (insM ? parseInt(insM[1], 10) : 0) + (delM ? parseInt(delM[1], 10) : 0);
+      const churnIns = insM ? parseInt(insM[1], 10) : 0;
+      const churnDel = delM ? parseInt(delM[1], 10) : 0;
+      const churn = churnIns + churnDel;
 
       const namesOut = execFileSync('git', ['diff', '--name-only', 'origin/main...origin/dev'],
         { cwd: REPO_ROOT, encoding: 'utf8', timeout: 5000 }).trim();
@@ -95,21 +97,26 @@ function _getGitTips() {
         level: score < 25 ? 'low' : score < 50 ? 'moderate' : 'high',
         commits: result.commits_ahead,
         churn,
+        churn_ins: churnIns,
+        churn_del: churnDel,
         critical_files: criticalFiles,
         breakdown: { commits_pts: commitsPts, churn_pts: churnPts, critical_pts: criticalPts },
       };
     }
 
     const logOut = execFileSync('git',
-      ['log', 'origin/dev', '--not', 'origin/main', '--format=%H %s', '--max-count=10', '--reverse'],
+      ['log', 'origin/dev', '--not', 'origin/main', '--format=%H %ct %s', '--max-count=10', '--reverse'],
       { cwd: REPO_ROOT, encoding: 'utf8', timeout: 5000 }).trim();
     if (logOut) {
       result.dev_commits = logOut.split('\n').filter(Boolean).map(line => {
-        const sp = line.indexOf(' ');
-        const sha = sp !== -1 ? line.slice(0, sp) : line;
-        const subj = sp !== -1 ? line.slice(sp + 1) : '';
+        const sp1 = line.indexOf(' ');
+        const sp2 = sp1 !== -1 ? line.indexOf(' ', sp1 + 1) : -1;
+        const sha = sp1 !== -1 ? line.slice(0, sp1) : line;
+        const ct = sp2 !== -1 ? parseInt(line.slice(sp1 + 1, sp2), 10) * 1000 : NaN;
+        const subj = sp2 !== -1 ? line.slice(sp2 + 1) : '';
         const m = subj.match(/^slice[/\s]+(\d+)/i);
-        return { sha: sha.slice(0, 7), full_sha: sha, slice_id: m ? m[1] : null };
+        return { sha: sha.slice(0, 7), full_sha: sha, slice_id: m ? m[1] : null,
+                 subject: subj, age_s: isNaN(ct) ? null : Math.round((now - ct) / 1000) };
       });
     }
 
@@ -138,7 +145,7 @@ function _getGhCi() {
   try {
     const out = execFileSync('gh',
       ['run', 'list', '--workflow=ci.yml', '--branch=dev',
-       '--json=status,conclusion,number,url,headSha', '--limit=1'],
+       '--json=status,conclusion,number,url,headSha,updatedAt', '--limit=1'],
       { cwd: REPO_ROOT, encoding: 'utf8', timeout: 15000 }).trim();
     const runs = JSON.parse(out);
     if (runs && runs.length > 0) {
@@ -148,7 +155,8 @@ function _getGhCi() {
       else if (run.conclusion === 'success') state = 'passing';
       else if (run.conclusion === 'failure' || run.conclusion === 'cancelled') state = 'failing';
       else state = 'unknown';
-      result = { state, run_number: run.number, url: run.url, head_sha: run.headSha };
+      result = { state, run_number: run.number, url: run.url, head_sha: run.headSha,
+                 updated_at: run.updatedAt || null };
     }
   } catch (_) { /* gh not installed or not authenticated — non-fatal */ }
   _ghCiCache = { value: result, fetchedAt: now };

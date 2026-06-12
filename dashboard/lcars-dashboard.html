@@ -2217,6 +2217,23 @@
     user-select: none;
   }
   .ci-strip-info:hover { color: #374151; }
+
+  /* Amber notice: the latest CI verdict belongs to an older commit */
+  .ci-strip-stale {
+    color: #b45309;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  /* Run-change flash: a fresh verdict briefly highlights the row */
+  @keyframes ciRowFlash {
+    0%   { background: rgba(34, 197, 94, 0.20); }
+    100% { background: transparent; }
+  }
+  .ci-strip-row-flash {
+    animation: ciRowFlash 1.4s ease-out 3;
+    border-radius: 4px;
+  }
   .ci-strip-glyph {
     width: 16px;
     text-align: center;
@@ -6240,13 +6257,14 @@
       const md = mainDots[0];
       if (md.isMerge) {
         // Merge dot with check
+        const promotedAge = lastMerge && lastMerge.age_s != null ? formatAgeShort(lastMerge.age_s) : '';
         svg += `<circle cx="${mx}" cy="${mainY}" r="7.5" fill="var(--branch-main)">`;
-        svg += `<title>origin/main: ${(md.sha || '').slice(0, 7)}</title></circle>`;
+        svg += `<title>origin/main: ${(md.sha || '').slice(0, 7)}${promotedAge ? ` — promoted ${promotedAge} ago by the gate` : ''}</title></circle>`;
         // White check mark
         svg += `<path d="M${mx - 3} ${mainY} l2 3 l4 -5" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round" />`;
         // origin/main label + hash above
         svg += `<text x="${mx}" y="32" text-anchor="middle" font-size="9" font-weight="600" fill="var(--branch-main)">origin/main</text>`;
-        svg += `<text x="${mx}" y="42" text-anchor="middle" font-size="10" font-weight="600" fill="var(--ok)">${(md.sha || '').slice(0, 7)}</text>`;
+        svg += `<text x="${mx}" y="42" text-anchor="middle" font-size="10" font-weight="600" fill="var(--ok)">${(md.sha || '').slice(0, 7)}${promotedAge ? ` · ${promotedAge}` : ''}</text>`;
       } else {
         svg += `<circle cx="${mx}" cy="${mainY}" r="6" fill="var(--branch-main)">`;
         svg += `<title>origin/main: ${(md.sha || '').slice(0, 7)}</title></circle>`;
@@ -6255,24 +6273,29 @@
       }
     }
 
-    // Dev dots
+    // Dev dots — each tooltip carries the commit subject and age, so the
+    // graph answers "what is this commit and how old is it" without leaving
+    // the panel. The head dot shows its age inline next to the hash.
     for (let i = 0; i < devDots.length; i++) {
       const dx = xStart + i * spacing;
       const d = devDots[i];
       const sha7 = (d.sha || '').slice(0, 7);
       const sliceId = d.slice_id || '';
       const isHead = (i === devDots.length - 1);
+      const age = d.age_s != null ? formatAgeShort(d.age_s) : '';
+      const subj = d.subject ? _promoteEsc(d.subject) : '';
+      const tip = `${isHead ? 'origin/dev' : 'dev'}: ${sha7}${subj ? ` — ${subj}` : ''}${age ? ` · ${age} ago` : ''}`;
 
       if (isHead) {
         // HEAD dot — larger, labelled origin/dev
         svg += `<circle cx="${dx}" cy="${devY}" r="7.5" fill="var(--branch-dev)">`;
-        svg += `<title>origin/dev: ${sha7}</title></circle>`;
+        svg += `<title>${tip}</title></circle>`;
         // origin/dev badge above
         svg += `<rect x="${dx - 32}" y="${devY - 28}" width="64" height="14" rx="3" fill="var(--branch-dev)" />`;
         svg += `<text x="${dx}" y="${devY - 18}" text-anchor="middle" font-size="9" font-weight="700" letter-spacing="0.5" fill="#fff">origin/dev</text>`;
       } else {
         svg += `<circle cx="${dx}" cy="${devY}" r="6" fill="var(--branch-dev)">`;
-        svg += `<title>dev: ${sha7}</title></circle>`;
+        svg += `<title>${tip}</title></circle>`;
       }
 
       // Slice ID annotation above dot
@@ -6281,8 +6304,8 @@
         svg += `<text x="${dx}" y="${sliceY}" text-anchor="middle" font-size="11" font-weight="600" fill="var(--rom)">${sliceId}</text>`;
       }
 
-      // Hash below dot
-      svg += `<text x="${dx}" y="115" text-anchor="middle" font-size="10" fill="var(--ink-4)">${sha7}</text>`;
+      // Hash below dot (head also shows its age inline)
+      svg += `<text x="${dx}" y="115" text-anchor="middle" font-size="10" fill="var(--ink-4)">${sha7}${isHead && age ? ` · ${age}` : ''}</text>`;
     }
 
     svg += '</svg>';
@@ -6487,7 +6510,21 @@
     renderRRPill(bs);
 
     const ahead = bs.dev ? (bs.dev.commits_ahead_of_main || 0) : 0;
-    statsEl.innerHTML = `<strong>${ahead}</strong> commit${ahead !== 1 ? 's' : ''} ahead of origin/main`;
+    // What the count is made of: churn split and critical-file touches, so the
+    // line carries real information instead of looking identical at any size.
+    const rrInfo = bs.github && bs.github.rr ? bs.github.rr : null;
+    let detail = '';
+    if (ahead > 0 && rrInfo) {
+      const churnTxt = rrInfo.churn_ins != null
+        ? `+${rrInfo.churn_ins} / −${rrInfo.churn_del} lines`
+        : (rrInfo.churn ? `${rrInfo.churn} lines churn` : '');
+      const crit = Array.isArray(rrInfo.critical_files) ? rrInfo.critical_files : [];
+      const critTxt = crit.length
+        ? ` · <span style="cursor:help" title="${_promoteEsc(crit.join('\n'))}">${crit.length} critical file${crit.length !== 1 ? 's' : ''} touched</span>`
+        : '';
+      if (churnTxt || critTxt) detail = ` <span style="color:#9ca3af">· ${churnTxt}${critTxt}</span>`;
+    }
+    statsEl.innerHTML = `<strong>${ahead}</strong> commit${ahead !== 1 ? 's' : ''} ahead of origin/main${detail}`;
     // Slice 316: operator-gated promotion button (replaces the passive caption).
     renderPromoteAction(bs);
   }
@@ -6536,6 +6573,11 @@
   // Reads bs.github.{ci, promote, commits_ahead, origin_main_sha} to populate
   // the two rows in the strip. Reuses --ok/--err/--warn tokens and the same
   // ↻/✓/✗/◌ glyph vocabulary used elsewhere in the panel.
+  // Run-change flash state: a new run number (or verdict) since the last poll
+  // briefly highlights the Regression row so fast suites stay visible.
+  let _ciLastSeenSig = null;
+  let _ciFlashUntil = 0;
+
   function renderCiStrip(gh) {
     const strip       = document.getElementById('ci-strip');
     const regGlyph    = document.getElementById('ci-strip-regression-glyph');
@@ -6550,6 +6592,28 @@
     const promote = gh && gh.promote ? gh.promote : null;
     const ahead   = _ghAhead(gh); // github.ahead per contract, commits_ahead fallback
 
+    // The suite finishes in seconds, so the "running" window is usually gone
+    // between polls. Recency and coverage carry the signal instead: every
+    // terminal state shows the run's age, a sha mismatch between the last run
+    // and the dev tip becomes an explicit "new push awaiting CI" notice, and a
+    // run-number change flashes the row so a fresh verdict is visible even
+    // when the transition itself was missed.
+    const devTip7 = gh && gh.origin_dev_sha ? gh.origin_dev_sha : null;
+    const ciSha7  = ci && ci.head_sha ? String(ci.head_sha).slice(0, 7) : null;
+    const ciStale = !!(devTip7 && ciSha7 && devTip7 !== ciSha7 && ci.state !== 'running');
+    let ciAge = '';
+    if (ci && ci.updated_at) {
+      const ageS = Math.round((Date.now() - Date.parse(ci.updated_at)) / 1000);
+      if (!isNaN(ageS) && ageS >= 0) ciAge = formatAgeShort(ageS);
+    }
+    const staleNote = ciStale ? ` <span class="ci-strip-stale">· new push ${devTip7} awaiting CI</span>` : '';
+
+    const ciSig = ci ? `${ci.run_number}:${ci.state}` : null;
+    if (ciSig && _ciLastSeenSig && ciSig !== _ciLastSeenSig) _ciFlashUntil = Date.now() + 4500;
+    if (ciSig) _ciLastSeenSig = ciSig;
+    const regRow = document.getElementById('ci-strip-regression');
+    if (regRow) regRow.classList.toggle('ci-strip-row-flash', Date.now() < _ciFlashUntil);
+
     // ── Regression row ──
     if (!ci || !ci.state || ci.state === 'unknown') {
       regGlyph.className = 'ci-strip-glyph pending';
@@ -6559,14 +6623,14 @@
     } else if (ci.state === 'running') {
       regGlyph.className = 'ci-strip-glyph running';
       regGlyph.innerHTML = '↻'; // ↻
-      regText.innerHTML  = `<span>running…</span>${ci.run_number ? ` <span class="ci-strip-meta">· run #${ci.run_number}</span>` : ''}`;
+      regText.innerHTML  = `<span>running…</span>${ci.run_number ? ` <span class="ci-strip-meta">· run #${ci.run_number}</span>` : ''} <span class="ci-strip-meta">· full suite on a clean runner</span>`;
       regLink.href = ci.url || '#';
       regLink.style.display = ci.url ? '' : 'none';
       regLink.textContent = '↗ view';
     } else if (ci.state === 'passing') {
       regGlyph.className = 'ci-strip-glyph ok';
       regGlyph.innerHTML = '✓'; // ✓
-      regText.innerHTML  = `<span>passing</span>${ci.run_number ? ` <span class="ci-strip-meta">· run #${ci.run_number}</span>` : ''}`;
+      regText.innerHTML  = `<span>passing</span>${ci.run_number ? ` <span class="ci-strip-meta">· run #${ci.run_number}</span>` : ''}${ciAge ? ` <span class="ci-strip-meta">· ${ciAge} ago</span>` : ''}${staleNote}`;
       regLink.href = ci.url || '#';
       regLink.style.display = ci.url ? '' : 'none';
       regLink.textContent = '↗ view';
@@ -6574,7 +6638,7 @@
       regGlyph.className = 'ci-strip-glyph err';
       regGlyph.innerHTML = '✗'; // ✗
       const detail = ci.failed_suite ? `<span class="ci-strip-meta">· ${ci.failed_suite}</span>` : '';
-      regText.innerHTML  = `<span>failing</span>${ci.run_number ? ` <span class="ci-strip-meta">· run #${ci.run_number}</span>` : ''} ${detail}`;
+      regText.innerHTML  = `<span>failing</span>${ci.run_number ? ` <span class="ci-strip-meta">· run #${ci.run_number}</span>` : ''}${ciAge ? ` <span class="ci-strip-meta">· ${ciAge} ago</span>` : ''} ${detail}${staleNote}`;
       regLink.href = ci.url || '#';
       regLink.style.display = ci.url ? '' : 'none';
       regLink.textContent = '↗ open in CI';
