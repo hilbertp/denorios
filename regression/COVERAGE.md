@@ -66,6 +66,14 @@ All 14 testable journeys from `docs/e2e-journeys/INDEX.md` (plus the discovered 
 | `top-user-journeys/top-5-user-journeys.test.js` | 5 | End-to-end smoke of the five core flows in one file |
 | `slice-311.test.js` | 1 | `package.json` integrity |
 
+## Portability finding — dev is broken on clean checkouts (caught by CI on first landing, 2026-06-12)
+
+The first CI run of this catalogue (`fb418b1`) failed with 19 test failures that do not reproduce locally. Root cause, verified by clean-clone bisection: **the committed `bridge/orchestrator.js` requires `./kira-events`, a module that was never committed to git.** On any clean checkout, `require('bridge/orchestrator.js')` — and therefore `bridge/new-slice.js` and every test that drives the real orchestrator — throws `Cannot find module './kira-events'`. The repo on this machine works only because the role-rename wave (commit `7f53354`, 2026-06-06) left its fixed orchestrator (kira references removed) **uncommitted in the working tree**.
+
+Evidence: a fresh clone of `fb418b1` fails 19/165; overlaying the single working-tree `bridge/orchestrator.js` onto that clone yields 156 pass / 0 fail. The fix is committing that one file — a product-code commit that is not Bashir's to make (the working-tree diff also contains an unreviewed behavioral addition, a `rom_no_commits` hard-fail in `verifyRomActuallyWorked`, which should pass through review like any product change). Until it lands, the red CI strip on dev is **correct and truthful**: dev as committed cannot run its own orchestrator on any other machine, and must not be promoted.
+
+The 19 affected tests (all of `j-stage-and-watch-slice-cli` and `j-slice-broken-fast-path`) are deliberately **not skipped**: they guard real journey steps that dev, as committed, genuinely fails. Masking them would turn the gate green on a broken tree.
+
 ## Product findings (the 9 skips)
 
 Skipped tests are findings, never fabricated green. Each skip's comment block in the file carries the full evidence.
