@@ -2206,7 +2206,17 @@
     letter-spacing: 0.04em;
     color: var(--ink-4);
     font-weight: 600;
+    cursor: help;
   }
+
+  .ci-strip-info {
+    cursor: help;
+    color: var(--ink-4);
+    font-size: 12px;
+    margin-left: 4px;
+    user-select: none;
+  }
+  .ci-strip-info:hover { color: #374151; }
   .ci-strip-glyph {
     width: 16px;
     text-align: center;
@@ -3190,16 +3200,17 @@
             <span class="ci-strip-runner">
               <span class="ci-strip-runner-label">GitHub Actions</span>
               <span class="ci-strip-runner-workflow">ci.yml</span>
+              <span class="ci-strip-info" title="Two independent safety nets:&#10;&#10;REGRESSION — ci.yml runs the full regression suite on every push to dev. Feedback only; it never merges anything.&#10;&#10;PROMOTE — promote.yml runs only when you press RUN GATE &amp; MERGE TO MAIN. It re-runs the full suite on a clean GitHub runner against origin/dev and, only if green, fast-forwards origin/main to that exact tested commit. Red gate = main untouched.">&#9432;</span>
             </span>
           </div>
           <div class="ci-strip-row" id="ci-strip-regression">
-            <span class="ci-strip-row-label">Regression</span>
+            <span class="ci-strip-row-label" title="ci.yml — runs the full regression suite on every dev push. Feedback only; never merges.">Regression</span>
             <span class="ci-strip-glyph" id="ci-strip-regression-glyph">&#9675;</span>
             <span class="ci-strip-row-text" id="ci-strip-regression-text">no run yet</span>
             <a class="ci-strip-link" id="ci-strip-regression-link" href="#" target="_blank" rel="noopener" style="display:none">&#8599; view</a>
           </div>
           <div class="ci-strip-row" id="ci-strip-promote">
-            <span class="ci-strip-row-label">Promote</span>
+            <span class="ci-strip-row-label" title="promote.yml — operator-gated. Re-tests dev on a clean runner, then fast-forwards origin/main to the tested commit. Green = main moves; red = main untouched.">Promote</span>
             <span class="ci-strip-glyph" id="ci-strip-promote-glyph">&#9675;</span>
             <span class="ci-strip-row-text" id="ci-strip-promote-text">awaiting first green</span>
             <a class="ci-strip-link" id="ci-strip-promote-link" href="#" target="_blank" rel="noopener" style="display:none">&#8599; view</a>
@@ -6343,14 +6354,32 @@
     return gh.commits_ahead || 0;
   }
 
+  // Client-side gate-start clock for the elapsed readout. Set on a successful
+  // dispatch (exact) or on first seeing a running promote_run (approximate,
+  // e.g. page loaded mid-run); cleared on terminal states.
+  let _gateClientStartedAt = 0;
+
   function _gateIsRunning(gh) {
     const pr = gh && gh.promote_run ? gh.promote_run : null; // null-guard: old cached payloads
     const st = pr && pr.status ? pr.status : null;
-    if (st === 'pending' || st === 'in_progress') { _promoteOptimisticUntil = 0; return true; }
-    if (st === 'success' || st === 'failure') { _promoteOptimisticUntil = 0; return false; }
+    if (st === 'pending' || st === 'in_progress') {
+      _promoteOptimisticUntil = 0;
+      if (!_gateClientStartedAt) _gateClientStartedAt = Date.now();
+      return true;
+    }
+    if (st === 'success' || st === 'failure') { _promoteOptimisticUntil = 0; _gateClientStartedAt = 0; return false; }
     // idle / missing — honor the optimistic window after a successful dispatch
     return Date.now() < _promoteOptimisticUntil;
   }
+
+  function _gateElapsedLabel() {
+    if (!_gateClientStartedAt) return '';
+    return `${Math.max(0, Math.floor((Date.now() - _gateClientStartedAt) / 1000))}s`;
+  }
+
+  const PROMOTE_BTN_TITLE = 'Re-runs the full regression suite on a clean GitHub runner against origin/dev; ' +
+    'only on green does promote.yml fast-forward origin/main to that exact tested commit. ' +
+    'Nothing merges automatically — this button is the only trigger.';
 
   function renderPromoteAction(bs) {
     const actionEl = document.getElementById('topo-foot-action');
@@ -6361,14 +6390,27 @@
     const running = _gateIsRunning(gh);
     const enabled = ahead > 0 && !running && !_promoteDispatchInFlight;
 
+    // Immediate, legible button states: DISPATCHING (click acknowledged,
+    // contacting GitHub) -> GATE RUNNING · Ns (live elapsed) -> idle.
+    let label;
+    if (_promoteDispatchInFlight) {
+      label = 'DISPATCHING&#8230;';
+    } else if (running) {
+      const el = _gateElapsedLabel();
+      label = 'GATE RUNNING' + (el ? ' &middot; ' + el : '&#8230;');
+    } else {
+      label = 'RUN GATE &amp; MERGE TO MAIN';
+    }
+
     let html = '<span class="promote-gate-slot">';
     if (_promoteSlotError) {
       html += `<span class="promote-gate-err" role="alert" title="${_promoteEsc(_promoteSlotError)}">${_promoteEsc(_promoteSlotError)}</span>`;
     }
     html += '<button type="button" class="promote-gate-btn" id="promote-gate-btn"' +
       ' aria-label="Run regression gate and promote dev to main"' +
+      ` title="${_promoteEsc(PROMOTE_BTN_TITLE)}"` +
       ' onclick="dispatchPromoteGate()"' + (enabled ? '' : ' disabled') + '>' +
-      (running ? 'GATE RUNNING&#8230;' : 'RUN GATE &amp; MERGE TO MAIN') +
+      label +
       '</button>';
     html += '</span>';
     actionEl.innerHTML = html;
@@ -6379,8 +6421,17 @@
     _promoteDispatchInFlight = true;
     _promoteSlotError = null;
     if (_promoteErrTimeout) { clearTimeout(_promoteErrTimeout); _promoteErrTimeout = null; }
-    const btn = document.getElementById('promote-gate-btn');
-    if (btn) btn.disabled = true;
+
+    // Immediate visual acknowledgement — BEFORE any network round-trip the
+    // button flips to DISPATCHING… and the Promote row narrates the phase.
+    if (_lastBranchState) renderPromoteAction(_lastBranchState);
+    const promGlyph = document.getElementById('ci-strip-promote-glyph');
+    const promText = document.getElementById('ci-strip-promote-text');
+    if (promGlyph && promText) {
+      promGlyph.className = 'ci-strip-glyph running';
+      promGlyph.innerHTML = '&#8635;';
+      promText.innerHTML = '<span>dispatching gate&#8230;</span> <span class="ci-strip-meta">&middot; asking GitHub to start promote.yml</span>';
+    }
 
     try {
       const res = await fetch('/api/promote/dispatch', { method: 'POST' });
@@ -6391,6 +6442,7 @@
         // Optimistically render the gate-running state; the server busted its
         // github TTL cache, so the forced polls below pick up the real run.
         _promoteOptimisticUntil = Date.now() + 30000;
+        _gateClientStartedAt = Date.now();
         if (_lastBranchState && _lastBranchState.github) {
           renderCiStrip(_lastBranchState.github);
           renderTopoMini(_lastBranchState);
@@ -6543,7 +6595,9 @@
       promGlyph.className = 'ci-strip-glyph running';
       promGlyph.innerHTML = '↻';
       const sha7 = pr && pr.head_sha7 ? ` <span class="ci-strip-sha">${pr.head_sha7}</span>` : '';
-      promText.innerHTML  = `<span>gate running…</span>${sha7}`;
+      const el = _gateElapsedLabel();
+      promText.innerHTML  = `<span>gate running — full suite on a clean runner</span>${sha7}` +
+        ` <span class="ci-strip-meta">&middot; ${el ? el + ' elapsed &middot; ' : ''}green = main fast-forwards, red = main untouched</span>`;
       if (promLink && prUrl) {
         promLink.href = prUrl;
         promLink.textContent = '↗ view';
@@ -6579,7 +6633,7 @@
       // Held — promotion is operator-gated now
       promGlyph.className = 'ci-strip-glyph pending';
       promGlyph.innerHTML = '◌';
-      promText.innerHTML  = '<span class="ci-strip-meta">held — awaiting operator gate</span>';
+      promText.innerHTML  = '<span class="ci-strip-meta">held — nothing reaches main until you press RUN GATE (re-test on a clean runner, then fast-forward)</span>';
     } else if (prStatus === 'idle') {
       // idle && ahead == 0 — keep the current promoted / fast-forwarded display
       if (promote && promote.sha) {
@@ -6905,6 +6959,18 @@
   // Initial fetch + 5s polling
   fetchBranchState();
   setInterval(fetchBranchState, 5000);
+
+  // 1s ticker keeps the gate UI visibly alive between the 5s polls: while a
+  // gate is dispatching/running, the elapsed readout on the button and the
+  // Promote row advances every second instead of freezing until the next poll.
+  setInterval(() => {
+    if (!_lastBranchState || _promoteDispatchInFlight) return;
+    const gh = _lastBranchState.github || null;
+    if (_gateIsRunning(gh)) {
+      renderPromoteAction(_lastBranchState);
+      renderCiStrip(gh);
+    }
+  }, 1000);
 
   // Gate event polling — 2s for responsive step-card animation
   pollGateEvents();

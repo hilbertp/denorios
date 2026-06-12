@@ -162,6 +162,47 @@ test('J-direct-controls-ops-ui slice-99808-ac-2 — missing COVERAGE.md yields 4
   }
 });
 
+test('J-direct-controls-ops-ui slice-99809-ac-1 — the RUN GATE button acknowledges the click before any network: DISPATCHING state rendered ahead of the fetch', () => {
+  const html = fs.readFileSync(DASHBOARD_SRC, 'utf8');
+
+  // The dispatch handler must render the in-flight state BEFORE the fetch —
+  // immediate visual acknowledgement is the spec (Philipp, 2026-06-12).
+  const handler = html.match(/async function dispatchPromoteGate\(\)\s*{([\s\S]*?)\n  }/);
+  assert.ok(handler, 'dispatchPromoteGate must exist in the shipped dashboard');
+  const fetchIdx = handler[1].indexOf("fetch('/api/promote/dispatch'");
+  const ackIdx = handler[1].indexOf('renderPromoteAction(');
+  assert.ok(fetchIdx > -1 && ackIdx > -1, 'handler must both re-render and fetch');
+  assert.ok(ackIdx < fetchIdx,
+    'the immediate re-render (DISPATCHING state) must precede the network call');
+  assert.match(html, /DISPATCHING&#8230;/, 'the DISPATCHING button label must exist');
+
+  // While running, the UI ticks: elapsed readout plus a 1s ticker so the
+  // panel never freezes between branch-state polls.
+  assert.match(html, /_gateElapsedLabel/, 'elapsed-time readout must exist');
+  assert.match(html, /GATE RUNNING/, 'running button state must exist');
+});
+
+test('J-direct-controls-ops-ui slice-99809-ac-2 — the shipped dashboard explains promote in plain language at every surface (button, rows, header info)', () => {
+  const html = fs.readFileSync(DASHBOARD_SRC, 'utf8');
+
+  // The button explains the consequence of pressing it.
+  assert.match(html, /only on green does promote\.yml fast-forward origin\/main/,
+    'button tooltip must explain green -> fast-forward');
+  assert.match(html, /Nothing merges automatically/,
+    'button tooltip must state nothing is automatic');
+
+  // The strip header info icon and per-row labels carry explainers.
+  assert.match(html, /class="ci-strip-info" title="/, 'header info icon must exist');
+  assert.match(html, /Feedback only; it never merges anything/,
+    'Regression row must be explained as feedback-only');
+  assert.match(html, /fast-forwards origin\/main to that exact tested commit/,
+    'Promote must be explained as ff-to-tested-commit');
+
+  // The held state tells the operator what unblocks it instead of jargon.
+  assert.match(html, /nothing reaches main until you press RUN GATE/,
+    'held microcopy must explain the operator gate');
+});
+
 test('J-direct-controls-ops-ui slice-99808-ac-3 — the shipped dashboard wires the Bashir crew card: active, clickable, opens the coverage overlay', () => {
   const html = fs.readFileSync(DASHBOARD_SRC, 'utf8');
 

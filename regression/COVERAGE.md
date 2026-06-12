@@ -7,8 +7,8 @@
 | Fact | Value |
 |---|---|
 | Runner | `node --test 'regression/**/*.test.js'` (Node 24, no npm deps) |
-| Total tests | **168** |
-| Passing | **159** |
+| Total tests | **170** |
+| Passing | **161** |
 | Failing | **0** |
 | Skipped (documented findings, see below) | **9** |
 | Wall time (local, M-series mac) | ~2.5 s |
@@ -59,7 +59,7 @@ All 14 testable journeys from `docs/e2e-journeys/INDEX.md` (plus the discovered 
 | Journey | Files | Tests | Guards |
 |---|---|---|---|
 | J-direct-controls-ops-ui | `direct-controls/j-direct-controls-ops-ui.test.js` | 14 (10 pass / 4 skip) | The unique headless surfaces of the control catalog: system-pulse tri-state (`up`/`stale`/`down`) derived from heartbeat age incl. missing-file case; approve/reject staged rows (reject is row-scoped); one representative cross-assertion per queued-detail control. The four retired-local-gate rows are named skips — see findings |
-| J-direct-controls-ops-ui (addendum 2026-06-12) | `direct-controls/j-direct-controls-regression-coverage.test.js` | 3 | The Bashir crew card (Philipp's spec): `GET /api/regression/coverage` serves this file verbatim with a freshness timestamp, 404s cleanly when absent; the shipped dashboard wires the card active + clickable to the coverage overlay |
+| J-direct-controls-ops-ui (addendum 2026-06-12) | `direct-controls/j-direct-controls-regression-coverage.test.js` | 5 | The Bashir crew card (Philipp's spec): `GET /api/regression/coverage` serves this file verbatim with a freshness timestamp, 404s cleanly when absent; the shipped dashboard wires the card active + clickable to the coverage overlay. Gate-button responsiveness (Philipp's spec): the click is acknowledged visually before any network call, a live elapsed readout ticks while the gate runs, and promote is explained in plain language on the button, both strip rows, and the header info icon |
 
 ### Base suite (pre-journey, committed in `def7308`)
 | Files | Tests | Guards |
