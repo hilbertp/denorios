@@ -34,9 +34,6 @@ bridge/wormhole-heartbeat.json
 # Nog review logs (runtime, not source)
 bridge/logs/
 
-# Kira event drain — append-only runtime file
-bridge/kira-events.jsonl
-
 # Worktree rescue artifacts (created at runtime on no_report failures)
 bridge/worktree-rescue/
 
@@ -48,3 +45,7 @@ bridge/.restaged-bootstrap-done
 
 # Main-lock state marker — transient, written by unlock-main.sh, removed by lock-main.sh
 bridge/.main-unlocked
+
+# runtime debris from test/regression-*.test.js (retired-gate tests) — a committed hang.test.js would freeze CI + the promote gate
+regression/_test_timeout_suite/
+regression/_test_pass_suite/
