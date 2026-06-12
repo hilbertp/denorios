@@ -19,6 +19,21 @@
  *            invariant #8 (escalation is automatic, not optional)
  *          docs/contracts/slice-format.md — append-only discipline
  *
+ * Deliberately NOT asserted (and why):
+ *   - Steps 5-6 (O'Brien reading the history and diagnosing the root cause —
+ *     rewrite ACs vs split vs rewrite goal): LLM-actor cognition, not
+ *     headless-testable. We assert only that the staged file CONTAINS the
+ *     full history O'Brien needs (ac-3).
+ *   - "Fresh or amended version" / "round counter starts fresh (may or may
+ *     not retain prior history)": the journey hedges both branches, so no
+ *     single outcome is pinnable. ac-6 simulates the amended-same-id branch
+ *     (explicitly journey-permitted) to cover the re-approval mechanics only.
+ *   - Exact escalation event name: journey open question (candidates
+ *     MAX_ROUNDS_EXHAUSTED / ESCALATED_TO_OBRIEN / NOG_ESCALATION) — the
+ *     register test asserts an event exists for the slice id, name-agnostic.
+ *   - Legacy NOG_ESCALATION side-channel signal + dashboard staged-section
+ *     badge: both journey open questions, no contract to pin.
+ *
  * Fixture isolation (#99992): all state lives in a mkdtemp dir — never the
  * live bridge/queue/, bridge/staged/, bridge/state/ or bridge/register.jsonl.
  */
@@ -30,8 +45,8 @@ const path    = require('node:path');
 
 const { makeTmpDir, removeTmpDir } = require('../helpers/tmp-dir');
 const { buildSliceFile, buildRomDoneReport, buildNogReviewBlock, buildRomEscalationBlock } = require('../helpers/slice-factory');
-const { parseFrontmatter, countNogRounds, MAX_ROUNDS, hasRomEscalationBlock } = require('../helpers/pipeline-logic');
-const { parseRegisterLines, appendRegisterEvent, initRegisterFile } = require('../helpers/register-helper');
+const { parseFrontmatter, countNogRounds, MAX_ROUNDS, hasRomEscalationBlock, simulateApprove, readQueueOrder } = require('../helpers/pipeline-logic');
+const { parseRegisterLines, appendRegisterEvent, assertEventExists, initRegisterFile } = require('../helpers/register-helper');
 
 let tmpDir;
 let queueDir;
@@ -205,4 +220,48 @@ test('J-nog-max-rounds-escalation slice-090-ac-5 — Rom Escalation block does n
     'The "## Rom Escalation — Slice Broken" block must be recognisable');
   assert.strictEqual(countNogRounds(content), 2,
     'Rom Escalation block must NOT increment the round counter (slice-pipeline.md §9 exemption)');
+});
+
+// ---------------------------------------------------------------------------
+// AC6 — Step 7 + outcomes "reworked slice re-submitted to staged" and
+// "Philipp re-approves before it re-enters the queue": after escalation the
+// reworked slice sits in staged/ and re-enters the queue only via the
+// approval action ({id}-QUEUED.md + HUMAN_APPROVAL). The journey hedges
+// "fresh or amended version" — we simulate the amended-same-id branch, which
+// the journey explicitly permits. O'Brien's diagnosis (step 6) is LLM-actor
+// work and is not asserted; the rework body here is a fixture, so we do NOT
+// assert round-counter freshness on it (journey leaves history retention open).
+// ---------------------------------------------------------------------------
+test('J-nog-max-rounds-escalation slice-090-ac-6 — reworked staged slice re-enters the queue only via Philipp approval (HUMAN_APPROVAL + {id}-QUEUED.md)', () => {
+  const stagedPath = path.join(stagedDir, `${SLICE_ID}-STAGED.md`);
+  assert.ok(fs.existsSync(stagedPath),
+    'Sanity: the escalated slice must be sitting in staged/ for O\'Brien rework');
+
+  // Step 7: O'Brien restages the corrected slice (same id, status STAGED).
+  fs.writeFileSync(stagedPath, buildSliceFile(
+    { id: SLICE_ID, status: 'STAGED', goal: 'Reworked goal — root cause addressed.' },
+    ['1. The reworked acceptance criterion is unambiguous and achievable.']
+  ));
+
+  // Pre-approval: the slice must NOT already be back in the queue — re-entry
+  // is gated on Philipp ("re-approves it before it re-enters the queue").
+  const queuedPath = path.join(queueDir, `${SLICE_ID}-QUEUED.md`);
+  assert.ok(!fs.existsSync(queuedPath),
+    'Reworked slice must wait in staged/ — it must not re-enter the queue without approval');
+
+  const queueOrderPath = path.join(tmpDir, 'queue-order.json');
+  simulateApprove({ stagedPath, queueDir, queueOrderPath, registerPath: registerFile, id: SLICE_ID });
+
+  assert.ok(fs.existsSync(queuedPath),
+    'Approval must produce queue/{id}-QUEUED.md — the slice re-enters the pipeline');
+  const meta = parseFrontmatter(fs.readFileSync(queuedPath, 'utf8'));
+  assert.ok(meta, 'Re-queued file frontmatter must be parseable');
+  assert.strictEqual(meta.id, SLICE_ID, 'The amended branch keeps the original slice id');
+  assert.strictEqual(meta.status, 'QUEUED', 'Frontmatter status must flip to QUEUED on approval');
+  assert.ok(readQueueOrder(queueOrderPath).includes(SLICE_ID),
+    'queue-order must include the re-approved slice id');
+
+  const ev = assertEventExists(parseRegisterLines(registerFile), 'HUMAN_APPROVAL', SLICE_ID);
+  assert.strictEqual(ev.action, 'approved',
+    'HUMAN_APPROVAL must record the approved action — Philipp gates the re-entry');
 });

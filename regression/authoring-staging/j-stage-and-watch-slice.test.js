@@ -46,7 +46,7 @@ after(() => removeTmpDir(tmpDir));
 // ---------------------------------------------------------------------------
 // AC1: Slice file exists at staged/{id}-STAGED.md
 // ---------------------------------------------------------------------------
-test('journey-stage-watch-ac-1 staged file exists in staged/ with -STAGED.md suffix', () => {
+test('J-stage-and-watch-slice slice-042-ac-1 — staged file exists in staged/ with -STAGED.md suffix', () => {
   const content  = buildSliceFile({ id: FIXTURE_ID, status: 'STAGED' });
   const filePath = path.join(stagedDir, `${FIXTURE_ID}-STAGED.md`);
   fs.writeFileSync(filePath, content);
@@ -56,7 +56,7 @@ test('journey-stage-watch-ac-1 staged file exists in staged/ with -STAGED.md suf
 // ---------------------------------------------------------------------------
 // AC2: Frontmatter contains all required fields (non-empty)
 // ---------------------------------------------------------------------------
-test('journey-stage-watch-ac-2 frontmatter has all required fields', () => {
+test('J-stage-and-watch-slice slice-042-ac-2 — frontmatter has all required fields', () => {
   const content = buildSliceFile({ id: FIXTURE_ID, status: 'STAGED' });
   const meta    = parseFrontmatter(content);
   assert.ok(meta, 'Frontmatter block must be parseable');
@@ -75,7 +75,7 @@ test('journey-stage-watch-ac-2 frontmatter has all required fields', () => {
 // ---------------------------------------------------------------------------
 // AC3: status field is STAGED
 // ---------------------------------------------------------------------------
-test('journey-stage-watch-ac-3 frontmatter status is STAGED', () => {
+test('J-stage-and-watch-slice slice-042-ac-3 — frontmatter status is STAGED', () => {
   const content = buildSliceFile({ id: FIXTURE_ID, status: 'STAGED' });
   const meta    = parseFrontmatter(content);
   assert.strictEqual(meta.status, 'STAGED', 'status must be STAGED at creation time');
@@ -84,7 +84,7 @@ test('journey-stage-watch-ac-3 frontmatter status is STAGED', () => {
 // ---------------------------------------------------------------------------
 // AC4: Register contains no events for this slice at creation time
 // ---------------------------------------------------------------------------
-test('journey-stage-watch-ac-4 register contains no events for slice at creation', () => {
+test('J-stage-and-watch-slice slice-042-ac-4 — register contains no events for slice at creation', () => {
   const events      = parseRegisterLines(registerFile);
   const sliceEvents = events.filter(e => String(e.slice_id || e.id || '') === FIXTURE_ID);
   assert.strictEqual(
@@ -96,7 +96,7 @@ test('journey-stage-watch-ac-4 register contains no events for slice at creation
 // ---------------------------------------------------------------------------
 // AC5: Body has all mandatory sections (pipeline contract §3.3)
 // ---------------------------------------------------------------------------
-test('journey-stage-watch-ac-5 slice body contains all mandatory sections', () => {
+test('J-stage-and-watch-slice slice-042-ac-5 — slice body contains all mandatory sections', () => {
   const content = buildSliceFile({ id: FIXTURE_ID });
   const required = [
     '## Goal',
@@ -119,7 +119,7 @@ test('journey-stage-watch-ac-5 slice body contains all mandatory sections', () =
 // ---------------------------------------------------------------------------
 // AC6: Acceptance criteria section is non-empty
 // ---------------------------------------------------------------------------
-test('journey-stage-watch-ac-6 acceptance criteria section is non-empty', () => {
+test('J-stage-and-watch-slice slice-042-ac-6 — acceptance criteria section is non-empty', () => {
   const content = buildSliceFile(
     { id: FIXTURE_ID },
     ['1. The widget renders correctly.', '2. The widget responds to clicks.']
@@ -133,16 +133,16 @@ test('journey-stage-watch-ac-6 acceptance criteria section is non-empty', () => 
 // ---------------------------------------------------------------------------
 // AC7: nextSliceId assigns max+1, zero-padded to 3 digits
 // ---------------------------------------------------------------------------
-test('journey-stage-watch-ac-7 nextSliceId returns max+1 zero-padded to 3 digits', () => {
+test('J-stage-and-watch-slice slice-042-ac-7 — nextSliceId returns max+1 zero-padded to 3 digits', () => {
   const files = ['040-STAGED.md', '041-QUEUED.md', '039-DONE.md'];
   assert.strictEqual(nextSliceId(files), '042');
 });
 
-test('journey-stage-watch-ac-8 nextSliceId returns 001 when queue is empty', () => {
+test('J-stage-and-watch-slice slice-042-ac-8 — nextSliceId returns 001 when queue is empty', () => {
   assert.strictEqual(nextSliceId([]), '001');
 });
 
-test('journey-stage-watch-ac-9 nextSliceId pads single-digit IDs to 3 chars', () => {
+test('J-stage-and-watch-slice slice-042-ac-9 — nextSliceId pads single-digit IDs to 3 chars', () => {
   assert.strictEqual(nextSliceId(['005-STAGED.md']), '006');
   assert.strictEqual(nextSliceId(['009-DONE.md', '003-QUEUED.md']), '010');
 });

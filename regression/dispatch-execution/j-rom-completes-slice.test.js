@@ -167,3 +167,60 @@ test('J-rom-completes-slice slice-060-ac-8 — wrong heading variants do NOT mat
     );
   }
 });
+
+// ---------------------------------------------------------------------------
+// AC9 (register ordering): journey step 5 — the watcher "emits a DONE event"
+// BEFORE step 6 hands the slice to Nog.  Therefore in the append-only register
+// the DONE event for a slice must precede every review-phase event for that
+// same slice (review-phase events per docs/contracts/slice-pipeline.md §7.1:
+// REVIEWED, NOG_PASS, ACCEPTED, REVIEW_RECEIVED).
+//
+// Uses an independent fixture slice (061) and simulates the full journey flow
+// so this test does not depend on the 060 sequence above.
+// ---------------------------------------------------------------------------
+test('J-rom-completes-slice slice-061-ac-9 — register DONE event precedes all review-phase events for the same slice', () => {
+  const id = '061';
+
+  // Steps 2–3: Rom appends his DONE report to the IN_PROGRESS slice file
+  const { filePath: inProgPath } = writeInProgress(id);
+  appendDoneReport(inProgPath, 1);
+
+  // Step 5: watcher renames IN_PROGRESS → DONE and emits the DONE event
+  simulateInProgressToDone(id, queueDir, registerFile);
+
+  // Step 6: watcher renames DONE → IN_REVIEW and hands the slice to Nog
+  simulateDoneToInReview(id, queueDir);
+
+  // Review phase: Nog's verdict produces the review-phase register events
+  // (these can only be emitted after the step-6 handover)
+  appendRegisterEvent(registerFile, { event: 'REVIEWED',        slice_id: id, round: 1 });
+  appendRegisterEvent(registerFile, { event: 'NOG_PASS',        slice_id: id, round: 1 });
+  appendRegisterEvent(registerFile, { event: 'ACCEPTED',        slice_id: id, round: 1 });
+  appendRegisterEvent(registerFile, { event: 'REVIEW_RECEIVED', slice_id: id, round: 1 });
+
+  // Register is append-only JSONL, so line order == emission order
+  const events = parseRegisterLines(registerFile)
+    .filter(e => String(e.slice_id ?? e.id ?? '') === id);
+
+  const doneIdx = events.findIndex(e => e.event === 'DONE');
+  assert.notStrictEqual(doneIdx, -1, 'Register must contain a DONE event for the slice');
+
+  // Journey outcome 2: "Register contains a DONE event with the slice ID and round"
+  const doneEvent = events[doneIdx];
+  assert.strictEqual(String(doneEvent.slice_id ?? doneEvent.id), id, 'DONE event must carry the slice ID');
+  assert.strictEqual(doneEvent.round, 1, 'DONE event must carry the round');
+
+  const REVIEW_PHASE_EVENTS = ['REVIEWED', 'NOG_PASS', 'ACCEPTED', 'REVIEW_RECEIVED'];
+  const reviewIdxs = events
+    .map((e, i) => (REVIEW_PHASE_EVENTS.includes(e.event) ? i : -1))
+    .filter(i => i !== -1);
+  assert.ok(reviewIdxs.length > 0, 'Register must contain review-phase events for the slice');
+
+  for (const idx of reviewIdxs) {
+    assert.ok(
+      doneIdx < idx,
+      `DONE event (index ${doneIdx}) must precede review-phase event ` +
+      `"${events[idx].event}" (index ${idx}) for slice ${id}`
+    );
+  }
+});
