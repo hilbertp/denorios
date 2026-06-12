@@ -1,41 +1,56 @@
 name: Promote dev to main
 
 # dev = staging, main = prod (ADR-GITHUB-CI-MERGE-MODEL).
-# When the CI workflow passes on dev, fast-forward main to THAT exact green commit.
-# main therefore only ever advances to a commit that passed CI on dev — no merge
-# commits, no drift (main stays an ancestor of dev).
+#
+# Promotion is OPERATOR-GATED. Nothing auto-promotes anymore. Per the user
+# story "see RR, decide when to run the regression suite and merge", the
+# operator looks at the release-risk score on the dashboard and triggers this
+# workflow deliberately — via the dashboard's Promote button (POST
+# /api/promote/dispatch) or `gh workflow run promote.yml --ref dev`.
+#
+# When dispatched, this workflow re-runs the full regression suite against
+# exactly the dev SHA being promoted, and fast-forwards main to that commit
+# ONLY if the suite is green. A red suite fails the job and main is untouched —
+# that IS the gate. ci.yml still runs on every dev push for per-push feedback
+# (informational row on the dashboard); it no longer triggers promotion.
 
 on:
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
+  workflow_dispatch: {}
 
 permissions:
   contents: write
 
 jobs:
-  promote:
-    # Only when CI ran on dev AND went green.
-    if: >-
-      github.event.workflow_run.head_branch == 'dev' &&
-      github.event.workflow_run.conclusion == 'success'
+  gate-and-promote:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: dev
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Fast-forward main to the green dev commit
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Run regression gate
         run: |
           set -euo pipefail
-          GREEN_SHA='${{ github.event.workflow_run.head_sha }}'
-          echo "CI passed on dev@$GREEN_SHA — promoting to main"
-          git fetch origin main "$GREEN_SHA"
-          if git merge-base --is-ancestor origin/main "$GREEN_SHA"; then
-            git push origin "$GREEN_SHA:refs/heads/main"
-            echo "main promoted to $GREEN_SHA"
+          TESTED_SHA="$(git rev-parse HEAD)"
+          echo "TESTED_SHA=$TESTED_SHA" >> "$GITHUB_ENV"
+          echo "Running regression suite against dev@$TESTED_SHA"
+          node --test 'regression/**/*.test.js'
+
+      - name: Fast-forward main to the tested commit
+        run: |
+          set -euo pipefail
+          echo "Regression suite green on dev@$TESTED_SHA — promoting to main"
+          git fetch origin main
+          if git merge-base --is-ancestor origin/main "$TESTED_SHA"; then
+            git push origin "$TESTED_SHA:refs/heads/main"
+            echo "main promoted to $TESTED_SHA"
           else
-            echo "::error::main diverged from dev; $GREEN_SHA is not a fast-forward of main. Reconcile dev/main."
+            echo "::error::main diverged from dev; $TESTED_SHA is not a fast-forward of main. Reconcile dev/main."
             exit 1
           fi

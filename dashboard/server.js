@@ -35,8 +35,18 @@ const STALE_DONE_DAYS = 7;
 // on cache hit. TTL: 30s for git, 60s for gh (separate sub-caches).
 const GIT_TTL_MS = 30 * 1000;
 const GH_TTL_MS  = 60 * 1000;
-let _gitTipsCache = { value: null, fetchedAt: 0 };
-let _ghCiCache    = { value: null, fetchedAt: 0 };
+let _gitTipsCache   = { value: null, fetchedAt: 0 };
+let _ghCiCache      = { value: null, fetchedAt: 0 };
+let _ghPromoteCache = { value: null, fetchedAt: 0 };
+
+// Files matching this pattern count as "critical" for the refactor-risk score.
+const RR_CRITICAL_RE = /^(bridge\/|dashboard\/|\.github\/workflows\/|scripts\/)/;
+
+function _bustGitHubCache() {
+  _gitTipsCache   = { value: null, fetchedAt: 0 };
+  _ghCiCache      = { value: null, fetchedAt: 0 };
+  _ghPromoteCache = { value: null, fetchedAt: 0 };
+}
 
 function _getGitTips() {
   const now = Date.now();
@@ -44,7 +54,9 @@ function _getGitTips() {
     return _gitTipsCache.value;
   }
   const result = { origin_main_sha: null, origin_dev_sha: null, commits_ahead: 0,
-                   dev_commits: [], promote: null, fetched_at: null, error: null };
+                   dev_commits: [], promote: null, fetched_at: null, error: null,
+                   rr: { score: 0, level: 'clean', commits: 0, churn: 0, critical_files: [],
+                         breakdown: { commits_pts: 0, churn_pts: 0, critical_pts: 0 } } };
   try {
     execFileSync('git', ['fetch', 'origin', 'main', 'dev', '--quiet'],
       { cwd: REPO_ROOT, encoding: 'utf8', timeout: 10000, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -58,6 +70,35 @@ function _getGitTips() {
     const aheadStr = execFileSync('git', ['rev-list', '--count', 'origin/main..origin/dev'],
       { cwd: REPO_ROOT, encoding: 'utf8', timeout: 5000 }).trim();
     result.commits_ahead = parseInt(aheadStr, 10) || 0;
+
+    // Refactor-risk score (rr) — deterministic, from origin/main...origin/dev.
+    // ahead==0 keeps the 'clean' default above without extra git calls.
+    if (result.commits_ahead > 0) {
+      const shortstat = execFileSync('git', ['diff', '--shortstat', 'origin/main...origin/dev'],
+        { cwd: REPO_ROOT, encoding: 'utf8', timeout: 5000 }).trim();
+      const insM = shortstat.match(/(\d+) insertion/);
+      const delM = shortstat.match(/(\d+) deletion/);
+      const churn = (insM ? parseInt(insM[1], 10) : 0) + (delM ? parseInt(delM[1], 10) : 0);
+
+      const namesOut = execFileSync('git', ['diff', '--name-only', 'origin/main...origin/dev'],
+        { cwd: REPO_ROOT, encoding: 'utf8', timeout: 5000 }).trim();
+      const criticalFiles = namesOut
+        ? namesOut.split('\n').filter(f => RR_CRITICAL_RE.test(f))
+        : [];
+
+      const commitsPts  = Math.min(30, result.commits_ahead * 6);
+      const churnPts    = Math.min(30, Math.ceil(churn / 40));
+      const criticalPts = Math.min(40, criticalFiles.length * 8);
+      const score = Math.min(100, commitsPts + churnPts + criticalPts);
+      result.rr = {
+        score,
+        level: score < 25 ? 'low' : score < 50 ? 'moderate' : 'high',
+        commits: result.commits_ahead,
+        churn,
+        critical_files: criticalFiles,
+        breakdown: { commits_pts: commitsPts, churn_pts: churnPts, critical_pts: criticalPts },
+      };
+    }
 
     const logOut = execFileSync('git',
       ['log', 'origin/dev', '--not', 'origin/main', '--format=%H %s', '--max-count=10', '--reverse'],
@@ -114,10 +155,47 @@ function _getGhCi() {
   return result;
 }
 
+function _getGhPromote() {
+  const now = Date.now();
+  if (_ghPromoteCache.fetchedAt > 0 && now - _ghPromoteCache.fetchedAt < GH_TTL_MS) {
+    return _ghPromoteCache.value;
+  }
+  let result = { status: 'idle', run_id: null, url: null, head_sha7: null, updated_at: null };
+  try {
+    const out = execFileSync('gh',
+      ['run', 'list', '--workflow=promote.yml', '--limit', '1',
+       '--json', 'status,conclusion,databaseId,url,headSha'],
+      { cwd: REPO_ROOT, encoding: 'utf8', timeout: 15000 }).trim();
+    const runs = JSON.parse(out);
+    if (runs && runs.length > 0) {
+      const run = runs[0];
+      let status;
+      if (run.status === 'queued' || run.status === 'waiting' ||
+          run.status === 'requested' || run.status === 'pending') status = 'pending';
+      else if (run.status === 'in_progress') status = 'in_progress';
+      else if (run.status === 'completed' && run.conclusion === 'success') status = 'success';
+      else if (run.status === 'completed' &&
+               (run.conclusion === 'failure' || run.conclusion === 'cancelled' ||
+                run.conclusion === 'timed_out')) status = 'failure';
+      else status = 'idle';
+      result = {
+        status,
+        run_id: run.databaseId ?? null,
+        url: run.url ?? null,
+        head_sha7: run.headSha ? run.headSha.slice(0, 7) : null,
+        updated_at: new Date(now).toISOString(),
+      };
+    }
+  } catch (_) { /* gh not installed or not authenticated — non-fatal, degrade to idle */ }
+  _ghPromoteCache = { value: result, fetchedAt: now };
+  return result;
+}
+
 function getGitHubState() {
-  const tips = _getGitTips();
-  const ci   = _getGhCi();
-  return { ...tips, ci };
+  const tips        = _getGitTips();
+  const ci          = _getGhCi();
+  const promote_run = _getGhPromote();
+  return { ...tips, ci, promote_run };
 }
 
 // ── Mtime-based in-memory cache ─────────────────────────────────────────────
@@ -1391,6 +1469,119 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (queueContentMatch && req.method === 'PATCH') {
+    const id = queueContentMatch[1];
+    const payload = await readJsonBody(req);
+    if (!payload || typeof payload.body !== 'string') {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Missing required field: body' }));
+      return;
+    }
+
+    const candidates = [
+      path.join(QUEUE_DIR, `${id}-QUEUED.md`),
+      path.join(QUEUE_DIR, `${id}-PENDING.md`),
+      path.join(STAGED_DIR, `${id}-STAGED.md`),
+      path.join(STAGED_DIR, `${id}-NEEDS_APENDMENT.md`),
+      path.join(STAGED_DIR, `${id}${LEGACY_NEEDS_SUFFIX}`),
+    ];
+    let found = null;
+    for (const p of candidates) {
+      if (fs.existsSync(p)) { found = p; break; }
+    }
+    if (!found) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: `No editable content found for slice ${id}` }));
+      return;
+    }
+
+    try {
+      const raw = fs.readFileSync(found, 'utf8');
+      const lines = raw.split('\n');
+      let dashes = 0, fmEnd = -1;
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].trim() === '---') dashes++;
+        if (dashes === 2) { fmEnd = i; break; }
+      }
+      if (fmEnd === -1) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Could not parse frontmatter' }));
+        return;
+      }
+      const updated = lines.slice(0, fmEnd + 1).join('\n') + '\n\n' + payload.body;
+      fs.writeFileSync(found, updated, 'utf8');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: String(err) }));
+    }
+    return;
+  }
+
+  // ── Return queued slice to staged for O'Brien revision ──────────────────
+  const returnQueuedMatch = pathname.match(/^\/api\/queue\/(\d+)\/return-to-stage$/);
+  if (returnQueuedMatch && req.method === 'POST') {
+    const id = returnQueuedMatch[1];
+    const payload = await readJsonBody(req);
+
+    // Race protection: if currently dispatched, reject
+    let hbCurrent = null;
+    try {
+      const hb = JSON.parse(fs.readFileSync(HEARTBEAT, 'utf8'));
+      hbCurrent = hb.current_slice ? String(hb.current_slice) : null;
+    } catch (_) {}
+    if (hbCurrent === id) {
+      res.writeHead(409, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'already-picked-up' }));
+      return;
+    }
+
+    const queuedPath  = path.join(QUEUE_DIR, `${id}-QUEUED.md`);
+    const pendingPath = path.join(QUEUE_DIR, `${id}-PENDING.md`);
+    const sourcePath  = fs.existsSync(queuedPath) ? queuedPath
+                      : fs.existsSync(pendingPath) ? pendingPath
+                      : null;
+    if (!sourcePath) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: `Queued slice ${id} not found` }));
+      return;
+    }
+
+    try {
+      const note = payload && typeof payload.note === 'string' && payload.note.trim()
+        ? payload.note.trim()
+        : "Returned to O'Brien from Ops queue";
+      let content = fs.readFileSync(sourcePath, 'utf8');
+      content = updateFrontmatter(content, { status: 'NEEDS_APENDMENT', apendment_note: note });
+
+      const destPath = path.join(STAGED_DIR, `${id}-NEEDS_APENDMENT.md`);
+      fs.writeFileSync(destPath, content, 'utf8');
+
+      const ts = new Date().toISOString().replace(/[:.]/g, '-');
+      const trashName = `${path.basename(sourcePath)}.returned-to-stage-${ts}`;
+      try { fs.renameSync(sourcePath, path.join(TRASH_DIR, trashName)); }
+      catch (_) {
+        try { fs.unlinkSync(sourcePath); } catch (_) {}
+      }
+
+      const qOrder = readQueueOrder().filter(oid => oid !== id);
+      writeQueueOrder(qOrder);
+      const sOrder = readStagedOrder();
+      if (!sOrder.includes(id)) sOrder.push(id);
+      writeStagedOrder(sOrder);
+
+      writeRegisterEvent({ event: 'returned_to_stage', slice_id: id, source: 'dashboard', note });
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, action: 'returned_to_stage' }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: String(err) }));
+    }
+    return;
+  }
+
   // ── Return-to-stage (writes control file for watcher) ────────────────────
   const returnMatch = pathname.match(/^\/api\/bridge\/return-to-stage\/(\d+)$/);
   if (returnMatch && req.method === 'POST') {
@@ -1663,6 +1854,44 @@ const server = http.createServer(async (req, res) => {
     } catch (err) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ output: err.stdout || err.message, error: true }));
+    }
+    return;
+  }
+
+  // ── Promote dispatch — operator-gated trigger for promote.yml ─────────────
+  // Promotion is operator-gated: promote.yml is workflow_dispatch-only and
+  // re-runs the regression suite against dev, fast-forwarding main on green.
+  if (pathname === '/api/promote/dispatch' && req.method === 'POST') {
+    const gh = getGitHubState();
+
+    if ((gh.commits_ahead || 0) === 0) {
+      res.writeHead(409, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: 'nothing_to_promote' }));
+      return;
+    }
+
+    const runStatus = gh.promote_run ? gh.promote_run.status : 'idle';
+    if (runStatus === 'pending' || runStatus === 'in_progress') {
+      res.writeHead(409, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: 'gate_already_running' }));
+      return;
+    }
+
+    try {
+      execFileSync('gh', ['workflow', 'run', 'promote.yml', '--ref', 'dev'],
+        { cwd: REPO_ROOT, encoding: 'utf8', timeout: 15000 });
+      _bustGitHubCache();
+      try {
+        writeRegisterEvent({ event: 'promote-dispatched',
+                             dev_tip_sha: gh.origin_dev_sha || null,
+                             commits_ahead: gh.commits_ahead });
+      } catch (_) { /* register write is best-effort */ }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (err) {
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: 'dispatch_failed',
+                               detail: String(err.message || err).slice(0, 200) }));
     }
     return;
   }

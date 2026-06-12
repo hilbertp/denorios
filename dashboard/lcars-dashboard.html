@@ -1464,7 +1464,7 @@
   .staged-details-body pre code { background: none; padding: 0; }
   .staged-details-body hr { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
 
-  /* Edit + Kira: raw textarea */
+  /* Queue/staged detail editors */
   .staged-edit-textarea {
     width: 100%;
     min-height: 200px;
@@ -1480,7 +1480,7 @@
     line-height: 1.5;
   }
 
-  .staged-kira-textarea {
+  .staged-return-textarea {
     font-family: system-ui, -apple-system, sans-serif;
     min-height: 100px;
   }
@@ -2055,6 +2055,53 @@
   .topo-foot-stats { font-weight: 500; }
   .topo-foot-stats strong { font-weight: 700; }
 
+  /* ── Operator promote button (slice 316 — replaces "auto-promotes on green" caption) ── */
+  .promote-gate-slot {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .promote-gate-btn {
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    padding: 5px 14px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--ok-border);
+    background: var(--ok-bg);
+    color: var(--ok);
+    cursor: pointer;
+    transition: background var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast);
+  }
+  .promote-gate-btn:hover:not(:disabled) {
+    background: var(--ok);
+    border-color: var(--ok);
+    color: var(--bg-panel);
+  }
+  .promote-gate-btn:focus-visible {
+    outline: 2px solid var(--ok);
+    outline-offset: 2px;
+  }
+  .promote-gate-btn:disabled {
+    background: var(--bg-subtle);
+    border-color: var(--border);
+    color: var(--ink-4);
+    cursor: not-allowed;
+  }
+  .promote-gate-err {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--err);
+    max-width: 240px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   /* ── CI status strip (Branch Topology — slice 315) ── */
   .ci-strip {
     margin-top: 10px;
@@ -2541,7 +2588,7 @@
     color: #ffffff;
   }
 
-  .slice-action-send-kira {
+  .slice-action-return-stage {
     background: transparent;
     border: 1px solid #9ca3af;
     color: #374151;
@@ -3121,6 +3168,7 @@
             <span class="ci-strip-row-label">Promote</span>
             <span class="ci-strip-glyph" id="ci-strip-promote-glyph">&#9675;</span>
             <span class="ci-strip-row-text" id="ci-strip-promote-text">awaiting first green</span>
+            <a class="ci-strip-link" id="ci-strip-promote-link" href="#" target="_blank" rel="noopener" style="display:none">&#8599; view</a>
           </div>
         </div>
         <div class="gate-steps" id="gate-steps" style="display:none">
@@ -3375,7 +3423,7 @@
         <div class="crew-name">Ziyal</div>
         <div class="crew-role">UX Specialist</div>
         <span class="crew-badge badge-active">active</span>
-        <div class="crew-function">Lo-fi wireframes and written specs. Output is optimised for fast stakeholder sign-off, not visual polish. Hands off to Kira with zero ambiguity.</div>
+        <div class="crew-function">Lo-fi wireframes and written specs. Output is optimised for fast stakeholder sign-off, not visual polish. Hands off to O'Brien with zero ambiguity.</div>
       </div>
 
       <div class="crew-card active">
@@ -5218,7 +5266,7 @@
       if (approvalEvents.length > 0) {
         const ev = approvalEvents[approvalEvents.length - 1];
         const ts = ev.ts ? new Date(ev.ts).toLocaleString() : '';
-        const approver = ev.approver || ev.actor || 'Kira';
+        const approver = ev.approver || ev.actor || "O'Brien";
         metaParts.push(`<span class="queue-expand-meta-item"><span class="queue-expand-meta-label">Approved</span> ${escHtml(approver)} &middot; ${escHtml(ts)}</span>`);
       }
       if (frontmatter.from) metaParts.push(`<span class="queue-expand-meta-item"><span class="queue-expand-meta-label">From</span> ${escHtml(frontmatter.from)}</span>`);
@@ -5560,7 +5608,7 @@
     } else {
       container.innerHTML = `
         <button class="slice-action-btn slice-action-save" onclick="sliceDetailSave()">Save edits</button>
-        <button class="slice-action-btn slice-action-send-kira" onclick="sliceDetailSendToKira()">Send to Kira</button>
+        <button class="slice-action-btn slice-action-return-stage" onclick="sliceDetailReturnToStage()">Return to O'Brien</button>
         <div class="slice-detail-actions-spacer"></div>
         <button class="slice-action-btn" onclick="sliceDetailUnapprove()">Un-approve</button>
         <button class="slice-action-btn slice-action-destructive" onclick="sliceDetailRemove()">Remove from queue</button>
@@ -5584,7 +5632,7 @@
 
   async function sliceDetailRefine() {
     if (!sliceDetailState) return;
-    const note = prompt('Refinement note for Kira:');
+    const note = prompt("Refinement note for O'Brien:");
     if (note == null) return;
     try {
       const res = await fetch(`/api/bridge/staged/${sliceDetailState.id}/amend`, {
@@ -5632,11 +5680,11 @@
     } catch (_) {}
   }
 
-  async function sliceDetailSendToKira() {
+  async function sliceDetailReturnToStage() {
     if (!sliceDetailState) return;
-    if (!confirm(`Send slice #${sliceDetailState.id} back to Kira for revision?`)) return;
+    if (!confirm(`Return slice #${sliceDetailState.id} to O'Brien for revision?`)) return;
     try {
-      const res = await fetch(`/api/queue/${sliceDetailState.id}/send-to-kira`, { method: 'POST' });
+      const res = await fetch(`/api/queue/${sliceDetailState.id}/return-to-stage`, { method: 'POST' });
       if (res.ok) {
         closeSliceDetail();
         fetchCombinedQueue();
@@ -6143,6 +6191,25 @@
     const rrEl = document.getElementById('topo-foot-rr');
     if (!rrEl) return;
 
+    // ── Slice 316: RR is now computed server-side from origin/main..origin/dev ──
+    // github.rr = { score, level, commits, churn, critical_files, breakdown }.
+    // Null-guard: an old server (or a TTL-cached payload) may not carry it yet —
+    // in that case fall back to the legacy bs.regression_risk display.
+    const gh = bs && bs.github ? bs.github : null;
+    const ghRR = gh && gh.rr ? gh.rr : null;
+    if (ghRR) {
+      const level = ghRR.level || 'clean';
+      const cls = level === 'high' ? 'red' : (level === 'moderate' ? 'amber' : 'green'); // clean/low -> ok tokens
+      const score = ghRR.score != null ? ghRR.score : 0;
+      const commits = ghRR.commits != null ? ghRR.commits : 0;
+      const churn = ghRR.churn != null ? ghRR.churn : 0;
+      const nCrit = Array.isArray(ghRR.critical_files) ? ghRR.critical_files.length : 0;
+      const tip = `${commits} commits · ${churn} lines churn · ${nCrit} critical files`;
+      rrEl.innerHTML = `<span class="rr-pill ${cls}" title="${tip}">RR ${score}% &middot; ${level}</span>`;
+      return;
+    }
+
+    // ── Legacy fallback (pre-316 payloads): bs.regression_risk ──
     const rr = bs.regression_risk;
     const ahead = bs.dev ? (bs.dev.commits_ahead_of_main || 0) : 0;
 
@@ -6164,18 +6231,122 @@
     rrEl.innerHTML = `<span class="rr-pill ${band}">${label}<span class="rr-pill-tooltip">Slice pressure: ${sp}% | Surface volatility: ${sv}% | AC coverage gap: ${ac}%</span></span>`;
   }
 
+  // ── Operator-gated promotion (slice 316) ────────────────────────────────────
+  // Promotion no longer auto-fires on green. The footer action slot holds the
+  // "RUN GATE & MERGE TO MAIN" button; clicking it POSTs /api/promote/dispatch,
+  // which dispatches promote.yml (workflow_dispatch) on dev.
+  let _promoteDispatchInFlight = false;
+  let _promoteOptimisticUntil = 0;   // ms epoch — optimistic "gate running" window after a 200 dispatch
+  let _promoteSlotError = null;
+  let _promoteErrTimeout = null;
+
+  function _promoteEsc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // github.ahead per the slice-316 contract; older payloads carry commits_ahead.
+  function _ghAhead(gh) {
+    if (!gh) return 0;
+    if (gh.ahead != null) return gh.ahead;
+    return gh.commits_ahead || 0;
+  }
+
+  function _gateIsRunning(gh) {
+    const pr = gh && gh.promote_run ? gh.promote_run : null; // null-guard: old cached payloads
+    const st = pr && pr.status ? pr.status : null;
+    if (st === 'pending' || st === 'in_progress') { _promoteOptimisticUntil = 0; return true; }
+    if (st === 'success' || st === 'failure') { _promoteOptimisticUntil = 0; return false; }
+    // idle / missing — honor the optimistic window after a successful dispatch
+    return Date.now() < _promoteOptimisticUntil;
+  }
+
+  function renderPromoteAction(bs) {
+    const actionEl = document.getElementById('topo-foot-action');
+    if (!actionEl) return;
+
+    const gh = bs && bs.github ? bs.github : null;
+    const ahead = _ghAhead(gh);
+    const running = _gateIsRunning(gh);
+    const enabled = ahead > 0 && !running && !_promoteDispatchInFlight;
+
+    let html = '<span class="promote-gate-slot">';
+    if (_promoteSlotError) {
+      html += `<span class="promote-gate-err" role="alert" title="${_promoteEsc(_promoteSlotError)}">${_promoteEsc(_promoteSlotError)}</span>`;
+    }
+    html += '<button type="button" class="promote-gate-btn" id="promote-gate-btn"' +
+      ' aria-label="Run regression gate and promote dev to main"' +
+      ' onclick="dispatchPromoteGate()"' + (enabled ? '' : ' disabled') + '>' +
+      (running ? 'GATE RUNNING&#8230;' : 'RUN GATE &amp; MERGE TO MAIN') +
+      '</button>';
+    html += '</span>';
+    actionEl.innerHTML = html;
+  }
+
+  async function dispatchPromoteGate() {
+    if (_promoteDispatchInFlight) return;
+    _promoteDispatchInFlight = true;
+    _promoteSlotError = null;
+    if (_promoteErrTimeout) { clearTimeout(_promoteErrTimeout); _promoteErrTimeout = null; }
+    const btn = document.getElementById('promote-gate-btn');
+    if (btn) btn.disabled = true;
+
+    try {
+      const res = await fetch('/api/promote/dispatch', { method: 'POST' });
+      let body = null;
+      try { body = await res.json(); } catch (_) { /* non-JSON error body */ }
+
+      if (res.ok && body && body.ok) {
+        // Optimistically render the gate-running state; the server busted its
+        // github TTL cache, so the forced polls below pick up the real run.
+        _promoteOptimisticUntil = Date.now() + 30000;
+        if (_lastBranchState && _lastBranchState.github) {
+          renderCiStrip(_lastBranchState.github);
+          renderTopoMini(_lastBranchState);
+        }
+        setTimeout(fetchBranchState, 1000);
+        setTimeout(fetchBranchState, 4000);
+      } else {
+        const code = body && body.error ? body.error : ('http_' + res.status);
+        if (code === 'nothing_to_promote') {
+          _promoteSlotError = 'nothing to promote — dev not ahead';
+        } else if (code === 'gate_already_running') {
+          _promoteSlotError = 'gate already running';
+        } else if (code === 'dispatch_failed') {
+          _promoteSlotError = 'dispatch failed' + (body && body.detail ? ': ' + body.detail : '');
+        } else {
+          _promoteSlotError = 'dispatch failed (' + code + ')';
+        }
+        _promoteErrTimeout = setTimeout(() => {
+          _promoteSlotError = null;
+          if (_lastBranchState) renderPromoteAction(_lastBranchState);
+        }, 8000);
+        fetchBranchState(); // re-sync — server state may have moved under us
+      }
+    } catch (_) {
+      _promoteSlotError = 'dispatch failed: network error';
+      _promoteErrTimeout = setTimeout(() => {
+        _promoteSlotError = null;
+        if (_lastBranchState) renderPromoteAction(_lastBranchState);
+      }, 8000);
+    } finally {
+      _promoteDispatchInFlight = false;
+      if (_lastBranchState) renderPromoteAction(_lastBranchState);
+    }
+  }
+
   function renderTopoFooter(bs) {
     const statsEl = document.getElementById('topo-foot-stats');
     const actionEl = document.getElementById('topo-foot-action');
     if (!statsEl || !actionEl) return;
 
-    // Render RR pill (slice 270)
+    // Render RR pill (slice 270 / rewired to github.rr in slice 316)
     renderRRPill(bs);
 
     const ahead = bs.dev ? (bs.dev.commits_ahead_of_main || 0) : 0;
     statsEl.innerHTML = `<strong>${ahead}</strong> commit${ahead !== 1 ? 's' : ''} ahead of origin/main`;
-    // The "auto-promotes on green" caption is superseded by the CI status strip below.
-    actionEl.innerHTML = '';
+    // Slice 316: operator-gated promotion button (replaces the passive caption).
+    renderPromoteAction(bs);
   }
 
   function renderTopoMini(bs) {
@@ -6189,10 +6360,24 @@
     if (pillEl) {
       const gh = bs.github || {};
       const ci = gh.ci || null;
-      if (!ci || !ci.state || ci.state === 'unknown') {
+      // ── Slice 316: gate state takes priority in the mini pill ──
+      const pr = gh.promote_run || null; // null-guard: old cached payloads
+      const prStatus = pr && pr.status ? pr.status : null;
+      const ghAhead = _ghAhead(gh);
+      if (_gateIsRunning(gh)) {
+        pillEl.innerHTML = '<span class="ci-mini-pill warn">GATE ↻ running</span>';
+      } else if (prStatus === 'failure') {
+        pillEl.innerHTML = '<span class="ci-mini-pill err">GATE ✗ failed</span>';
+      } else if (prStatus === 'idle' && ghAhead > 0) {
+        const rr = gh.rr || null; // null-guard
+        const score = rr && rr.score != null ? rr.score : null;
+        const level = rr && rr.level ? rr.level : null;
+        const cls = level === 'high' ? 'err' : (level === 'moderate' ? 'warn' : 'ok');
+        pillEl.innerHTML = `<span class="ci-mini-pill ${cls}">${ghAhead} ahead${score != null ? ' · RR ' + score + '%' : ''}</span>`;
+      } else if (!ci || !ci.state || ci.state === 'unknown') {
         pillEl.innerHTML = '';
       } else if (ci.state === 'passing') {
-        const promoted = (gh.commits_ahead === 0);
+        const promoted = (ghAhead === 0);
         pillEl.innerHTML = `<span class="ci-mini-pill ok">CI ✓ green${promoted ? ' · promoted' : ''}</span>`;
       } else if (ci.state === 'running') {
         pillEl.innerHTML = '<span class="ci-mini-pill warn">CI ↻ running</span>';
@@ -6215,11 +6400,12 @@
     const regLink     = document.getElementById('ci-strip-regression-link');
     const promGlyph   = document.getElementById('ci-strip-promote-glyph');
     const promText    = document.getElementById('ci-strip-promote-text');
+    const promLink    = document.getElementById('ci-strip-promote-link');
     if (!strip || !regGlyph || !regText || !regLink || !promGlyph || !promText) return;
 
     const ci      = gh && gh.ci      ? gh.ci      : null;
     const promote = gh && gh.promote ? gh.promote : null;
-    const ahead   = gh ? (gh.commits_ahead || 0) : 0;
+    const ahead   = _ghAhead(gh); // github.ahead per contract, commits_ahead fallback
 
     // ── Regression row ──
     if (!ci || !ci.state || ci.state === 'unknown') {
@@ -6251,16 +6437,75 @@
       regLink.textContent = '↗ open in CI';
     }
 
-    // ── Promote row ──
-    // Auto-merge model: green CI on dev → main fast-forwards. We surface that.
-    if (!promote || !promote.sha) {
+    // ── Promote row (slice 316 — operator-gated promote.yml) ──
+    // Driven by gh.promote_run + ahead. Null-guard: an old server (or a
+    // TTL-cached payload) may not carry promote_run yet — fall back to the
+    // legacy auto-merge display in that case.
+    const pr = gh && gh.promote_run ? gh.promote_run : null;
+    const prStatus = pr && pr.status ? pr.status : null;
+    const prUrl = pr && pr.url ? pr.url : null;
+    let promoteFail = false;
+    if (promLink) promLink.style.display = 'none';
+
+    if (_gateIsRunning(gh)) {
+      // pending / in_progress (or optimistic just-dispatched window)
+      promGlyph.className = 'ci-strip-glyph running';
+      promGlyph.innerHTML = '↻';
+      const sha7 = pr && pr.head_sha7 ? ` <span class="ci-strip-sha">${pr.head_sha7}</span>` : '';
+      promText.innerHTML  = `<span>gate running…</span>${sha7}`;
+      if (promLink && prUrl) {
+        promLink.href = prUrl;
+        promLink.textContent = '↗ view';
+        promLink.style.display = '';
+      }
+    } else if (prStatus === 'failure') {
+      promoteFail = true;
+      promGlyph.className = 'ci-strip-glyph err';
+      promGlyph.innerHTML = '✗';
+      const sha7 = pr && pr.head_sha7 ? ` <span class="ci-strip-sha">${pr.head_sha7}</span>` : '';
+      promText.innerHTML  = `<span>gate failed</span>${sha7}`;
+      if (promLink && prUrl) {
+        promLink.href = prUrl;
+        promLink.textContent = '↗ open in CI';
+        promLink.style.display = '';
+      }
+    } else if (prStatus === 'success') {
+      // Existing "main fast-forwarded" display
+      promGlyph.className = 'ci-strip-glyph ok';
+      promGlyph.innerHTML = '✓';
+      if (promote && promote.sha) {
+        const age = promote.age_s != null ? formatAgeShort(promote.age_s) : '';
+        promText.innerHTML = `<span>main fast-forwarded →</span> <span class="ci-strip-sha">${promote.sha}</span>${age ? ` <span class="ci-strip-meta">· ${age}</span>` : ''}`;
+      } else {
+        promText.innerHTML = '<span>main fast-forwarded</span>';
+      }
+      if (promLink && prUrl) {
+        promLink.href = prUrl;
+        promLink.textContent = '↗ view';
+        promLink.style.display = '';
+      }
+    } else if (prStatus === 'idle' && ahead > 0) {
+      // Held — promotion is operator-gated now
+      promGlyph.className = 'ci-strip-glyph pending';
+      promGlyph.innerHTML = '◌';
+      promText.innerHTML  = '<span class="ci-strip-meta">held — awaiting operator gate</span>';
+    } else if (prStatus === 'idle') {
+      // idle && ahead == 0 — keep the current promoted / fast-forwarded display
+      if (promote && promote.sha) {
+        promGlyph.className = 'ci-strip-glyph ok';
+        promGlyph.innerHTML = '✓';
+        const age = promote.age_s != null ? formatAgeShort(promote.age_s) : '';
+        promText.innerHTML = `<span>main fast-forwarded →</span> <span class="ci-strip-sha">${promote.sha}</span>${age ? ` <span class="ci-strip-meta">· ${age}</span>` : ''}`;
+      } else {
+        promGlyph.className = 'ci-strip-glyph pending';
+        promGlyph.innerHTML = '○';
+        promText.innerHTML = '<span class="ci-strip-meta">nothing to promote</span>';
+      }
+    } else if (!promote || !promote.sha) {
+      // ── Legacy fallback (no promote_run in payload) ──
       promGlyph.className = 'ci-strip-glyph pending';
       promGlyph.innerHTML = '○';
       promText.innerHTML  = '<span class="ci-strip-meta">awaiting first green</span>';
-    } else if (ci && ci.state === 'running') {
-      promGlyph.className = 'ci-strip-glyph pending';
-      promGlyph.innerHTML = '○'; // ◌
-      promText.innerHTML  = '<span class="ci-strip-meta">blocked on green check</span>';
     } else if (ci && ci.state === 'failing') {
       promGlyph.className = 'ci-strip-glyph warn';
       promGlyph.innerHTML = '○';
@@ -6278,8 +6523,8 @@
       promText.innerHTML  = `<span class="ci-strip-meta">origin/main</span> <span class="ci-strip-sha">${promote.sha}</span>${age ? ` <span class="ci-strip-meta">· ${age}</span>` : ''}`;
     }
 
-    // Strip header state (red on failing)
-    strip.setAttribute('data-state', ci && ci.state === 'failing' ? 'fail' : 'idle');
+    // Strip header state (red on regression failing or gate failure)
+    strip.setAttribute('data-state', (ci && ci.state === 'failing') || promoteFail ? 'fail' : 'idle');
   }
 
   function formatAgeShort(seconds) {

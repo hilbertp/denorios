@@ -73,3 +73,64 @@ of local `branch-state.gate`; auto-merge removes the pre-main human gate (by cho
 
 ---
 *Operational companion: `docs/runbooks/RUNBOOK-PUSH-AND-MERGE.md`.*
+
+---
+
+## Amendment — Operator-gated promotion (2026-06-06)
+
+**Status:** Accepted. **Supersedes:** locked choice #3 above ("Merge trigger: auto-merge on
+green") and the auto-promote-on-green trigger in the pipeline diagram. Everything else in
+this ADR stands.
+
+### Rationale
+
+Philipp's user story:
+
+> "As a user, I want to see the RR (regression risk score) and decide when to run the
+> regression suite and merge to main, like professionals do in production-grade systems."
+
+Auto-merge-on-green was an interim posture while the regression suite was too thin to gate
+on. It removed the human from the promotion decision entirely: every green `dev` push
+silently reached `main`. The production-grade shape is the opposite — continuous feedback
+on every push, but **promotion is a deliberate operator action** informed by a visible
+risk signal. The operator chooses *when*; the suite still decides *whether*.
+
+### New flow
+
+```
+Slices land on dev
+   → ci.yml runs the regression suite on every dev push   (feedback only — never promotes)
+   → Ops dashboard / Branch Topology shows RR score
+     (formula: commits ahead, churn, critical-path files touched)
+   → Philipp judges the risk and clicks RUN GATE & MERGE TO MAIN
+   → dashboard POSTs /api/promote/dispatch
+   → promote.yml dispatched (workflow_dispatch) against dev
+   → runner re-runs the FULL regression suite against dev
+   → green → main fast-forwarded to the tested dev SHA
+   → red   → main untouched; strip shows gate failed + link to the run
+```
+
+Nothing auto-promotes. Bashir authors the regression suite (Ops label: "Bashir · Test
+Author"); GitHub Actions runs it; Philipp decides when.
+
+### What stays
+
+- **`ci.yml` per-push** on `dev` — every push gets a full suite run as feedback.
+- **ff-only promotion** — `main` only ever fast-forwards to a SHA the suite just passed
+  on; no merge commits, no untested code on `main`.
+- **GitHub Actions as the test runner** — dumb runner, no LLM, no OAuth secrets on runners.
+- **The retired local gate stays retired** — `gate-running.json` mutex, `branch-state.json`
+  `GATE_RUNNING`, `mergeDevToMain`, Bashir heartbeat, and the three step-cards remain dead.
+  This amendment does not resurrect any of it.
+
+### What changes
+
+- **`promote.yml` trigger:** auto-on-green → **`workflow_dispatch`** (manual, operator-initiated).
+- **RR score:** the Branch Topology panel computes and displays a real regression-risk
+  score from commits ahead, churn, and critical-path files touched — the operator's
+  decision input.
+- **Dashboard button:** **RUN GATE & MERGE TO MAIN** in the Branch Topology panel is the
+  single promotion entry point.
+- **`/api/promote/dispatch`:** new endpoint in `dashboard/server.js`; POSTs trigger the
+  `promote.yml` workflow_dispatch and guard against double-dispatch (`409
+  gate_already_running`).
