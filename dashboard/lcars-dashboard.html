@@ -1104,6 +1104,40 @@
     pointer-events: none;
   }
 
+  .crew-card.crew-card-clickable {
+    cursor: pointer;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+  }
+
+  .crew-card.crew-card-clickable:hover {
+    border-color: #9ca3af;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+
+  /* Regression catalogue overlay body (Bashir crew card) */
+  .regression-coverage-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 13px;
+    color: #374151;
+    line-height: 1.6;
+  }
+  .regression-coverage-body h1 { font-size: 18px; font-weight: 700; margin: 0 0 12px; }
+  .regression-coverage-body h2 { font-size: 15px; font-weight: 600; margin: 18px 0 6px; }
+  .regression-coverage-body h3 { font-size: 13px; font-weight: 600; margin: 12px 0 4px; }
+  .regression-coverage-body p  { margin: 6px 0; }
+  .regression-coverage-body ul, .regression-coverage-body ol { margin: 6px 0 6px 18px; }
+  .regression-coverage-body li { margin: 3px 0; }
+  .regression-coverage-body code { background: var(--border); border-radius: 3px; padding: 1px 4px; font-family: monospace; font-size: 12px; }
+  .regression-coverage-body pre { background: var(--border); border-radius: 4px; padding: 8px; overflow-x: auto; }
+  .regression-coverage-body pre code { background: none; padding: 0; }
+  .regression-coverage-body hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+  .regression-coverage-body table { border-collapse: collapse; margin: 8px 0; width: 100%; font-size: 12px; }
+  .regression-coverage-body th, .regression-coverage-body td { border: 1px solid var(--border); padding: 5px 8px; text-align: left; vertical-align: top; }
+  .regression-coverage-body th { background: var(--bg-subtle); font-weight: 600; }
+
   .crew-number {
     font-size: 11px;
     font-weight: 500;
@@ -3450,12 +3484,12 @@
         <div class="crew-function">Evaluates Rom's output against acceptance criteria before it ships.</div>
       </div>
 
-      <div class="crew-card active">
+      <div class="crew-card active crew-card-clickable" onclick="viewRegressionCatalogue()" title="View the regression catalogue coverage overview">
         <div class="crew-number">06</div>
         <div class="crew-name">Bashir</div>
         <div class="crew-role">QA Engineer</div>
         <span class="crew-badge badge-active">active</span>
-        <div class="crew-function">Writes and runs the journey regression suite that gates promotion to main.</div>
+        <div class="crew-function">Writes and runs the journey regression suite that gates promotion to main. Click for the coverage overview.</div>
       </div>
 
       <div class="crew-card active">
@@ -3541,6 +3575,23 @@
     <div class="history-detail-footer">
       <button class="history-detail-close-btn" onclick="closeHistoryDetail()">&times; Close</button>
     </div>
+  </div>
+</div>
+
+<!-- Regression Catalogue overlay (Bashir crew card) -->
+<div class="history-detail-overlay" id="regression-coverage-overlay" style="display:none">
+  <div class="history-detail-panel">
+    <div class="history-detail-header">
+      <div class="history-detail-header-left">
+        <div class="history-detail-header-top">
+          <span class="history-detail-id">BASHIR · QA</span>
+          <span class="history-detail-title">Regression Catalogue — Coverage</span>
+        </div>
+        <div class="history-detail-context" id="regression-coverage-updated"></div>
+      </div>
+      <button class="history-detail-close" onclick="closeRegressionCoverage()">&times; close</button>
+    </div>
+    <div class="regression-coverage-body" id="regression-coverage-body"></div>
   </div>
 </div>
 
@@ -4876,6 +4927,46 @@
 
   document.getElementById('history-detail-overlay').addEventListener('click', (e) => {
     if (e.target === e.currentTarget) closeHistoryDetail();
+  });
+
+  // ── Regression catalogue overlay (Bashir crew card) ─────────────────────────
+  let regressionCoverageOpen = false;
+
+  async function viewRegressionCatalogue() {
+    const overlay = document.getElementById('regression-coverage-overlay');
+    const body = document.getElementById('regression-coverage-body');
+    overlay.style.display = '';
+    regressionCoverageOpen = true;
+    body.innerHTML = '<span class="null-val">Loading...</span>';
+    document.getElementById('regression-coverage-updated').textContent = 'regression/COVERAGE.md';
+    try {
+      const res = await fetch('/api/regression/coverage');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      document.getElementById('regression-coverage-updated').textContent =
+        `regression/COVERAGE.md — updated ${new Date(data.updated).toLocaleString()}`;
+      body.innerHTML = typeof marked !== 'undefined'
+        ? marked.parse(data.markdown)
+        : `<pre>${escHtml(data.markdown)}</pre>`;
+    } catch (err) {
+      body.innerHTML = `<span class="null-val">Could not load coverage: ${escHtml(String(err))}</span>`;
+    }
+  }
+
+  function closeRegressionCoverage() {
+    document.getElementById('regression-coverage-overlay').style.display = 'none';
+    regressionCoverageOpen = false;
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && regressionCoverageOpen) {
+      closeRegressionCoverage();
+      e.stopPropagation();
+    }
+  });
+
+  document.getElementById('regression-coverage-overlay').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeRegressionCoverage();
   });
 
   // ── Services panel ───────────────────────────────────────────────────────────

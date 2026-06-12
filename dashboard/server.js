@@ -1749,6 +1749,26 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ── Regression catalogue overview (Bashir crew card) ───────────────────────
+  if (pathname === '/api/regression/coverage' && req.method === 'GET') {
+    try {
+      const coveragePath = path.join(REPO_ROOT, 'regression', 'COVERAGE.md');
+      if (!fs.existsSync(coveragePath)) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'coverage_not_found' }));
+        return;
+      }
+      const markdown = fs.readFileSync(coveragePath, 'utf8');
+      const updated = fs.statSync(coveragePath).mtime.toISOString();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ markdown, updated }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: String(err) }));
+    }
+    return;
+  }
+
   // ── Gate start (slice 265) ─────────────────────────────────────────────────
   if (pathname === '/api/gate/start' && req.method === 'POST') {
     // Validate branch-state preconditions
