@@ -242,18 +242,45 @@ test('J-direct-controls-ops-ui slice-99810-ac-2 — fast green runs stay visible
   assert.match(html, /critical file/, 'footer must surface critical-file touches');
 });
 
-test('J-direct-controls-ops-ui slice-99808-ac-3 — the shipped dashboard wires the Bashir crew card: active, clickable, opens the coverage overlay', () => {
+test('J-direct-controls-ops-ui slice-99808-ac-3 — the shipped dashboard wires the Bashir crew card: active, clickable, opens the crew dossier (coverage now lives in his Artifacts tab)', () => {
   const html = fs.readFileSync(DASHBOARD_SRC, 'utf8');
 
-  // The card itself: active (not planned/inert) and wired to the handler.
-  const cardMatch = html.match(/<div class="crew-card ([^"]*)"[^>]*onclick="viewRegressionCatalogue\(\)"[^>]*>([\s\S]{0,400}?)Bashir/);
-  assert.ok(cardMatch, 'the Bashir crew card must carry onclick="viewRegressionCatalogue()"');
+  // The crew-dossier-tabs slice superseded the old direct-to-coverage click:
+  // every crew card now opens the crew menu (New / Resume conversation · Inspect role),
+  // and Bashir's coverage overview moved into his Artifacts tab. The
+  // /api/regression/coverage endpoint stays for back-compat (asserted in ac-1/ac-2).
+  const cardMatch = html.match(/<div class="crew-card ([^"]*)"[^>]*onclick="openCrewMenu\(event, 'bashir'\)"[^>]*>([\s\S]{0,400}?)Bashir/);
+  assert.ok(cardMatch, "the Bashir crew card must be clickable and open the crew menu (onclick=\"openCrewMenu(event, 'bashir')\")");
   assert.match(cardMatch[1], /\bactive\b/, 'the card must be active — planned cards have pointer-events: none');
+  assert.match(cardMatch[1], /\bcrew-card-clickable\b/, 'the card must carry crew-card-clickable');
   assert.doesNotMatch(cardMatch[1], /\bplanned\b/, 'the card must not be planned/inert');
 
-  // The overlay and its handler functions exist and fetch the endpoint.
-  assert.match(html, /id="regression-coverage-overlay"/, 'the coverage overlay markup must exist');
-  assert.match(html, /async function viewRegressionCatalogue\(\)/, 'the open handler must be defined');
-  assert.match(html, /function closeRegressionCoverage\(\)/, 'the close handler must be defined');
-  assert.match(html, /fetch\('\/api\/regression\/coverage'\)/, 'the handler must fetch the coverage endpoint');
+  // The crew menu + dossier overlay exist, and "Inspect role" opens the dossier.
+  assert.match(html, /id="crew-menu"/, 'the crew action menu markup must exist');
+  assert.match(html, /onclick="inspectCrewRole\(\)"/, 'the menu must offer "Inspect role"');
+  assert.match(html, /id="crew-dossier-overlay"/, 'the crew dossier overlay markup must exist');
+  assert.match(html, /async function openCrewDossier\(/, 'the dossier open handler must be defined');
+
+  // Back-compat: the legacy coverage overlay + endpoint fetch still exist for direct callers.
+  assert.match(html, /id="regression-coverage-overlay"/, 'the coverage overlay markup must still exist (back-compat)');
+  assert.match(html, /fetch\('\/api\/regression\/coverage'\)/, 'the coverage endpoint fetch must still exist (back-compat)');
+});
+
+test('J-direct-controls-ops-ui slice-99808-ac-4 — Bashir\'s dossier surfaces the regression coverage as a clickable Artifacts entry (crew-dossier-tabs)', async () => {
+  // Inspect role → Artifacts: the coverage overview is reachable from Bashir's dossier.
+  const dossier = await request('GET', '/api/crew/bashir/dossier');
+  assert.equal(dossier.status, 200, 'bashir dossier must answer 200');
+  assert.ok(Array.isArray(dossier.body.artifacts), 'dossier must include an artifacts array');
+  const coverage = dossier.body.artifacts.find(a => a.path === 'regression/COVERAGE.md');
+  assert.ok(coverage, 'Bashir\'s Artifacts tab must list regression/COVERAGE.md');
+  assert.equal(coverage.kind, 'md', 'coverage artifact must render as markdown');
+
+  // The artifact content endpoint serves that file (membership-guarded).
+  const art = await request('GET', '/api/crew/artifact?role=bashir&path=regression%2FCOVERAGE.md');
+  assert.equal(art.status, 200, 'declared artifact must be served');
+  assert.match(art.body.content, /Regression Catalogue/, 'served content must be the coverage markdown');
+
+  // Allowlist + traversal guards: unknown role → 404; non-declared path → 404.
+  assert.equal((await request('GET', '/api/crew/dukat/dossier')).status, 404, 'unknown role must 404');
+  assert.equal((await request('GET', '/api/crew/artifact?role=bashir&path=..%2F..%2Fetc%2Fpasswd')).status, 404, 'traversal must 404');
 });
