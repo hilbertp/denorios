@@ -258,6 +258,24 @@ test('J-merge-button-pass slice-316-ac-2 — gate step pins TESTED_SHA from chec
   assert.match(ffRun, /exit 1/, 'divergence must fail the job (exit 1)');
 });
 
+test('J-merge-button-pass ac-13 — the expensive browser e2e suite is part of the merge gate: promote.yml runs Playwright AFTER the regression suite and BEFORE the ff, in one job (main is never promoted on a red e2e — Philipp 2026-06-13)', () => {
+  const steps = parseJobSteps(promoteSrc);
+  // The browser gate runs `npx playwright test` in a run-block step.
+  const e2eIdx = steps.findIndex(s => (runBlockOf(s) || '').includes('playwright test'));
+  assert.ok(e2eIdx !== -1,
+    'promote.yml must run the Playwright browser suite as a merge gate — main is never merged unless the e2e suite is green');
+
+  const regIdx = steps.findIndex(s => (runBlockOf(s) || '').includes('node --test'));
+  const ffIdx  = steps.findIndex(s => (runBlockOf(s) || '').includes('merge-base --is-ancestor'));
+  assert.ok(regIdx !== -1 && ffIdx !== -1, 'promote.yml must keep the regression + ff steps');
+  // After the fast suite, before the ff push: a red e2e fails the job before main can move.
+  assert.ok(regIdx < e2eIdx && e2eIdx < ffIdx,
+    'the e2e gate must run after the regression suite and before the fast-forward step');
+  // One job ⇒ the browser suite cannot land on a different runner/SHA than the one promoted.
+  assert.equal((promoteSrc.match(/runs-on:/g) || []).length, 1,
+    'regression, e2e, and ff must share one job — one checkout, one tested-and-promoted SHA');
+});
+
 // ═════════════════════════════════════════════════════════════════════════════
 // Part B — ff step behavioral: execute promote.yml's own ff script against a
 // tmp work repo + local bare origin (TESTED_SHA via env, as GITHUB_ENV would)

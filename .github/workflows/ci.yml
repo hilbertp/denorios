@@ -5,9 +5,12 @@ name: CI
 # and grows per use case. The fast unit gate (job `test`) is pure Node, no install step.
 #
 # Job `e2e` is a SEPARATE, heavier job: real Playwright browser clicktests of the Ops
-# dashboard (e2e/). It runs in parallel with the unit gate so it never slows the hot
-# loop, and it is intentionally NOT part of promote.yml (the merge gate) — browser e2e
-# is feedback, not a merge blocker, by design (see O'Brien's e2e handoff to Bashir).
+# dashboard (e2e/). The expensive browser suite is the MERGE GATE — it runs inside
+# promote.yml and main is never promoted unless it is green (Philipp, 2026-06-13).
+# Here it does NOT run on every dev push (it would block the hot loop / a workstation
+# for ~30 min); it runs only on pull_request to main and on manual workflow_dispatch,
+# as an optional pre-gate dry run. The fast regression suite (`test`) stays per-push
+# for early warning.
 #
 # NOTE: test/ (the orchestrator's own unit/integration tests) is intentionally NOT in the
 # prod gate yet — much of it is slow integration and tests the local-merge internals being
@@ -63,6 +66,9 @@ jobs:
   e2e:
     name: playwright e2e (Ops dashboard journeys)
     runs-on: ubuntu-latest
+    # The browser suite is the merge gate (promote.yml). Don't burn ~30 min on it
+    # for every dev push — only on PRs to main and manual dispatch.
+    if: github.event_name != 'push'
     steps:
       - uses: actions/checkout@v4
 

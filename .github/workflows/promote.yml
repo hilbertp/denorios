@@ -8,11 +8,15 @@ name: Promote dev to main
 # workflow deliberately — via the dashboard's Promote button (POST
 # /api/promote/dispatch) or `gh workflow run promote.yml --ref dev`.
 #
-# When dispatched, this workflow re-runs the full regression suite against
-# exactly the dev SHA being promoted, and fast-forwards main to that commit
-# ONLY if the suite is green. A red suite fails the job and main is untouched —
-# that IS the gate. ci.yml still runs on every dev push for per-push feedback
-# (informational row on the dashboard); it no longer triggers promotion.
+# When dispatched, this workflow re-runs the FULL regression set against exactly
+# the dev SHA being promoted — BOTH the fast node:test suite (regression/) AND
+# the expensive Playwright browser click-paths (e2e/) — and fast-forwards main to
+# that commit ONLY if EVERYTHING is green. A red suite (regression OR e2e) fails
+# the job and main is untouched — that IS the gate. main is never merged unless
+# the regression suite is fully green (Philipp, 2026-06-13). Both suites run in
+# this one job against a single checkout, so the SHA tested is exactly the SHA
+# promoted. ci.yml still runs the fast suite on every dev push for early warning;
+# it no longer runs the browser e2e on push and it never triggers promotion.
 
 on:
   workflow_dispatch: {}
@@ -34,7 +38,7 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Run regression gate
+      - name: Run regression gate (fast node:test suite)
         run: |
           set -euo pipefail
           TESTED_SHA="$(git rev-parse HEAD)"
@@ -42,10 +46,25 @@ jobs:
           echo "Running regression suite against dev@$TESTED_SHA"
           node --test 'regression/**/*.test.js'
 
+      # The expensive browser click-paths are part of the merge gate, not just
+      # per-push feedback: main does not move unless these are green too. Same job,
+      # same checkout ⇒ exactly the TESTED_SHA above is what gets exercised + promoted.
+      - name: Install dependencies (browser e2e gate)
+        run: npm install
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser e2e gate (Playwright click-paths)
+        run: |
+          set -euo pipefail
+          echo "Running browser e2e suite against dev@$TESTED_SHA"
+          npx playwright test
+
       - name: Fast-forward main to the tested commit
         run: |
           set -euo pipefail
-          echo "Regression suite green on dev@$TESTED_SHA — promoting to main"
+          echo "Regression + browser e2e green on dev@$TESTED_SHA — promoting to main"
           git fetch origin main
           if git merge-base --is-ancestor origin/main "$TESTED_SHA"; then
             git push origin "$TESTED_SHA:refs/heads/main"
