@@ -41,7 +41,12 @@ test('standing Auto-approve promotes every proposal automatically', async ({ pag
   await page.locator('.auto-approve-toggle').click();
   await expect(page.locator('.auto-approve-active')).toBeVisible(); // "· promoting automatically"
 
-  // Both proposals drain to QUEUED with no further clicks.
-  await expect(page.locator('.queue-row[data-id="9001"]')).toHaveAttribute('data-state', 'QUEUED');
-  await expect(page.locator('.queue-row[data-id="9002"]')).toHaveAttribute('data-state', 'QUEUED');
+  // Both proposals drain to QUEUED with no further clicks. The list re-renders on
+  // each poll and tags the outgoing row `.row-exiting` mid-animation, so a bare
+  // data-id selector transiently matches two elements — scope to the settled
+  // (non-exiting) row and assert no STAGED proposal remains for the id.
+  for (const id of ['9001', '9002']) {
+    await expect(page.locator(`.queue-row[data-id="${id}"][data-state="STAGED"]:not(.row-exiting)`)).toHaveCount(0);
+    await expect(page.locator(`.queue-row[data-id="${id}"]:not(.row-exiting)`)).toHaveAttribute('data-state', 'QUEUED');
+  }
 });

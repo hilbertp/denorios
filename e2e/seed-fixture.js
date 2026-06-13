@@ -20,10 +20,93 @@ const ROOT = path.join(os.tmpdir(), 'lob-e2e-fixture');
 
 const w = (p, c) => { fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, c); };
 
+// Recursively copy every .js file under `src` into `dst`, preserving the directory
+// structure (so bridge/state/*.js, bridge/scripts/*.js, etc. all resolve in the fixture).
+function copyJsTree(src, dst) {
+  for (const ent of fs.readdirSync(src, { withFileTypes: true })) {
+    const s = path.join(src, ent.name);
+    const d = path.join(dst, ent.name);
+    if (ent.isDirectory()) {
+      copyJsTree(s, d);
+    } else if (ent.isFile() && ent.name.endsWith('.js')) {
+      fs.mkdirSync(path.dirname(d), { recursive: true });
+      try { fs.cpSync(s, d); } catch (_) {}
+    }
+  }
+}
+
 function stagedSlice(id, title) {
   return `---\nid: "${id}"\ntitle: "${title}"\nfrom: obrien\nto: rom\npriority: normal\n`
        + `created: "2026-06-13T00:00:00.000Z"\nstatus: "STAGED"\n---\n\n`
        + `## Goal\n\nE2E fixture proposal ${id}.\n\n## Acceptance criteria\n\n- it works\n`;
+}
+
+function queuedSlice(id, title) {
+  return `---\nid: "${id}"\ntitle: "${title}"\nfrom: obrien\nto: rom\npriority: normal\n`
+       + `created: "2026-06-13T00:00:00.000Z"\nstatus: "QUEUED"\n---\n\n`
+       + `## Goal\n\nE2E queued work order ${id}.\n\n## Acceptance criteria\n\n- it works\n`;
+}
+
+// ── Journey-specific seed helpers (each fully establishes the state it needs;
+//    tests run serially with workers:1, so overwriting shared files is safe). ──
+
+// Regression report (Infirmary CI-strip "report" link). LAST-RUN.md is gitignored,
+// so it is ABSENT on a fresh CI checkout — the fixture must write its own deterministic
+// copy or the journey behaves differently in CI than locally.
+function seedRegressionReport() {
+  const b = path.join(ROOT, 'bridge');               // (unused, kept for symmetry)
+  void b;
+  w(path.join(ROOT, 'regression', 'LAST-RUN.md'),
+    '# 🟢 PASS — regression gate\n\n'
+    + '**168 passed · 0 failed · 9 skipped**\n\n'
+    + 'Deterministic e2e fixture report. The Infirmary "report" link renders this verbatim.\n');
+}
+
+// A merged slice in the History/Logbook with the full dev → reg → main lifecycle chain.
+// recent[] entries come from DONE/ERROR events; onMain (and regressionPassed) is set by
+// SLICE_MERGED_TO_MAIN; the title/goal come from COMMISSIONED; NOG_DECISION = accepted chip.
+function seedHistorySlice(id = '8001') {
+  const events = [
+    { ts: '2026-06-13T10:00:00.000Z', event: 'COMMISSIONED', id, title: 'Merged history slice', goal: 'Prove the lifecycle chain renders.' },
+    { ts: '2026-06-13T10:30:00.000Z', event: 'DONE', id, durationMs: 5000, tokensIn: 10000, tokensOut: 20000, costUsd: 0.75 },
+    { ts: '2026-06-13T10:35:00.000Z', event: 'NOG_DECISION', id, verdict: 'ACCEPTED' },
+    { ts: '2026-06-13T10:40:00.000Z', event: 'SLICE_MERGED_TO_MAIN', id },
+  ];
+  w(path.join(ROOT, 'bridge', 'register.jsonl'), events.map(e => JSON.stringify(e)).join('\n') + '\n');
+}
+
+// Cost data for Quark's Ledger: a Rom DONE event with real token/cost numbers
+// (the ledger always lists every role zeroed; this gives Rom a non-zero row + a total).
+function seedCostEvents() {
+  const events = [
+    { ts: '2026-06-13T12:00:00.000Z', event: 'COMMISSIONED', id: '8100', title: 'Ledger fixture', goal: 'spend' },
+    { ts: '2026-06-13T12:05:00.000Z', event: 'DONE', id: '8100', durationMs: 60000, tokensIn: 4200, tokensOut: 1500, costUsd: 0.42 },
+  ];
+  w(path.join(ROOT, 'bridge', 'register.jsonl'), events.map(e => JSON.stringify(e)).join('\n') + '\n');
+}
+
+// Two QUEUED slices in Approved Work Orders for the drag-reorder journey.
+function seedQueuedPair() {
+  const b = path.join(ROOT, 'bridge');
+  for (const d of ['staged', 'queue']) {
+    const dir = path.join(b, d);
+    try { for (const f of fs.readdirSync(dir)) fs.rmSync(path.join(dir, f), { force: true }); } catch (_) {}
+  }
+  w(path.join(b, 'queue', '5001-QUEUED.md'), queuedSlice('5001', 'Drag order one'));
+  w(path.join(b, 'queue', '5002-QUEUED.md'), queuedSlice('5002', 'Drag order two'));
+  w(path.join(b, 'queue-order.json'), JSON.stringify(['5001', '5002']));
+  w(path.join(b, 'staged-order.json'), '[]');
+  // getCachedBridgeData() keys its cache on register.jsonl + heartbeat.json mtimes only
+  // (not the queue dir / queue-order). Writing queue files alone leaves a warm server
+  // serving the stale boot state, so bump the heartbeat to force a rebuild.
+  bumpHeartbeat();
+}
+
+// Rewrite heartbeat.json with a fresh timestamp so its mtime advances and the server's
+// bridge-data cache invalidates (it keys on register + heartbeat mtimes).
+function bumpHeartbeat() {
+  w(path.join(ROOT, 'bridge', 'heartbeat.json'),
+    JSON.stringify({ current_slice: null, ts: new Date().toISOString() }));
 }
 
 function seedFixture() {
@@ -41,12 +124,11 @@ function seedFixture() {
     fs.mkdirSync(path.join(b, d), { recursive: true });
   }
   // The server require()s bridge JS modules from REPO_ROOT (lifecycle-translate at boot,
-  // orchestrator lazily on gate-start) — copy them so requires resolve.
-  for (const f of fs.readdirSync(path.join(REPO, 'bridge'))) {
-    if (f.endsWith('.js')) {
-      try { fs.cpSync(path.join(REPO, 'bridge', f), path.join(b, f)); } catch (_) {}
-    }
-  }
+  // gate-alerts on /api/gate-health, orchestrator lazily on gate-start). Those modules
+  // pull in bridge/state/*.js (atomic-write, gate-mutex, gate-telemetry, …) too, so copy
+  // EVERY .js under bridge/ preserving structure — a flat top-level copy misses
+  // bridge/state/ and crashes the server on the first /api/gate-health poll.
+  copyJsTree(path.join(REPO, 'bridge'), b);
   w(path.join(b, 'register.jsonl'), '');
   w(path.join(b, 'heartbeat.json'), JSON.stringify({ current_slice: null, ts: '2026-06-13T00:00:00.000Z' }));
   w(path.join(b, 'queue-order.json'), '[]');
@@ -81,3 +163,7 @@ function resetQueueState() {
 module.exports = seedFixture;
 module.exports.ROOT = ROOT;
 module.exports.resetQueueState = resetQueueState;
+module.exports.seedRegressionReport = seedRegressionReport;
+module.exports.seedHistorySlice = seedHistorySlice;
+module.exports.seedCostEvents = seedCostEvents;
+module.exports.seedQueuedPair = seedQueuedPair;

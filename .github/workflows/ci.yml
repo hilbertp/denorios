@@ -2,7 +2,12 @@ name: CI
 
 # Regression gate for the dev → main model (docs/adr/ADR-GITHUB-CI-MERGE-MODEL.md).
 # Runs BASHIR'S REGRESSION SUITE (regression/) — his behavioral gate, which he authors
-# and grows per use case. The repo has no npm deps (pure Node), so no install step.
+# and grows per use case. The fast unit gate (job `test`) is pure Node, no install step.
+#
+# Job `e2e` is a SEPARATE, heavier job: real Playwright browser clicktests of the Ops
+# dashboard (e2e/). It runs in parallel with the unit gate so it never slows the hot
+# loop, and it is intentionally NOT part of promote.yml (the merge gate) — browser e2e
+# is feedback, not a merge blocker, by design (see O'Brien's e2e handoff to Bashir).
 #
 # NOTE: test/ (the orchestrator's own unit/integration tests) is intentionally NOT in the
 # prod gate yet — much of it is slow integration and tests the local-merge internals being
@@ -50,4 +55,34 @@ jobs:
         with:
           name: regression-report
           path: regression/LAST-RUN.md
+          if-no-files-found: ignore
+
+  # ── Browser e2e (Playwright) — separate, heavier job; parallel to the unit gate. ──
+  # Drives the REAL dashboard frontend against a deterministic fixture backend
+  # (e2e/seed-fixture.js). No real claude/Terminal/git/merge side effects.
+  e2e:
+    name: playwright e2e (Ops dashboard journeys)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright e2e suite
+        run: npx playwright test
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
           if-no-files-found: ignore
