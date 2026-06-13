@@ -20,6 +20,9 @@ module.exports = defineConfig({
     baseURL: `http://127.0.0.1:${PORT}`,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    // E2E_SLOWMO=<ms> slows every action so a human can watch the journeys run
+    // (set only for live demos with --headed; defaults to 0, no effect on CI).
+    launchOptions: { slowMo: process.env.E2E_SLOWMO ? parseInt(process.env.E2E_SLOWMO, 10) : 0 },
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
