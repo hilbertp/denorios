@@ -7690,7 +7690,11 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
     // otherwise the gate's regression reads as "pre-passed / never started".
     const _gPr = gh && gh.promote_run ? gh.promote_run : null;
     const _gPhases = _promoteRunStale(gh) ? null : (_gPr && _gPr.phases ? _gPr.phases : null);
-    const _gateReg = _gateIsRunning(gh)
+    // Reflect the gate's regression step while RUNNING *and* once it has terminally
+    // FAILED for the current dev tip — else a just-failed gate's regression row wrongly
+    // reverts to "not run in the gate yet".
+    const _gateCurrentFail = _gPr && _gPr.status === 'failure' && !_promoteRunStale(gh);
+    const _gateReg = (_gateIsRunning(gh) || _gateCurrentFail)
       ? ((_gPhases || []).find(p => p.key === 'regression') || { status: 'pending', duration_s: null })
       : null;
     if (_gateReg) {
