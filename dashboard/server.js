@@ -7,7 +7,12 @@ const { execFileSync, execFile } = require('child_process');
 
 const PORT         = process.env.DASHBOARD_PORT ? parseInt(process.env.DASHBOARD_PORT, 10) : 4747;
 const HOST         = process.env.DASHBOARD_HOST ?? '0.0.0.0';
-const REPO_ROOT    = path.resolve(__dirname, '..');
+// REPO_ROOT defaults to the repo (one above dashboard/). E2E/integration harnesses
+// set DASHBOARD_REPO_ROOT to point the data layer (bridge/, .claude/, regression/) at a
+// deterministic fixture, while the frontend (lcars-dashboard.html) is still served from __dirname.
+const REPO_ROOT    = process.env.DASHBOARD_REPO_ROOT
+  ? path.resolve(process.env.DASHBOARD_REPO_ROOT)
+  : path.resolve(__dirname, '..');
 const QUEUE_DIR    = path.join(REPO_ROOT, 'bridge', 'queue');
 const HEARTBEAT    = path.join(REPO_ROOT, 'bridge', 'heartbeat.json');
 const REGISTER     = path.join(REPO_ROOT, 'bridge', 'register.jsonl');

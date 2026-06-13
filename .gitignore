@@ -53,3 +53,10 @@ regression/_test_pass_suite/
 # Bashir's generated regression report + the auto-routed O'Brien handoff (regenerated every gate run)
 regression/LAST-RUN.md
 .claude/roles/obrien/inbox/REGRESSION-FAILURE.md
+
+# Playwright e2e artifacts (generated)
+node_modules/
+test-results/
+playwright-report/
+blob-report/
+.playwright/
