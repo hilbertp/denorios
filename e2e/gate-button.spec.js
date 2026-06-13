@@ -65,3 +65,46 @@ test('RUN GATE acknowledges the click instantly (DISPATCHING → GATE RUNNING) w
   // The real promote workflow was never triggered — only our stub was hit.
   expect(dispatchCalled).toBe(true);
 });
+
+// A red gate (regression OR e2e failed in promote.yml) must STOP and be FLAGGED to
+// the operator — not promote, not auto-retry (Philipp: "on yellow or red, we stop and
+// flag to the user"). A "yellow" run (cancelled/timed_out) is normalized to `failure`
+// server-side, so it lands on this same UI path. main must stay untouched.
+const FAILED_BRANCH_STATE = JSON.parse(JSON.stringify(AHEAD_BRANCH_STATE));
+FAILED_BRANCH_STATE.github.promote_run = {
+  status: 'failure', run_id: 77,
+  url: 'https://github.com/hilbertp/liberation-of-bajor/actions/runs/77',
+  head_sha7: 'bbbbbbb', updated_at: '2026-06-13T12:30:00.000Z',
+};
+
+test('a red/yellow gate is flagged to the operator and main is not promoted', async ({ page }) => {
+  await page.route('**/api/branch-state', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(FAILED_BRANCH_STATE) }));
+  // Guard: a failed gate must never auto-dispatch a new run on its own.
+  let autoDispatched = false;
+  await page.route('**/api/promote/dispatch', route => {
+    autoDispatched = true;
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
+  });
+
+  await page.goto('/');
+
+  // FLAG: the CI strip's Promote row shows the gate failed, with a deep link to investigate.
+  const promoteText = page.locator('#ci-strip-promote-text');
+  await expect(promoteText).toContainText('gate failed');
+  const promoteLink = page.locator('#ci-strip-promote-link');
+  await expect(promoteLink).toBeVisible();
+  await expect(promoteLink).toHaveAttribute('href', /actions\/runs\/77/);
+  // The whole strip flips to its failure state.
+  await expect(page.locator('#ci-strip')).toHaveAttribute('data-state', 'fail');
+
+  // STOP, don't promote: the Promote row must NOT claim main moved...
+  await expect(promoteText).not.toContainText('fast-forwarded');
+  // ...and the button hands control back to the operator (RUN GATE, not GATE RUNNING),
+  // without firing a new run on its own.
+  const btn = page.locator('#promote-gate-btn');
+  await expect(btn).toContainText('RUN GATE');
+  await expect(btn).toBeEnabled();
+  await page.waitForTimeout(500);
+  expect(autoDispatched).toBe(false); // a red gate never silently re-promotes
+});
