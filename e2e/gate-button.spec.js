@@ -66,45 +66,52 @@ test('RUN GATE acknowledges the click instantly (DISPATCHING → GATE RUNNING) w
   expect(dispatchCalled).toBe(true);
 });
 
-// A red gate (regression OR e2e failed in promote.yml) must STOP and be FLAGGED to
-// the operator — not promote, not auto-retry (Philipp: "on yellow or red, we stop and
-// flag to the user"). A "yellow" run (cancelled/timed_out) is normalized to `failure`
-// server-side, so it lands on this same UI path. main must stay untouched.
-const FAILED_BRANCH_STATE = JSON.parse(JSON.stringify(AHEAD_BRANCH_STATE));
-FAILED_BRANCH_STATE.github.promote_run = {
+// Watch an IMPERFECT run get flagged: press RUN GATE, the gate runs, then comes
+// back red — and the dashboard VISIBLY flips to a flagged "gate failed" state, stops,
+// and hands control back (Philipp: "on yellow or red, we stop and flag to the user").
+// A "yellow" run (cancelled/timed_out) is normalized to `failure` server-side, so it
+// lands on this same flag path. main must stay untouched; no silent re-promote.
+const FAILURE_RUN = {
   status: 'failure', run_id: 77,
   url: 'https://github.com/hilbertp/liberation-of-bajor/actions/runs/77',
   head_sha7: 'bbbbbbb', updated_at: '2026-06-13T12:30:00.000Z',
 };
+const IDLE_RUN = { status: 'idle', run_id: null, url: null, head_sha7: null, updated_at: null };
 
-test('a red/yellow gate is flagged to the operator and main is not promoted', async ({ page }) => {
+test('clicking RUN GATE on a run that fails: the dashboard visibly flips to a flagged gate-failed state', async ({ page }) => {
+  let failed = false;       // becomes true a moment after dispatch — the run "comes back red"
+  let dispatchCount = 0;
+  const branchState = (promoteRun) => {
+    const s = JSON.parse(JSON.stringify(AHEAD_BRANCH_STATE));
+    s.github.promote_run = promoteRun;
+    return JSON.stringify(s);
+  };
+
   await page.route('**/api/branch-state', route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(FAILED_BRANCH_STATE) }));
-  // Guard: a failed gate must never auto-dispatch a new run on its own.
-  let autoDispatched = false;
+    route.fulfill({ status: 200, contentType: 'application/json', body: branchState(failed ? FAILURE_RUN : IDLE_RUN) }));
   await page.route('**/api/promote/dispatch', route => {
-    autoDispatched = true;
+    dispatchCount++;
+    setTimeout(() => { failed = true; }, 1500); // the gate runs, then the run reports failure
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
   });
 
   await page.goto('/');
-
-  // FLAG: the CI strip's Promote row shows the gate failed, with a deep link to investigate.
-  const promoteText = page.locator('#ci-strip-promote-text');
-  await expect(promoteText).toContainText('gate failed');
-  const promoteLink = page.locator('#ci-strip-promote-link');
-  await expect(promoteLink).toBeVisible();
-  await expect(promoteLink).toHaveAttribute('href', /actions\/runs\/77/);
-  // The whole strip flips to its failure state.
-  await expect(page.locator('#ci-strip')).toHaveAttribute('data-state', 'fail');
-
-  // STOP, don't promote: the Promote row must NOT claim main moved...
-  await expect(promoteText).not.toContainText('fast-forwarded');
-  // ...and the button hands control back to the operator (RUN GATE, not GATE RUNNING),
-  // without firing a new run on its own.
   const btn = page.locator('#promote-gate-btn');
   await expect(btn).toContainText('RUN GATE');
+  await btn.click();
+  await expect(btn).toContainText('GATE RUNNING'); // the run is going…
+
+  // …then it comes back imperfect — the dashboard FLAGS it, loudly and visibly.
+  const promoteText = page.locator('#ci-strip-promote-text');
+  await expect(promoteText).toContainText('gate failed', { timeout: 12000 });
+  await expect(page.locator('#ci-strip')).toHaveAttribute('data-state', 'fail'); // strip turns red
+  const promoteLink = page.locator('#ci-strip-promote-link');
+  await expect(promoteLink).toBeVisible();
+  await expect(promoteLink).toHaveAttribute('href', /actions\/runs\/77/); // deep link to investigate
+
+  // STOP, don't promote: no main fast-forward claimed, and control returns to the operator.
+  await expect(promoteText).not.toContainText('fast-forwarded');
+  await expect(btn).toContainText('RUN GATE');
   await expect(btn).toBeEnabled();
-  await page.waitForTimeout(500);
-  expect(autoDispatched).toBe(false); // a red gate never silently re-promotes
+  expect(dispatchCount).toBe(1); // exactly one run — the failure never silently re-fired
 });
