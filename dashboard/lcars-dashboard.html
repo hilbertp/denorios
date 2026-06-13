@@ -2230,6 +2230,33 @@
     text-overflow: ellipsis;
   }
 
+  /* ── Operator rollback button — the reverse of promote. Reverts main's last
+     promotion through the gate (ADR-ROLLBACK-MODEL). Amber so it reads as the
+     inverse of the green RUN GATE pill it sits beside. ── */
+  .topo-rollback-btn {
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    padding: 5px 12px;
+    border-radius: var(--radius-pill);
+    border: 1px solid #b45309;
+    background: none;
+    color: #b45309;
+    cursor: pointer;
+    transition: background var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast);
+  }
+  .topo-rollback-btn:hover:not(:disabled) { background: #b45309; border-color: #b45309; color: var(--bg-panel); }
+  .topo-rollback-btn:focus-visible { outline: 2px solid #b45309; outline-offset: 2px; }
+  .topo-rollback-btn:disabled {
+    background: var(--bg-subtle);
+    border-color: var(--border);
+    color: var(--ink-4);
+    cursor: not-allowed;
+  }
+
   /* ── CI status strip (Branch Topology — slice 315) ── */
   .ci-strip {
     margin-top: 10px;
@@ -5280,6 +5307,134 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
     }
   }
 
+  // ── Topology rollback — undo the LAST promotion to main ──────────────────
+  // The Branch Topology footer's reverse of RUN GATE & MERGE. Targets main's
+  // tip SHA (the last commit promoted) instead of a History row's slice, so it
+  // works regardless of register slice→squash bookkeeping. Reuses the same
+  // preview/dispatch endpoints (keyed by ?sha=) and the same optimistic
+  // gate-running machinery as promote + per-row rollback.
+  function openTopoRollback() {
+    const gh = _lastBranchState && _lastBranchState.github ? _lastBranchState.github : null;
+    const mainSha = gh && gh.origin_main_sha ? gh.origin_main_sha : null;
+    if (!mainSha) return;
+    renderTopoRollbackOverlay(mainSha, { state: 'loading' });
+    fetch(`/api/rollback/preview?sha=${encodeURIComponent(mainSha)}`)
+      .then(r => r.json().then(d => ({ ok: r.ok, d })).catch(() => ({ ok: false, d: {} })))
+      .then(({ ok, d }) => {
+        if (ok && d.ok) renderTopoRollbackOverlay(mainSha, { state: 'ready', preview: d });
+        else renderTopoRollbackOverlay(mainSha, { state: 'error', error: (d && d.error) || 'preview failed' });
+      })
+      .catch(() => renderTopoRollbackOverlay(mainSha, { state: 'error', error: 'network error' }));
+  }
+
+  function renderTopoRollbackOverlay(mainSha, opts) {
+    closeRollbackOverlay();
+    const overlay = document.createElement('div');
+    overlay.className = 'rollback-overlay';
+    overlay.id = 'rollback-overlay';
+    overlay.onclick = (e) => { if (e.target === overlay) closeRollbackOverlay(); };
+
+    const shortSha = _rbEsc(String(mainSha).slice(0, 7));
+    let movesHtml = '';
+    let gotchaHtml = '';
+    let errHtml = '';
+    let confirmDisabled = '';
+
+    if (opts.state === 'loading') {
+      movesHtml = '<div class="rollback-moves"><div class="rb-line">computing what will move to main…</div></div>';
+      confirmDisabled = 'disabled';
+    } else if (opts.state === 'error') {
+      const e = opts.error === 'not_on_main' ? 'nothing on main to roll back'
+              : opts.error === 'unknown_sha' ? 'main has no commit to revert'
+              : opts.error;
+      errHtml = `<p class="rollback-error">Can’t roll back the last promotion — ${_rbEsc(e)}</p>`;
+      confirmDisabled = 'disabled';
+    } else {
+      const p = opts.preview;
+      const pendingLines = (p.pending_commits || []).map(c =>
+        `<div class="rb-line"><span class="rb-sha">${_rbEsc(c.sha)}</span><span>${_rbEsc(c.subject || (c.slice_id ? 'slice ' + c.slice_id : ''))}</span></div>`
+      ).join('');
+      movesHtml = `<div class="rollback-moves">
+        <div class="rb-line"><span class="rb-sha">new</span><span class="rb-revert">↺ revert of ${shortSha} (main’s last promotion)</span></div>
+        ${pendingLines}
+      </div>`;
+      const pendingCount = (p.pending_commits || []).length;
+      if (!p.dev_level_with_main && pendingCount > 0) {
+        gotchaHtml = `<div class="rollback-gotcha"><strong>Heads up:</strong> dev is ${pendingCount} un-promoted commit${pendingCount === 1 ? '' : 's'} ahead of main. Rolling back fast-forwards main past <em>those too</em> — not just the revert. The list above is exactly what reaches main.</div>`;
+      }
+    }
+
+    overlay.innerHTML = `<div class="rollback-card" role="dialog" aria-modal="true" aria-label="Confirm rollback of last promotion">
+      <h3>Roll back the last promotion</h3>
+      <p class="rb-sub">Reverts <strong>${shortSha}</strong> — the commit currently at the tip of main.</p>
+      <p class="rb-sub">Adds a <strong>git revert</strong> commit on dev, then re-runs the regression gate. main stays fast-forward-only — nothing is reset or force-pushed, and the gate must pass before main moves.</p>
+      ${errHtml}
+      <div style="font-size:12px;color:#6b7280;margin-bottom:6px;">What will fast-forward onto main:</div>
+      ${movesHtml}
+      ${gotchaHtml}
+      <div class="rollback-actions">
+        <button class="rb-btn rb-btn-cancel" onclick="closeRollbackOverlay()">Cancel</button>
+        <button class="rb-btn rb-btn-go" id="rollback-confirm-btn" onclick="confirmTopoRollback('${_rbEsc(mainSha)}')" ${confirmDisabled}>Roll back &amp; run gate</button>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+  }
+
+  async function confirmTopoRollback(mainSha) {
+    if (_rollbackInFlight) return;
+    _rollbackInFlight = true;
+    const btn = document.getElementById('rollback-confirm-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Dispatching…'; }
+    try {
+      const res = await fetch('/api/rollback/dispatch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ squash_sha: String(mainSha) }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        closeRollbackOverlay();
+        // Optimistic gate-running — a rollback IS a promote dispatch; reuse the
+        // same machinery so the CI strip + button reflect the run immediately.
+        _promoteOptimisticUntil = Date.now() + 30000;
+        _gateClientStartedAt = Date.now();
+        if (_lastBranchState && _lastBranchState.github) {
+          renderCiStrip(_lastBranchState.github);
+          renderTopoMini(_lastBranchState);
+        }
+        const toast = document.createElement('div');
+        toast.className = 'return-toast';
+        toast.textContent = `Rolling back last promotion — revert ${data.revert_sha} on dev, gate running`;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
+        setTimeout(fetchBranchState, 1000);
+        setTimeout(fetchBranchState, 4000);
+      } else {
+        const code = data.error || ('http_' + res.status);
+        let msg;
+        if (code === 'gate_already_running') {
+          msg = 'A gate is already running — wait for it to finish, then roll back. You can’t promote and roll back at once.';
+        } else if (code === 'conflict') {
+          const blamed = data.blame && data.blame.slice_id ? `slice #${data.blame.slice_id}` : 'a later slice';
+          msg = `Can’t auto-roll-back — ${blamed} changed the same code, so the revert conflicts. This needs a human forward-fix, not an automatic revert.`;
+        } else if (code === 'not_on_main') {
+          msg = 'Nothing on main to roll back.';
+        } else if (code === 'dirty_worktree') {
+          msg = 'The repo has uncommitted changes — the revert was refused to avoid clobbering them.';
+        } else if (code === 'dispatch_failed') {
+          msg = `The revert is on dev (${data.revert_sha || ''}) but the gate didn’t start. Press RUN GATE & MERGE to promote it.`;
+        } else {
+          msg = 'Rollback failed (' + code + ').';
+        }
+        renderTopoRollbackOverlay(mainSha, { state: 'error', error: msg });
+      }
+    } catch (_) {
+      renderTopoRollbackOverlay(mainSha, { state: 'error', error: 'network error' });
+    } finally {
+      _rollbackInFlight = false;
+    }
+  }
+
   // ── History Detail overlay ───────────────────────────────────────────────
   let historyDetailOpen = false;
 
@@ -7254,6 +7409,10 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
     'only on green does promote.yml fast-forward origin/main to that exact tested commit. ' +
     'Nothing merges automatically — this button is the only trigger.';
 
+  const TOPO_ROLLBACK_TITLE = 'Reverts the last commit promoted to main: adds a git revert on dev and re-runs the ' +
+    'gate. main stays fast-forward-only — nothing is reset or force-pushed. Heads up: if dev is ahead, the ' +
+    'revert-forward carries those pending commits to main too — the confirm dialog shows exactly what moves.';
+
   function renderPromoteAction(bs) {
     const actionEl = document.getElementById('topo-foot-action');
     if (!actionEl) return;
@@ -7262,6 +7421,10 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
     const ahead = _ghAhead(gh);
     const running = _gateIsRunning(gh);
     const enabled = ahead > 0 && !running && !_promoteDispatchInFlight;
+    // Rollback targets main's tip (the last promotion); valid whenever main has a
+    // commit and no gate is mid-flight. The backend refuses cleanly otherwise.
+    const mainSha = gh && gh.origin_main_sha ? gh.origin_main_sha : null;
+    const rbEnabled = !!mainSha && !running && !_promoteDispatchInFlight && !_rollbackInFlight;
 
     // Immediate, legible button states: DISPATCHING (click acknowledged,
     // contacting GitHub) -> GATE RUNNING · Ns (live elapsed) -> idle.
@@ -7278,6 +7441,14 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
     let html = '<span class="promote-gate-slot">';
     if (_promoteSlotError) {
       html += `<span class="promote-gate-err" role="alert" title="${_promoteEsc(_promoteSlotError)}">${_promoteEsc(_promoteSlotError)}</span>`;
+    }
+    if (mainSha) {
+      html += '<button type="button" class="topo-rollback-btn" id="topo-rollback-btn"' +
+        ' aria-label="Roll back the last promotion to main"' +
+        ` title="${_promoteEsc(TOPO_ROLLBACK_TITLE)}"` +
+        ' onclick="openTopoRollback()"' + (rbEnabled ? '' : ' disabled') + '>' +
+        '&#8635; Roll back' +
+        '</button>';
     }
     html += '<button type="button" class="promote-gate-btn" id="promote-gate-btn"' +
       ' aria-label="Run regression gate and promote dev to main"' +
