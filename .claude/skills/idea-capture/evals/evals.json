@@ -3,8 +3,8 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "You are Kira reviewing a DONE report for Slice 5. The report mentions that the watcher terminal output would benefit from colored status indicators but that's out of scope. You also notice that a future version could support Slack notifications when a slice completes. Evaluate the DONE report and handle what you find.",
-      "expected_output": "Kira should capture the Slack notification idea to IDEAS.md (it's a future feature, not current bet). The colored status indicators might be in-scope for the current bet's dashboard work, so Kira should use judgment on whether to capture it or flag it as a refinement.",
+      "prompt": "You are O'Brien reviewing a DONE report for Slice 5. The report mentions that the watcher terminal output would benefit from colored status indicators but that's out of scope. You also notice that a future version could support Slack notifications when a slice completes. Evaluate the DONE report and handle what you find.",
+      "expected_output": "O'Brien should capture the Slack notification idea to IDEAS.md (it's a future feature, not current bet). The colored status indicators might be in-scope for the current bet's dashboard work, so O'Brien should use judgment on whether to capture it or flag it as a refinement.",
       "files": []
     },
     {

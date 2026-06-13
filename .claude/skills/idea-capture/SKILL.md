@@ -1,6 +1,6 @@
 ---
 name: idea-capture
-description: "Capture future feature ideas to a central backlog. Every DS9 role must use this skill. When anyone — Philipp, Sisko, Kira, Dax, O'Brien, Ziyal, Nog, Bashir, Quark, Leeta — mentions a feature idea, improvement, or capability that doesn't belong in the current bet, log it immediately to IDEAS.md. Triggers on: 'idea for the future', 'we should eventually', 'nice to have', 'for a later bet', 'Quark could', 'future feature', 'someday we should', 'parking lot', 'backlog idea', or any phrase that describes functionality not in the active bet scope. Also triggers when reviewing work and noticing a gap that isn't currently scoped. Use this skill proactively — don't wait for someone to say 'save this idea'. If it sounds like a future capability, capture it."
+description: "Capture future feature ideas to a central backlog. Every DS9 role must use this skill. When anyone — Philipp, Sisko, O'Brien, Dax, O'Brien, Ziyal, Nog, Bashir, Quark, Leeta — mentions a feature idea, improvement, or capability that doesn't belong in the current bet, log it immediately to IDEAS.md. Triggers on: 'idea for the future', 'we should eventually', 'nice to have', 'for a later bet', 'Quark could', 'future feature', 'someday we should', 'parking lot', 'backlog idea', or any phrase that describes functionality not in the active bet scope. Also triggers when reviewing work and noticing a gap that isn't currently scoped. Use this skill proactively — don't wait for someone to say 'save this idea'. If it sounds like a future capability, capture it."
 ---
 
 # Idea Capture — Future Feature Backlog
@@ -67,7 +67,7 @@ Append to `IDEAS.md` in the repo root. One idea per entry. Use this exact format
 ## What NOT to capture
 
 - Bugs or issues with current functionality (those go to the relevant role or issue tracker)
-- Refinements to the current bet's scope (those are Kira's domain — discuss in the active slice)
+- Refinements to the current bet's scope (those are O'Brien's domain — discuss in the active slice)
 - Vague wishes with no substance ("make it faster" isn't an idea; "add a caching layer to the relay to avoid redundant evaluations" is)
 - Ideas that are already in IDEAS.md
 

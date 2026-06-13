@@ -79,6 +79,10 @@ Reference catalog of every clickable, draggable, or keyboard-accessible surface 
 | Drag handle | Release | Row snaps to final position; `bridge/queue-order.json` updated atomically |
 | Row expand chevron | Click | Toggle `.expanded` state |
 | Detail tabs (in expanded body) | Click | Switch active tab; show content for selected tab |
+| Save edits (queued detail) | Click | Preserve frontmatter and write updated markdown body |
+| Return to O'Brien (queued detail) | Click | Move queued slice to `staged/{id}-NEEDS_APENDMENT.md`; emit `returned_to_stage` |
+| Un-approve (queued detail) | Click | Move queued slice back to `staged/{id}-STAGED.md`; emit `slice-unapproved` |
+| Remove from queue (queued detail) | Click | Move queued file to `bridge/trash/`; emit `slice-archived-from-queue` |
 
 ### Slice History panel (`.panel-history` / `.slice-history`)
 

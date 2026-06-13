@@ -4,7 +4,7 @@
 **Date:** 2026-04-12
 **Status:** Final — for O'Brien implementation
 **Scope:** Bet 3 prerequisite — token, time, and human hours tracking per commission
-**Responds to:** `roles/dax/HANDOFF-PER-SLICE-TRACKING-FROM-KIRA.md`
+**Responds to:** `roles/dax/HANDOFF-PER-SLICE-TRACKING-FROM-OBRIEN.md`
 
 ---
 
@@ -42,7 +42,7 @@ This is a one-line config change. O'Brien must verify the output format hasn't c
 
 ## 2. Human Hours Estimation — O'Brien, Intra-Slice
 
-O'Brien is the only role that lives the full inference: the dead ends, the complexity, the decisions made mid-session. Kira sees brief and result. Anon sees ACs and DONE report. O'Brien is the right estimator.
+O'Brien is the only role that lives the full inference: the dead ends, the complexity, the decisions made mid-session. O'Brien sees brief and result. Anon sees ACs and DONE report. O'Brien is the right estimator.
 
 O'Brien writes five structured fields to every DONE report frontmatter:
 
@@ -56,7 +56,7 @@ O'Brien writes five structured fields to every DONE report frontmatter:
 
 `compaction_occurred: true` is an estimation-influencing event — a compaction signals the work was complex enough to exhaust a context window. O'Brien should weight `estimated_human_hours` higher when this is true.
 
-Kira may optionally add `expected_human_hours` to commission frontmatter as a pre-estimate. Over time, the delta between Kira's expected and O'Brien's actual reveals scope accuracy.
+O'Brien may optionally add `expected_human_hours` to commission frontmatter as a pre-estimate. Over time, the delta between O'Brien's expected and O'Brien's actual reveals scope accuracy.
 
 **Enforcement:** the watcher validates all five fields exist after reading the DONE file. If any field is missing or non-numeric (for the numeric ones), the commission is written as `ERROR` with reason `incomplete_metrics` and does not proceed to evaluation. The DONE report template in the commission prompt must list these fields as required.
 

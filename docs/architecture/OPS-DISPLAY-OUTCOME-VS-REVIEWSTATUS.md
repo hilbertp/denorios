@@ -1,8 +1,8 @@
 # Decision: Ops Dashboard — `outcome` vs `reviewStatus` as Display Driver
 
 **Date:** 2026-04-13  
-**Decided by:** Kira (not escalated to Dax — Philipp gave the option, Kira owned it)  
-**Context:** Philipp observed that many accepted briefs display as DONE in the Ops Center completed table. Investigation traced the root cause to a mismatch between where the fix was proposed and what the code was designed to do. Philipp challenged the initial primitive fix proposal; Kira reconsidered, wrote this record, and made a defensible architecture call.
+**Decided by:** O'Brien (not escalated to Dax — Philipp gave the option, O'Brien owned it)  
+**Context:** Philipp observed that many accepted briefs display as DONE in the Ops Center completed table. Investigation traced the root cause to a mismatch between where the fix was proposed and what the code was designed to do. Philipp challenged the initial primitive fix proposal; O'Brien reconsidered, wrote this record, and made a defensible architecture call.
 
 ---
 

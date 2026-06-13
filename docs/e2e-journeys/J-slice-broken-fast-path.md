@@ -55,4 +55,4 @@ During a rework round, Rom concludes that the acceptance criteria or goal of the
 - What register event is emitted when the fast path fires? The pipeline spec describes the escalation heading and watcher routing but does not specify the event name. Is it `ESCALATED`, `SLICE_BROKEN`, or something else?
 - Does the Ops dashboard surface the escalation state visually? The staged section in the Queue panel shows the slice to O'Brien, but is there a badge or label indicating "escalated by Rom" vs "newly staged by O'Brien"?
 - Can the fast path be triggered on a fresh Round 1 pickup (first time the slice is dispatched), or only on a rework pickup? The spec does not explicitly restrict it to rework rounds.
-- Does the watcher send a signal to Kira's event drain (`bridge/kira-events.jsonl`) when the fast path fires? The Kira Activation ADR lists `NOG_ESCALATION` as an event type — is this the mechanism for that?
+- Does the watcher send any legacy escalation signal outside `bridge/register.jsonl` when the fast path fires? Current user-facing routing should go to O'Brien.

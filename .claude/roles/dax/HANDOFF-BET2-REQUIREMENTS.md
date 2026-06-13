@@ -55,11 +55,11 @@ The dashboard answers one question: **"What is happening right now and who is do
 
 Five elements, no more:
 
-1. **Role status panel** — Which roles exist and whether they're connected. Kira (connected/disconnected), O'Brien (connected/disconnected). Nog and Bashir shown as slots labeled "coming soon" — signals the system is extensible.
+1. **Role status panel** — Which roles exist and whether they're connected. O'Brien (connected/disconnected), O'Brien (connected/disconnected). Nog and Bashir shown as slots labeled "coming soon" — signals the system is extensible.
 
 2. **Active commission** — If a commission is in flight: its title, which stage it's in, which role owns it right now, and how long it's been there. This is the heartbeat of the product — the thing that makes someone go "oh, it's actually running."
 
-3. **Queue view** — Pending commissions waiting to be picked up. Even one item in the queue tells a story: "Kira wrote this, the watcher will pick it up, O'Brien will execute it."
+3. **Queue view** — Pending commissions waiting to be picked up. Even one item in the queue tells a story: "O'Brien wrote this, the watcher will pick it up, O'Brien will execute it."
 
 4. **Recent completions** — Last 3-5 completed commissions: title, outcome (DONE / AMENDED / ERROR), duration. Shows the loop actually closes.
 
@@ -91,7 +91,7 @@ If there's nothing in flight, the dashboard should show the last completed commi
 - Single command to start: `docker compose up`. No prerequisite steps.
 - Local-only. No cloud services, no external accounts, no API keys required to run the dashboard.
 - The underlying file queue must remain intact. The relay can wrap it; it cannot replace it. Files are the source of truth per PROJECT-VISION.md.
-- Kira stays in Cowork with full capabilities. O'Brien stays in Claude Code CLI. Neither collapses into a lesser version. The relay connects them — it doesn't absorb them.
+- O'Brien stays in Cowork with full capabilities. O'Brien stays in Claude Code CLI. Neither collapses into a lesser version. The relay connects them — it doesn't absorb them.
 
 **From the existing architecture (respect these):**
 - Commission format: YAML frontmatter + markdown body. This contract is locked.
@@ -113,7 +113,7 @@ Specifically, these requirements constrain Dax's choices:
 
 - The dashboard must be **zero-config to run** → the relay + dashboard must ship as a single `docker compose up`
 - The dashboard must show **live state** → polling or push, but not stale static files
-- The dashboard must be **readable by a stranger** → no LCARS jargon, no internal terminology without context, role names must be human-readable ("Kira — Delivery Coordinator", not just "kira")
+- The dashboard must be **readable by a stranger** → no LCARS jargon, no internal terminology without context, role names must be human-readable ("O'Brien — Delivery Coordinator", not just "obrien")
 - The relay must **not break existing Cowork + Claude Code workflows** → Philipp must be able to keep using the system exactly as before while the relay runs alongside
 
 Dax's architecture document should show how these requirements are satisfied, not just how the system is structured.
@@ -126,7 +126,7 @@ Dax's architecture document should show how these requirements are satisfied, no
 |---|---|
 | `roles/dax/HANDOFF-RELAY-SERVICE.md` | The architecture questions Sisko posed to Dax |
 | `PROJECT-VISION.md` | North star — agents keep their powers, files are source of truth |
-| `repo/KIRA.md` | Current Kira workflow — the thing the relay must not break |
+| `repo/OBRIEN.md` | Current O'Brien workflow — the thing the relay must not break |
 | `repo/.claude/CLAUDE.md` | O'Brien's anchor — the thing the relay must not break |
 | `repo/bridge/watcher.js` | What the relay is replacing or wrapping |
 | `repo/bridge/queue/` | The file-based state machine in action |

@@ -9,9 +9,9 @@
 
 ## Why this exists
 
-The Cowork-based `kira-commission-watch` scheduled task has been killed — it was creating a sandbox artifact every minute, polluting Philipp's workspace. You are building its replacement: an evaluator that runs inside `orchestrator.js` and handles the complete commission lifecycle autonomously.
+The Cowork-based `obrien-commission-watch` scheduled task has been killed — it was creating a sandbox artifact every minute, polluting Philipp's workspace. You are building its replacement: an evaluator that runs inside `orchestrator.js` and handles the complete commission lifecycle autonomously.
 
-This handoff gives you the architectural context you need to implement B0. Kira will write the commission with specific ACs — this document tells you WHY the design is what it is so you can make good judgment calls during implementation.
+This handoff gives you the architectural context you need to implement B0. O'Brien will write the commission with specific ACs — this document tells you WHY the design is what it is so you can make good judgment calls during implementation.
 
 ---
 
@@ -22,7 +22,7 @@ A second pass in the `orchestrator.js` poll loop that evaluates O'Brien's DONE r
 **The complete autonomous cycle:**
 
 ```
-Kira writes PENDING → you execute → DONE
+O'Brien writes PENDING → you execute → DONE
   → evaluator reads COMMISSION.md (ACs) + DONE (report)
   → evaluator invokes claude -p with evaluation prompt
   → ACCEPTED? → write merge PENDING → you merge → done
@@ -85,7 +85,7 @@ In `dashboard/server.js`: add `Access-Control-Allow-Origin: *` headers to all re
 ## The evaluator prompt
 
 ```
-You are Kira, Delivery Coordinator for Liberation of Bajor.
+You are O'Brien, Delivery Coordinator for Liberation of Bajor.
 
 Your job: evaluate whether O'Brien's DONE report satisfies ALL acceptance criteria
 in the original commission. Be specific. If even one AC is not met, the verdict
@@ -115,7 +115,7 @@ Feed this via stdin to `claude -p`, same as commission execution. Parse the JSON
 
 ## What NOT to worry about
 
-- Kira's Cowork integration — that's separate (B4), not your problem
+- O'Brien's Cowork integration — that's separate (B4), not your problem
 - Dashboard rendering of new states — that's B2, not B0
 - Docker containerization — B0 ships into the existing `orchestrator.js` on Philipp's Mac, no Docker needed yet
 - The evaluator prompt wording — start with the above, iterate if quality is poor. The amendment cap prevents runaway loops regardless
@@ -124,7 +124,7 @@ Feed this via stdin to `claude -p`, same as commission execution. Parse the JSON
 
 ## Reference files
 
-- Full ADR: `repo/.claude/roles/kira/RESPONSE-EVALUATOR-ARCHITECTURE-FROM-DAX.md` (complete design with register event timeline example)
+- Full ADR: `repo/.claude/roles/obrien/RESPONSE-EVALUATOR-ARCHITECTURE-FROM-DAX.md` (complete design with register event timeline example)
 - Current watcher: `repo/bridge/orchestrator.js` (945 lines — read it, especially `invokeOBrien`, `poll`, `crashRecovery`, `registerEvent`)
 - Current server: `repo/dashboard/server.js` (137 lines — the CORS fix target)
 - Architecture doc: `repo/docs/architecture/BET2-RELAY-DASHBOARD-ARCHITECTURE.md` Section 10 (B0 detail)

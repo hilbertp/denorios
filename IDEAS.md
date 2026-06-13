@@ -10,8 +10,8 @@
 
 - **Source:** Philipp (2026-04-10)
 - **Date:** 2026-04-10
-- **Idea:** Before a commission enters the queue, Kira presents it to Philipp in a stakeholder-friendly format: plain-English title, two-sentence summary of what and why, then the full technical detail collapsed below. Philipp clicks Commission (goes to queue), Amend (Kira rewrites based on Philipp's note and restages), or Reject (moves to trash). Currently being built as commission 042 (staging gate). The presentation format itself — clear hierarchy of summary → detail, decision buttons — should be a first-class feature of the dashboard, not an afterthought.
-- **Why it matters:** Philipp is the only human in the loop. If a bad commission gets queued and the watcher is on, it executes immediately. The gate + presentation layer is the safety mechanism between Kira's judgment and Miles' execution.
+- **Idea:** Before a commission enters the queue, O'Brien presents it to Philipp in a stakeholder-friendly format: plain-English title, two-sentence summary of what and why, then the full technical detail collapsed below. Philipp clicks Commission (goes to queue), Amend (O'Brien rewrites based on Philipp's note and restages), or Reject (moves to trash). Currently being built as commission 042 (staging gate). The presentation format itself — clear hierarchy of summary → detail, decision buttons — should be a first-class feature of the dashboard, not an afterthought.
+- **Why it matters:** Philipp is the only human in the loop. If a bad commission gets queued and the watcher is on, it executes immediately. The gate + presentation layer is the safety mechanism between O'Brien's judgment and Miles' execution.
 
 ### Quark: Automated economics and efficiency tracker
 
@@ -39,15 +39,15 @@
 - **Source:** Dax (Bet 2 architecture, Section 7.5) — deferred from Bet 2 scope by Sisko
 - **Date:** 2026-04-08
 - **Idea:** The relay automatically evaluates O'Brien's DONE reports against acceptance criteria via `claude -p`, then writes ACCEPTED or a new amendment PENDING commission. Full autonomous loop without Cowork cron or notification spam. Includes a hard cap at 5 failed amendment cycles (maxAmendments), after which the evaluator writes STUCK to the register and Philipp intervenes.
-- **Why it matters:** Closes the delivery loop without human involvement. Currently, evaluation requires Kira in Cowork. This moves evaluation into the relay infrastructure where it's cheaper and always-on.
+- **Why it matters:** Closes the delivery loop without human involvement. Currently, evaluation requires O'Brien in Cowork. This moves evaluation into the relay infrastructure where it's cheaper and always-on.
 - **Status: IMPLEMENTED in Bet 2** — commission 026, on main. Evaluator is currently Anon (stateless placeholder).
 
-### Kira on-demand pipeline status reading
+### O'Brien on-demand pipeline status reading
 
 - **Source:** Dax (Bet 2 architecture, Slice B4) — deferred from Bet 2 scope by Sisko
 - **Date:** 2026-04-08
-- **Idea:** Kira in Cowork can read register.jsonl and pipeline status on demand — "what happened to slice X?" works without polling or cron.
-- **Why it matters:** Gives Philipp a conversational interface to pipeline status through Kira, rather than opening the dashboard or reading files manually.
+- **Idea:** O'Brien in Cowork can read register.jsonl and pipeline status on demand — "what happened to slice X?" works without polling or cron.
+- **Why it matters:** Gives Philipp a conversational interface to pipeline status through O'Brien, rather than opening the dashboard or reading files manually.
 
 ### Repo skill pool with setup/install script
 
@@ -79,21 +79,21 @@
 
 ### Worf role — tech lead, devops, CI/CD, rollout/rollback
 
-- **Source:** Philipp + Kira (2026-04-10, Bet 2 session)
+- **Source:** Philipp + O'Brien (2026-04-10, Bet 2 session)
 - **Date:** 2026-04-10
-- **Idea:** A Worf role that owns: tech lead decisions per slice, CI/CD pipeline, rollout/rollback strategy, branch compliance enforcement, and the devops layer currently handled informally by Kira. Kira currently does a secondary devops check (branch hygiene, unmerged detection) as a stopgap until Worf exists.
-- **Why it matters:** Devops responsibility is currently split — Kira checks compliance, Anon enforces ACs, nobody owns the pipeline. Worf consolidates this cleanly. Frees Kira to focus on delivery coordination.
+- **Idea:** A Worf role that owns: tech lead decisions per slice, CI/CD pipeline, rollout/rollback strategy, branch compliance enforcement, and the devops layer currently handled informally by O'Brien. O'Brien currently does a secondary devops check (branch hygiene, unmerged detection) as a stopgap until Worf exists.
+- **Why it matters:** Devops responsibility is currently split — O'Brien checks compliance, Anon enforces ACs, nobody owns the pipeline. Worf consolidates this cleanly. Frees O'Brien to focus on delivery coordination.
 
 ### Nog role — code reviewer (replaces Anon)
 
-- **Source:** Philipp + Kira (2026-04-10, Bet 2 session)
+- **Source:** Philipp + O'Brien (2026-04-10, Bet 2 session)
 - **Date:** 2026-04-10
 - **Idea:** Nog as a proper code reviewer, replacing the Anon stateless evaluator. Nog would bring role identity, ROLE.md, and richer code review beyond AC checking. Cost and quality vs. Anon TBD — needs measurement before committing.
 - **Why it matters:** Anon is a placeholder persona. The evaluator function (AC checking + code review) is closer to Nog's domain. Once token cost data exists (Bet 3), the comparison is straightforward.
 
 ### Bashir role — QA
 
-- **Source:** Philipp + Kira (2026-04-10, Bet 2 session)
+- **Source:** Philipp + O'Brien (2026-04-10, Bet 2 session)
 - **Date:** 2026-04-10
 - **Idea:** Julian Bashir as a QA role. Writes test plans, validates outputs beyond AC compliance, owns quality assurance as a distinct function from code review.
 - **Why it matters:** Anon checks ACs but doesn't own a test strategy. Bashir would pair with Nog — Bashir defines what "correct" looks like holistically, Nog checks the code, Anon (or Nog) enforces it per commission.
@@ -107,9 +107,9 @@
 
 ### Model routing — cheap models for easy tasks, expensive for hard
 
-- **Source:** Philipp + Kira (2026-04-10, discussion on Claude vs. GPT cost)
+- **Source:** Philipp + O'Brien (2026-04-10, discussion on Claude vs. GPT cost)
 - **Date:** 2026-04-10
-- **Idea:** Route commission execution to cheaper models (GPT-4o or equivalent) for well-specified, low-complexity slices. Reserve expensive models (Claude Sonnet/Opus) for architecture, ambiguous commissions, and high-stakes evaluations. Open design question: who classifies a commission as "easy" — Kira at write time? Dax? An automated pre-router?
+- **Idea:** Route commission execution to cheaper models (GPT-4o or equivalent) for well-specified, low-complexity slices. Reserve expensive models (Claude Sonnet/Opus) for architecture, ambiguous commissions, and high-stakes evaluations. Open design question: who classifies a commission as "easy" — O'Brien at write time? Dax? An automated pre-router?
 - **Why it matters:** Claude is significantly more expensive than GPT equivalents. If output quality is comparable on simple tasks, routing saves substantial cost at scale. Risk: amendment cycles on cheaper-model failures may eat the savings — needs measurement to confirm.
 
 ### Ruflo — evaluate as infrastructure layer or adopt for Bet 3+
@@ -127,14 +127,14 @@
 - **Source:** Philipp (2026-04-10, questioning why merges need to be commissioned)
 - **Date:** 2026-04-10
 - **Idea:** O'Brien should see that his commission's status changed to ACCEPTED and know to merge without being given a separate commission. This requires O'Brien to have some persistent awareness of queue state — not current architecture (each invocation is a fresh `claude -p` session with no persistent state). Explore when/if O'Brien gets persistent context.
-- **Why it matters:** The current merge-on-accept approach (Kira calls git merge directly via watcher.js) works but bypasses O'Brien entirely. The natural flow is: O'Brien delivers work → gets accepted → merges. If O'Brien could watch his own queue state, the system would be more coherent.
+- **Why it matters:** The current merge-on-accept approach (O'Brien calls git merge directly via watcher.js) works but bypasses O'Brien entirely. The natural flow is: O'Brien delivers work → gets accepted → merges. If O'Brien could watch his own queue state, the system would be more coherent.
 
 ### Dev lead role (lightweight briefing between Dax and O'Brien)
 
-- **Source:** Kira (2026-04-10, discussion on commission context enrichment)
+- **Source:** O'Brien (2026-04-10, discussion on commission context enrichment)
 - **Date:** 2026-04-10
-- **Idea:** A lightweight dev lead role that owns the codebase mental model across slices within a bet, writes the technical brief for O'Brien per commission (key files, relevant conventions, prior decisions), and keeps that context alive without burdening Kira's window. Not Dax (who does architecture, not per-slice briefing). Could be Worf.
-- **Why it matters:** Currently O'Brien re-discovers the codebase from scratch each commission. Kira can't enrich commissions without blowing up her own context window. A dev lead closes the gap cheaply.
+- **Idea:** A lightweight dev lead role that owns the codebase mental model across slices within a bet, writes the technical brief for O'Brien per commission (key files, relevant conventions, prior decisions), and keeps that context alive without burdening O'Brien's window. Not Dax (who does architecture, not per-slice briefing). Could be Worf.
+- **Why it matters:** Currently O'Brien re-discovers the codebase from scratch each commission. O'Brien can't enrich commissions without blowing up her own context window. A dev lead closes the gap cheaply.
 
 ### Brand voice role (Vic)
 
@@ -145,7 +145,7 @@
 
 ### Slicelog dashboard — per-commission economics visualization
 
-- **Source:** Kira (reviewing Dax's BET3-PER-SLICE-TRACKING ADR, 2026-04-12)
+- **Source:** O'Brien (reviewing Dax's BET3-PER-SLICE-TRACKING ADR, 2026-04-12)
 - **Date:** 2026-04-12
 - **Idea:** Visualize watcher entries in `bridge/timesheet.jsonl` (formerly `slicelog.jsonl`) in the Ops Center dashboard — token cost per commission, human hours estimates, amendment cycle counts, compaction flags, and efficiency trends over time. Dax's ADR explicitly deferred this. The data schema is now live and accumulating in the unified timesheet.
 - **Why it matters:** The tracking infrastructure exists but the data is invisible unless someone runs `jq` by hand. A dashboard panel turns raw economics into a live signal Philipp can watch to understand where cost and effort are concentrated.

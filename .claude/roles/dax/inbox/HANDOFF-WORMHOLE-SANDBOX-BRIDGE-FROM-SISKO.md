@@ -3,7 +3,7 @@
 **From:** Sisko (PM)
 **To:** Dax (Architect)
 **Date:** 2026-04-14
-**Priority:** High — blocks Kira drain and all future Cowork automation
+**Priority:** High — blocks O'Brien drain and all future Cowork automation
 
 ---
 
@@ -36,7 +36,7 @@ Cowork never writes to macOS directly. The Wormhole does — and it's a macOS-na
 If you agree with the two-copy + wormhole approach:
 
 - The sandbox path is session-specific (`/sessions/blissful-affectionate-wright/...`). How does a persistent Wormhole daemon know where to point? Options: stable symlink written at session start, or session-init handshake where Cowork writes its current path to a known macOS location.
-- Source of truth rules: who wins when both sides write? Suggestion: sandbox owns slice briefs and Kira decisions; macOS owns DONE files, error logs, watcher events. Zones mostly don't overlap — confirm or redesign.
+- Source of truth rules: who wins when both sides write? Suggestion: sandbox owns slice briefs and O'Brien decisions; macOS owns DONE files, error logs, watcher events. Zones mostly don't overlap — confirm or redesign.
 - Sync mechanism: fswatch + rsync? chokidar (Node.js)? Something else?
 - Startup: launchd daemon? Or orchestrator.js absorbs the sync responsibility?
 
@@ -65,4 +65,4 @@ The sync process is called the **Wormhole**. It connects the sandbox and the mac
 - ADR covering: architecture, session path problem, source of truth rules, sync mechanism, startup/daemon model, Docker implications
 - Scope what O'Brien builds vs. what is configuration/scripting
 
-This is a prerequisite to the Kira drain — no point activating Kira if the permission wall blocks every write.
+This is a prerequisite to the O'Brien drain — no point activating O'Brien if the permission wall blocks every write.

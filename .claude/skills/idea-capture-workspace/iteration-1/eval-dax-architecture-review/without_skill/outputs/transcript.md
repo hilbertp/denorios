@@ -5,7 +5,7 @@
 I reviewed the Bet 2 architecture as documented in `Architecture — Liberation of Bajor v1.md`. My approach was:
 
 1. **Analyzed the capability map structure** — validated layer dependencies, confirmed that Layers 1–4 are sound.
-2. **Examined component boundaries** — verified that Kira, Watcher, and O'Brien have clean responsibility domains with no bleed.
+2. **Examined component boundaries** — verified that O'Brien, Watcher, and O'Brien have clean responsibility domains with no bleed.
 3. **Checked the design decisions** — YAML frontmatter, JSON logs, file-based state machine, async execution, all solid choices.
 4. **Traced the queue lifecycle** — state transitions are atomic where required; crash recovery is well-specified.
 5. **Evaluated cloud-readiness** — the contracts (commission format, report format, queue lifecycle) will survive a migration to cloud.
@@ -14,19 +14,19 @@ I reviewed the Bet 2 architecture as documented in `Architecture — Liberation 
 
 ### Strengths
 
-1. **Clean separation of concerns:** Kira writes, Watcher transports, O'Brien executes. Each component owns its domain with no overlap. The filesystem is the single source of truth. This is durable.
+1. **Clean separation of concerns:** O'Brien writes, Watcher transports, O'Brien executes. Each component owns its domain with no overlap. The filesystem is the single source of truth. This is durable.
 
-2. **Format decisions are right:** YAML frontmatter + markdown body gives us structured metadata that's parseable in 10 lines of code, while keeping files human-readable. No dependencies, no friction. Commission writers (Kira) aren't fighting JSON escaping or YAML nesting.
+2. **Format decisions are right:** YAML frontmatter + markdown body gives us structured metadata that's parseable in 10 lines of code, while keeping files human-readable. No dependencies, no friction. Commission writers (O'Brien) aren't fighting JSON escaping or YAML nesting.
 
 3. **State machine is correct:** Filename = state is an elegant design. `ls .bridge/queue/` tells you everything. No database, no separate state file. Atomic rename for PENDING → IN_PROGRESS, careful two-step for the terminal states. Crash recovery is thoughtful.
 
-4. **Configuration and logging are operational-minded:** The watcher can be tuned from a config file. JSON lines logging is both human- and machine-readable. Heartbeat file gives Kira and Philipp a live health pulse. Good infrastructure thinking.
+4. **Configuration and logging are operational-minded:** The watcher can be tuned from a config file. JSON lines logging is both human- and machine-readable. Heartbeat file gives O'Brien and Philipp a live health pulse. Good infrastructure thinking.
 
 5. **Zero dependencies and async execution:** The watcher stays responsive during commission processing. No npm supply chain risk. This will scale locally and cloud migration is unblocked.
 
 ### Minor Clarifications (Not Issues)
 
-1. **Amendment chain format (Q1):** The doc leaves this open for Kira. I'd recommend just the direct parent ID (`references: "003"`) in v1. Full ancestry is nice-to-have for traceability but adds parsing complexity. Keep it simple.
+1. **Amendment chain format (Q1):** The doc leaves this open for O'Brien. I'd recommend just the direct parent ID (`references: "003"`) in v1. Full ancestry is nice-to-have for traceability but adds parsing complexity. Keep it simple.
 
 2. **Commission complexity ceiling (Q3):** If context gets large, commissions can reference files instead of inlining. The doc alludes to this but doesn't formalize it. Worth a quick note in the contracts layer.
 
@@ -42,7 +42,7 @@ This is a thought that emerged during review. It's **not relevant to Bet 2 at al
 
 ### The Idea: Pluggable Evaluation Criteria
 
-**Context:** In Bet 2, Kira manually reads O'Brien's report and decides: accepted, amended, or rejected. This is right for v1 — human judgment.
+**Context:** In Bet 2, O'Brien manually reads O'Brien's report and decides: accepted, amended, or rejected. This is right for v1 — human judgment.
 
 In Bet 3, when we move to React, we could introduce a **plugin system where external contributors write their own evaluation criteria as pluggable modules**. Think of it like this:
 
@@ -67,12 +67,12 @@ export default {
 };
 ```
 
-Kira's dashboard (React, Bet 3) would:
+O'Brien's dashboard (React, Bet 3) would:
 1. Discover plugins from a plugin registry or local directory
 2. Run all registered plugins against each completed report
 3. Aggregate their scores/feedback
-4. Show Kira a recommendation ("3 out of 5 criteria passed")
-5. Let Kira override if she disagrees
+4. Show O'Brien a recommendation ("3 out of 5 criteria passed")
+5. Let O'Brien override if she disagrees
 
 ### Why This Matters
 
@@ -85,7 +85,7 @@ Kira's dashboard (React, Bet 3) would:
 **What it enables:**
 - Eco-system of evaluation plugins (a package registry like npm for criteria)
 - Bet 3 dashboard shows plugin status: "5 evaluation modules loaded, 4 passed"
-- Kira can selectively enable/disable plugins per project or globally
+- O'Brien can selectively enable/disable plugins per project or globally
 - Audit trail: each report shows which plugins ran and what they decided
 
 **What it doesn't change about Bet 2:**
@@ -93,12 +93,12 @@ Kira's dashboard (React, Bet 3) would:
 - Report format stays the same
 - Queue lifecycle unchanged
 - O'Brien's execution model unchanged
-- Kira's role as final decision-maker unchanged
+- O'Brien's role as final decision-maker unchanged
 
 ### Questions for Future Consideration (Bet 3)
 
 1. Plugin discovery: where do plugins live? NPM registry? Local `.bridge/plugins/` directory? Both?
-2. Plugin lifecycle: can Kira reload plugins without restarting the dashboard, or is it startup-only?
+2. Plugin lifecycle: can O'Brien reload plugins without restarting the dashboard, or is it startup-only?
 3. Scoring semantics: boolean pass/fail, or numeric scores that aggregate? Both?
 4. Sandboxing: do plugins run in a worker thread, or in the main React context? Security implications?
 

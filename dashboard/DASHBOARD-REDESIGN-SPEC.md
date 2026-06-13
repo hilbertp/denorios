@@ -70,7 +70,7 @@ This is the centerpiece. It replaces the current "Mission Lifecycle Pipeline" se
 │  VIS  COM  PND  IP   AWR  REV  ACC  CR   MRG  DONE     │
 │                  ▲                                       │
 │            ┌─────┴──────┐                               │
-│            │  O'BRIEN    │  ← current owner badge       │
+│            │  ROM        │  ← current owner badge       │
 │            │  12:34      │  ← time in this stage        │
 │            └────────────-┘                               │
 │                                                         │
@@ -83,21 +83,21 @@ This is the centerpiece. It replaces the current "Mission Lifecycle Pipeline" se
 | Abbreviation | Full stage | Owner |
 |---|---|---|
 | VIS | VISUALIZING | Philipp |
-| COM | COMMISSIONED | Kira |
+| COM | COMMISSIONED | O'Brien |
 | PND | PENDING | Watcher |
-| IP | IN PROGRESS | O'Brien |
+| IP | IN PROGRESS | Rom |
 | AWR | AWAITING REVIEW | — (transition) |
-| REV | IN REVIEW | Kira |
-| ACC | ACCEPTED | — (gate) |
-| CR | CODE REVIEW | Nog |
-| MRG | MERGING | Kira |
+| REV | IN REVIEW | Nog |
+| ACC | ACCEPTED | Nog |
+| CR | REGRESSION CHECK | Bashir |
+| MRG | MERGING | Watcher |
 | DONE | MERGED | — (terminal) |
 
 **Owner badge:** The pipeline shows a prominent badge below the active stage node. The badge contains the role name and elapsed time in that stage. Color-coded to the role's crew color.
 
 **Stuck detection:** If elapsed time exceeds a threshold, the badge turns amber then red:
-- O'Brien IN PROGRESS: amber at 15min, red at 30min
-- Kira IN REVIEW: amber at 5min, red at 15min
+- Rom IN PROGRESS: amber at 15min, red at 30min
+- Nog IN REVIEW: amber at 5min, red at 15min
 - Nog CODE REVIEW: amber at 5min, red at 15min
 - Watcher PENDING: amber at 30s, red at 2min
 
@@ -141,7 +141,7 @@ Rows are sorted newest-first. The active slice (if any) appears at the top with 
 Replaces the current static crew sidebar. Changes:
 
 1. **Add Ziyal** (Product Designer) and make **Sisko** (Product Manager) show as an AI role rather than implying it's Philipp. Philipp is the human stakeholder above all roles.
-2. **Dynamic status:** Derive from register events. If the most recent register event for a slice is IN_PROGRESS, O'Brien is ACTIVE. If it's IN_REVIEW, Kira is ACTIVE. Everyone else is STANDBY or OFFLINE.
+2. **Dynamic status:** Derive from register events. If the most recent register event for a slice is IN_PROGRESS, Rom is ACTIVE. If it's IN_REVIEW, Nog is ACTIVE. If the regression gate is running, Bashir is ACTIVE. Everyone else is STANDBY or OFFLINE.
 3. **Current activity line:** Below each crew member's name, show what they're doing: "Executing Slice 6" / "Reviewing Slice 6 report" / "Standby". This is derived from the active slice's current stage.
 4. **Remove watcher process details from this panel.** The watcher is not a crew member — it's infrastructure. It belongs in the system health bar (panel E).
 
@@ -172,15 +172,16 @@ This is the critical section. The current data layer cannot support the redesign
 **Required:** The register must log every lifecycle transition as a distinct event. Each event needs:
 
 ```jsonl
-{"ts":"...","id":"019","slice":"5","event":"COMMISSIONED","owner":"kira","title":"..."}
+{"ts":"...","id":"019","slice":"5","event":"COMMISSIONED","owner":"obrien","title":"..."}
 {"ts":"...","id":"019","slice":"5","event":"PENDING","owner":"watcher"}
-{"ts":"...","id":"019","slice":"5","event":"IN_PROGRESS","owner":"obrien"}
-{"ts":"...","id":"019","slice":"5","event":"DONE","owner":"obrien","durationMs":32479}
-{"ts":"...","id":"019","slice":"5","event":"IN_REVIEW","owner":"kira"}
-{"ts":"...","id":"019","slice":"5","event":"ACCEPTED","owner":"kira"}
+{"ts":"...","id":"019","slice":"5","event":"IN_PROGRESS","owner":"rom"}
+{"ts":"...","id":"019","slice":"5","event":"DONE","owner":"rom","durationMs":32479}
+{"ts":"...","id":"019","slice":"5","event":"IN_REVIEW","owner":"nog"}
+{"ts":"...","id":"019","slice":"5","event":"ACCEPTED","owner":"nog"}
 {"ts":"...","id":"019","slice":"5","event":"CODE_REVIEW","owner":"nog"}
-{"ts":"...","id":"019","slice":"5","event":"MERGING","owner":"kira"}
-{"ts":"...","id":"019","slice":"5","event":"MERGED","owner":"kira"}
+{"ts":"...","id":"019","slice":"5","event":"REGRESSION_GATE","owner":"bashir"}
+{"ts":"...","id":"019","slice":"5","event":"MERGING","owner":"watcher"}
+{"ts":"...","id":"019","slice":"5","event":"MERGED","owner":"watcher"}
 ```
 
 Key additions vs. current:
@@ -211,16 +212,16 @@ Key additions vs. current:
       "number": 6,
       "title": "Dashboard live-data wiring",
       "stage": "IN_PROGRESS",
-      "owner": "obrien",
+      "owner": "rom",
       "stageEnteredAt": "2026-04-07T14:25:00Z",
       "stageElapsedSeconds": 734,
       "commissionedAt": "2026-04-07T14:22:00Z",
       "apendments": 0,
       "commissions": ["020"],
       "events": [
-        {"ts":"...","event":"COMMISSIONED","owner":"kira"},
+        {"ts":"...","event":"COMMISSIONED","owner":"obrien"},
         {"ts":"...","event":"PENDING","owner":"watcher"},
-        {"ts":"...","event":"IN_PROGRESS","owner":"obrien"}
+        {"ts":"...","event":"IN_PROGRESS","owner":"rom"}
       ]
     }
   ],
@@ -267,8 +268,8 @@ The economics panel stays but becomes real. It tells the ROI story with three co
 ├──────────────────────────┤
 │  AI Cost (this session)  │
 │  $2.34                   │
-│  ├ O'Brien   $1.80       │
-│  ├ Kira      $0.42       │
+│  ├ O'Brien   $0.42       │
+│  ├ Rom       $1.80       │
 │  └ Nog       $0.12       │
 ├──────────────────────────┤
 │  Human Equiv. (est.)     │
@@ -292,7 +293,7 @@ The key difference from the current panel: every number is real, derived from tr
 
 **Token tracking skill (new capability needed):**
 
-Every role session (Kira in Cowork, O'Brien in Claude Code, Nog in Claude Code) should run a reporting step at session end that logs:
+Every role session (O'Brien in Cowork, Rom in Claude Code, Nog in Claude Code) should run a reporting step at session end that logs:
 - Role name
 - Slice number
 - Tokens in / tokens out
@@ -353,7 +354,7 @@ The redesign changes information architecture and data wiring, not the visual la
 
 | Question | Philipp's answer | How it's reflected |
 |---|---|---|
-| Stuck thresholds | "Let's try, we need to see in real usage" | Ship with proposed defaults (O'Brien: 15m/30m, Kira: 5m/15m). Tune based on observed patterns. |
+| Stuck thresholds | "Let's try, we need to see in real usage" | Ship with proposed defaults (O'Brien: 15m/30m, O'Brien: 5m/15m). Tune based on observed patterns. |
 | Economics panel | Keep it, wire to real token burn + human-hours data | Panel redesigned in Section 5.1. Three cost layers: AI burn, simulated human team, Philipp's actual hours. Token tracking skill needed per role. |
 | Slice numbering | Implementation detail — team solves internally | Will use `slice` field in commission frontmatter. Dax/O'Brien figure out the schema. |
-| Apendment visibility | Rejection always has a clear reason from Kira | Dashboard shows apendment count + reject reason. Kira's REJECTED event in register includes `reason` field. Visible on hover/tap in the pipeline. |
+| Apendment visibility | Rejection always has a clear reason from O'Brien | Dashboard shows apendment count + reject reason. O'Brien's REJECTED event in register includes `reason` field. Visible on hover/tap in the pipeline. |

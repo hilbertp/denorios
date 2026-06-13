@@ -10,8 +10,7 @@ This directory holds project documentation organized by purpose. Authors should 
 | `adr/` | Numbered ADRs (legacy single-doc location). New ADRs go in `architecture/` with `-ADR` suffix. | Dax |
 | `contracts/` | Interface contracts between components — slice format, lifecycle states, done-report format, etc. Authoritative source for cross-role agreements. | Dax + the contract owners |
 | `runbooks/` | Operational procedures: what to do when X breaks. 3am-readable. Owned by Worf for ops surfaces; by component owner for component-specific recovery. | Worf primarily |
-| `obrien/` | O'Brien's working docs — keeper list, failure reports, sprint briefs, recovery plans. Personal-namespace working area, not authoritative reference. | O'Brien |
-| `kira/` | Kira's working docs — slicing examples, evaluation rubrics, watcher tasks. | Kira |
+| `obrien/` | O'Brien's working docs — slice plans, coordination notes, recovery plans. Personal-namespace working area, not authoritative reference. | O'Brien |
 | `ziyal/` | Ziyal's design briefs and discovery work. | Ziyal |
 
 ## Where to put new docs

@@ -20,7 +20,7 @@ Every role follows the same startup sequence:
 | Role | Identity | ROLE.md | LEARNING.md |
 |---|---|---|---|
 | **Sisko** | Product Manager | `roles/sisko/ROLE.md` | `roles/sisko/LEARNING.md` |
-| **Kira** | Delivery Coordinator | `repo/KIRA.md` (repo root) | `roles/kira/LEARNING.md` |
+| **O'Brien** | Delivery Coordinator | `repo/OBRIEN.md` (repo root) | `roles/obrien/LEARNING.md` |
 | **Dax** | Architect | `roles/dax/ROLE.md` | `roles/dax/LEARNING.md` |
 | **O'Brien** | Implementor | `repo/.claude/CLAUDE.md` | — |
 | **Ziyal** | Designer | `roles/ziyal/ROLE.md` | `roles/ziyal/LEARNING.md` |

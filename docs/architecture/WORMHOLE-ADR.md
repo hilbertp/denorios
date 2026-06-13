@@ -3,14 +3,14 @@
 **Status:** Accepted
 **Author:** Dax (Architect)
 **Date:** 2026-04-14
-**Context:** Sprint 3 — prerequisite to Kira self-activation drain
+**Context:** Sprint 3 — prerequisite to O'Brien self-activation drain
 **Supersedes:** the filesystem-sync design from the previous version of this ADR (superseded by POC evidence on 2026-04-14)
 
 ---
 
 ## Context
 
-Cowork runs inside a full Linux VM. Writes from inside the VM to the macOS workspace folder cross the VirtioFS boundary and trigger a per-write permission prompt. Interactive sessions are fine — Philipp clicks through. Automated pipelines are not — the Kira drain, scheduled tasks, and any headless agent work stall on human approval for every file write.
+Cowork runs inside a full Linux VM. Writes from inside the VM to the macOS workspace folder cross the VirtioFS boundary and trigger a per-write permission prompt. Interactive sessions are fine — Philipp clicks through. Automated pipelines are not — the O'Brien drain, scheduled tasks, and any headless agent work stall on human approval for every file write.
 
 This ADR locks the bridge design that lets Cowork agents write to the workspace folder without human-in-the-loop approval per write.
 
@@ -27,7 +27,7 @@ Reads continue to go through VirtioFS directly (the existing mount inside each C
 ```
   ┌──────── Cowork VM ────────┐          ┌─────────── macOS host ───────────┐
   │                           │          │                                   │
-  │   Kira / Dax / O'Brien    │          │   Wormhole MCP server             │
+  │   O'Brien / Dax / O'Brien    │          │   Wormhole MCP server             │
   │          │                │          │   (node process, per session)     │
   │          │ reads          │          │          │                        │
   │          ▼                │          │          ▼                        │
@@ -72,7 +72,7 @@ An earlier version of this ADR proposed a macOS daemon watching both a sandbox-i
 
 Rejected alternatives (still rejected):
 - Move all state into the sandbox → sandbox sessions are ephemeral; state must persist.
-- Sandbox read-only → Kira must write briefs, decisions, escalations.
+- Sandbox read-only → O'Brien must write briefs, decisions, escalations.
 - Wormhole inside the sandbox → a sandbox process cannot write to macOS without the prompt.
 
 ---
@@ -138,8 +138,8 @@ No unhandled exception in a tool body may crash the server process. Every tool h
 
 Multiple Cowork sessions running simultaneously each spawn their own Wormhole server process (one per stdio client). Combined with watcher.js on the host, three+ processes may compete for the same file.
 
-- **Per-slice files** (`bridge/queue/*.md`, `bridge/kira-escalations/*.md`, `.claude/roles/*/inbox/HANDOFF-*.md`) — single writer per file. No contention.
-- **Append-heavy files with multiple writers** (`bridge/timesheet.jsonl`, `bridge/anchors.jsonl`, `bridge/tt-audit.jsonl`) — **writer-split**. Each writer appends to a per-role file (`timesheet-kira.jsonl`, `timesheet-watcher.jsonl`, etc.). Merged view (`timesheet.jsonl`) is rebuilt by watcher on change, sorted by timestamp. This is the same strategy recommended in the prior ADR; it survives the architecture pivot.
+- **Per-slice files** (`bridge/queue/*.md`, `bridge/obrien-escalations/*.md`, `.claude/roles/*/inbox/HANDOFF-*.md`) — single writer per file. No contention.
+- **Append-heavy files with multiple writers** (`bridge/timesheet.jsonl`, `bridge/anchors.jsonl`, `bridge/tt-audit.jsonl`) — **writer-split**. Each writer appends to a per-role file (`timesheet-obrien.jsonl`, `timesheet-watcher.jsonl`, etc.). Merged view (`timesheet.jsonl`) is rebuilt by watcher on change, sorted by timestamp. This is the same strategy recommended in the prior ADR; it survives the architecture pivot.
 
 Writer-split migration is a slice of its own — see §What O'Brien builds.
 
@@ -162,7 +162,7 @@ Reads inside Cowork go through VirtioFS. Ad-hoc testing so far shows writes are 
 ### Slice 2: Writer-split migration
 
 - `bridge/migrate-writer-split.js` — one-shot: splits existing `timesheet.jsonl`, `anchors.jsonl`, `tt-audit.jsonl` into `-<role>.jsonl` files.
-- Update Kira's wrap-up and any other sandbox-side appenders to call `wormhole_append_jsonl` against `*-kira.jsonl`.
+- Update O'Brien's wrap-up and any other sandbox-side appenders to call `wormhole_append_jsonl` against `*-obrien.jsonl`.
 - Update watcher.js to write its side to `*-watcher.jsonl` and rebuild the merged view on change.
 - Update readers (Ops Center, reports) to read the merged view.
 
@@ -186,7 +186,7 @@ Reads inside Cowork go through VirtioFS. Ad-hoc testing so far shows writes are 
 
 ## Open questions (deferred, not blocking)
 
-1. **Headless / Dispatch-triggered consent behavior.** Accepted constraint: first tool call in a session requires a click. Unknown: does a scheduled-task or Dispatch-triggered session *with no human present* see the prompt queue and stall, or does it fail fast, or does consent somehow carry across from the interactive session that set it up? Resolved by live test during Kira activation work. If it stalls, Slice 3 (consent preflight) becomes a blocker for the drain.
+1. **Headless / Dispatch-triggered consent behavior.** Accepted constraint: first tool call in a session requires a click. Unknown: does a scheduled-task or Dispatch-triggered session *with no human present* see the prompt queue and stall, or does it fail fast, or does consent somehow carry across from the interactive session that set it up? Resolved by live test during O'Brien activation work. If it stalls, Slice 3 (consent preflight) becomes a blocker for the drain.
 
 2. **Cross-session new-window consent scope.** Smaller version of #1: does a second Cowork window opened alongside the first also require its own consent click? Tested with a one-minute experiment; disposition drives whether Slice 3 is needed at all.
 

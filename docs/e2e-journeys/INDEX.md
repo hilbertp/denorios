@@ -8,12 +8,13 @@ Produced via the live Bashir non-gate invocation path (slice 304). Reconciled ag
 
 ## Journeys by category
 
-### Authoring & Staging (2 journeys)
+### Authoring & Staging (3 journeys)
 
 | ID | Title | Status | Sources |
 |---|---|---|---|
 | **J-stage-and-watch-slice** | Stage a new slice and watch it in Ops | draft | `slice-pipeline.md`, `slice-lifecycle.md`, `DASHBOARD-REDESIGN-SPEC.md`, `new-slice.js` |
 | **J-approve-and-reorder-queue** | Approve a staged slice and reorder the queue | draft | `slice-pipeline.md`, `slice-lifecycle.md`, `DASHBOARD-REDESIGN-SPEC.md` |
+| **J-queue-detail-controls** | Manage a queued slice from the detail overlay | draft | `lcars-dashboard.html`, `server.js`, `slice-pipeline.md`, `slice-lifecycle.md` |
 
 ### Dispatch & Execution (2 journeys)
 
@@ -62,9 +63,9 @@ Produced via the live Bashir non-gate invocation path (slice 304). Reconciled ag
 ## Totals
 
 - **Categories covered:** 7 / 7 — all mandatory categories have at least 1 journey
-- **Total journeys:** 14
+- **Total journeys:** 15
 - **Status breakdown:**
-  - draft: 14
+  - draft: 15
   - reviewed: 0
   - signed-off: 0
 
@@ -72,12 +73,13 @@ Produced via the live Bashir non-gate invocation path (slice 304). Reconciled ag
 
 ## Reconciliation summary (vs. prior `bashir/phase-1-catalog` output)
 
-The prior catalog had 11 journeys. This version has 14 (+3 new). Key changes:
+The prior catalog had 11 journeys. This version has 15 (+4 new). Key changes:
 
 **New journeys added:**
 - `J-slice-broken-fast-path` — Rom escalation path to O'Brien; documented in `slice-pipeline.md §10` but absent from prior catalog
 - `J-nog-max-rounds-escalation` — 6th Nog rejection routes to O'Brien; in `slice-pipeline.md §9`; absent from prior catalog
 - `J-pipeline-pause-resume` — `bridge/.pipeline-paused` flag; in runbook §F12; was referenced but not spec'd
+- `J-queue-detail-controls` — queued detail overlay save/unapprove/remove/return-to-stage flow; discovered from current Ops UI controls
 
 **Prior journeys corrected:**
 - All Ziyal spec source citations updated: `HANDOFF-OPS-REDESIGN-SPEC-FROM-ZIYAL.md` does not exist on current main; corrected to `dashboard/DASHBOARD-REDESIGN-SPEC.md`
@@ -102,7 +104,7 @@ Per Phase 1 AC #3–#5:
   - Active Build panel (`.panel-hero`): J-rom-completes-slice, J-watch-slice-live-log, J-direct-controls-ops-ui
   - Post-Build pipeline panel (`.panel-postbuild`): J-nog-accepts-slice, J-nog-rejects-slice-round-2, J-direct-controls-ops-ui
   - Gate Health section (`.gate-health-section`): J-merge-button-pass, J-gate-fail-retry, J-direct-controls-ops-ui
-  - Queue panel (`.panel-queue`): J-stage-and-watch-slice, J-approve-and-reorder-queue, J-direct-controls-ops-ui
+  - Queue panel (`.panel-queue`): J-stage-and-watch-slice, J-approve-and-reorder-queue, J-queue-detail-controls, J-direct-controls-ops-ui
   - Slice History panel (`.panel-history`): J-inspect-slice-history, J-direct-controls-ops-ui
 
 ---

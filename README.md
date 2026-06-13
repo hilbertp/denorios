@@ -18,7 +18,7 @@ To stop: `./scripts/stop.sh`
 
 A dashboard showing the pipeline in real time:
 
-- **Roles** — which agents are connected (Kira, O'Brien) and which are coming soon
+- **Roles** — which agents are connected (O'Brien, Rom, Nog, Bashir)
 - **Active brief** — what's in flight, which role owns it, how long it's been there
 - **Queue** — pending briefs waiting to be picked up
 - **Recent completions** — last few finished briefs with outcomes (DONE / AMENDED / ERROR)
@@ -26,18 +26,15 @@ A dashboard showing the pipeline in real time:
 
 ## How it works
 
-Kira (delivery coordinator) writes a brief file to `bridge/queue/`. A watcher process detects the new file and invokes O'Brien (implementor) via `claude -p`. O'Brien executes the brief and writes a structured report back to the queue. An evaluator reviews the output and either accepts it or sends an amendment. The entire loop runs without human intervention. Files on disk are the source of truth — no database, no message broker.
+O'Brien stages a slice file for Philipp's review. Once approved, the watcher moves it through the queue and invokes Rom via `claude -p`. Rom executes the slice and writes a structured report back to the queue. Nog reviews Rom's work, Bashir runs the regression gate before merge, and the register records every state transition. Files on disk are the source of truth — no database, no message broker.
 
 ## Roles
 
 | Role | Description | Status |
 |---|---|---|
-| Kira | Delivery coordinator — writes briefs, evaluates reports | Active |
-| O'Brien | Implementor — executes briefs via Claude Code CLI | Active |
-| Dax | Architect — designs systems, answers hard technical questions | Active |
-| Sisko | Product manager — defines priorities and success criteria | Active |
-| Ziyal | Designer — UI/UX, dashboards, visual specs | Active |
-| Nog | Code reviewer | Coming soon |
+| O'Brien | Dev team lead — authors and stages slices | Active |
+| Rom | Implementor — executes slices via Claude Code CLI | Active |
+| Nog | Code reviewer | Active |
 | Bashir | QA / testing | Active |
 
 ## Project structure
@@ -48,12 +45,12 @@ bridge/
   staged/         # Staging area for Philipp's brief review (Rubicon)
   register.jsonl  # Append-only event log (watcher + evaluator)
   timesheet.jsonl # Append-only T&T log for all roles (human and watcher)
-  orchestrator.js # Detects new briefs, invokes O'Brien
+  orchestrator.js # Detects approved slices, invokes Rom, dispatches Nog/Bashir
   bridge.config.json
 dashboard/        # Web UI served on port 4747
 .claude/
   roles/          # Per-role instructions and handoff files
-  CLAUDE.md       # O'Brien's anchor file
+  CLAUDE.md       # Rom's headless implementor anchor file
 ```
 
 ## Requirements

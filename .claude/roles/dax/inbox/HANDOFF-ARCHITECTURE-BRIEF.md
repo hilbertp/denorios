@@ -29,7 +29,7 @@ The question for you: what's the right architecture for the dashboard and the br
 | **Queue** | Flat files in `bridge/queue/` | Markdown files with YAML frontmatter, renamed atomically | Reliable. State transitions via filesystem rename. |
 | **Register** | `register.jsonl` (append-only) | Written by watcher, 2 event types (COMMISSIONED, DONE) | Embryonic. Needs 10+ event types for dashboard lifecycle visualization. |
 | **Heartbeat** | `heartbeat.json` | Written by watcher every 60s | Works. Dashboard polls it. |
-| **Scheduled tasks** | Cowork `create_scheduled_task` (cron) | `*/3 * * * *` — Kira's commission watcher | Works but opaque. No visibility into whether scheduled tasks are running, failed, or stale. |
+| **Scheduled tasks** | Cowork `create_scheduled_task` (cron) | `*/3 * * * *` — O'Brien's commission watcher | Works but opaque. No visibility into whether scheduled tasks are running, failed, or stale. |
 | **O'Brien invocation** | `claude -p` via `execFile` | Watcher pipes commission to stdin | Works. Token tracking exists (parses JSON output). |
 
 ### What's not convenient
@@ -131,7 +131,7 @@ The register needs to capture all lifecycle events. Two approaches:
 Philipp wants every role to report token burn and human-hours estimates. Architecture questions:
 
 - Where does the data land? Separate file (`bridge/token-burn.jsonl`)? Same register? SQLite table?
-- How does each role report? O'Brien's tokens come from watcher (already parsed from Claude output). But Kira (Cowork) and Nog (Claude Code) run in separate sessions — how do their token counts get into the system?
+- How does each role report? O'Brien's tokens come from watcher (already parsed from Claude output). But O'Brien (Cowork) and Nog (Claude Code) run in separate sessions — how do their token counts get into the system?
 - Is there a reporting skill that runs at session end and appends to the tracker? Or does each session's tool (Cowork, Claude Code) need to be instrumented?
 
 ### 5. Unified startup
@@ -158,7 +158,7 @@ Or is this over-engineering for a single-user local system?
 5. **Startup/process management recommendation** — unified or keep separate.
 6. **Anything I'm missing** — blind spots, risks, constraints I haven't considered.
 
-Philipp will review your recommendation. Once architecture is decided, Kira commissions the work.
+Philipp will review your recommendation. Once architecture is decided, O'Brien commissions the work.
 
 ---
 
@@ -173,5 +173,5 @@ Philipp will review your recommendation. Once architecture is decided, Kira comm
 | `bridge/heartbeat.json` | Current heartbeat snapshot |
 | `bridge/bridge.config.json` | Current configuration |
 | `docs/contracts/` | Locked specs for commission format, report format, queue lifecycle |
-| `KIRA.md` | Kira's anchor file with workflow and evaluation protocol |
+| `OBRIEN.md` | O'Brien's anchor file with workflow and evaluation protocol |
 | `.claude/CLAUDE.md` | O'Brien's anchor file with role definition and branch discipline |

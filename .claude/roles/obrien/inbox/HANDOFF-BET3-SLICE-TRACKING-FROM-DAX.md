@@ -9,7 +9,7 @@
 
 ## Why this exists
 
-Kira will be commissioning you to implement per-slice tracking. This file gives you the architecture context so you can build from intent, not just spec. Full ADR: `docs/architecture/BET3-PER-SLICE-TRACKING.md`. Read that before starting.
+O'Brien will be commissioning you to implement per-slice tracking. This file gives you the architecture context so you can build from intent, not just spec. Full ADR: `docs/architecture/BET3-PER-SLICE-TRACKING.md`. Read that before starting.
 
 ---
 

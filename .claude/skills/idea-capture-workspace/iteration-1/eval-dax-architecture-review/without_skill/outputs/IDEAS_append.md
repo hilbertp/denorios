@@ -10,7 +10,7 @@
 
 ## Problem Statement
 
-In Bet 2, Kira manually evaluates reports: she reads what O'Brien produced, checks it against success criteria (explicit in the commission), and decides to accept, amend, or reject.
+In Bet 2, O'Brien manually evaluates reports: she reads what O'Brien produced, checks it against success criteria (explicit in the commission), and decides to accept, amend, or reject.
 
 By Bet 3 (post-React), we'll have a dashboard. This is an opportunity to **make evaluation extensible**: different teams have different bars (security wants policy compliance, infra wants deployment readiness), and we shouldn't hard-code all of them into the core platform. External contributors should be able to plug in their own evaluation criteria.
 
@@ -21,7 +21,7 @@ A **plugin system where evaluation criteria are pluggable modules**. Each plugin
 - Has a name, description, and scoring logic
 - Runs in the dashboard (Bet 3, React)
 - Can be discovered from a registry or local directory
-- Aggregates into a recommendation for Kira (e.g., "4 out of 5 criteria passed")
+- Aggregates into a recommendation for O'Brien (e.g., "4 out of 5 criteria passed")
 
 Example plugin interface:
 
@@ -56,7 +56,7 @@ Plugin discovery: `.bridge/plugins/` directory, or later an npm-style registry.
 - Report format
 - Queue lifecycle (PENDING → IN_PROGRESS → DONE/ERROR)
 - O'Brien's execution model
-- Kira's final decision-making authority (plugins inform, human decides)
+- O'Brien's final decision-making authority (plugins inform, human decides)
 
 ## Open Questions for Bet 3 Implementation
 

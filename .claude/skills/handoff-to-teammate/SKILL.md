@@ -18,13 +18,13 @@ A handoff can go to one role or multiple roles simultaneously. Identify every ro
 | Role | Folder | Receives from | What they handle |
 |---|---|---|---|
 | **Sisko** (PM) | `roles/sisko/` | Anyone | Product decisions, scope approval, bet packaging, escalations |
-| **Dax** (Architect) | `roles/dax/` | Sisko, Kira | Technical architecture, feasibility reviews, ADRs, system design — **first stop for anything with technical complexity before it reaches Kira** |
-| **Kira** (Delivery Coordinator) | `roles/kira/` | Sisko, Dax, O'Brien, Nog | Slice plans, brief writing, done report evaluation, delivery sequencing — **owns the backend/frontend split: decides which slices go to O'Brien vs Leeta** |
-| **O'Brien** (Implementor) | `roles/obrien/` | **Dax + Kira** | Architecture context from Dax (so he knows the system constraints) and implementation briefs from Kira — receives from both |
-| **Ziyal** (Designer) | `roles/ziyal/` | Sisko, Kira | UI/UX design briefs, visual design, dashboard designs, frontend HTML prototypes |
-| **Leeta** (Landing Page) | `roles/leeta/` | Kira, Ziyal | Frontend/landing page slices Kira routes her way — marketing copy, landing page content |
-| **Nog** (Code Review) | `roles/nog/` | Kira, O'Brien | Code review on completed slices |
-| **Bashir** (QA) | `.claude/roles/bashir/` | Kira, O'Brien | QA and testing on completed slices |
+| **Dax** (Architect) | `roles/dax/` | Sisko, O'Brien | Technical architecture, feasibility reviews, ADRs, system design — **first stop for anything with technical complexity before it reaches O'Brien** |
+| **O'Brien** (Delivery Coordinator) | `roles/obrien/` | Sisko, Dax, O'Brien, Nog | Slice plans, brief writing, done report evaluation, delivery sequencing — **owns the backend/frontend split: decides which slices go to O'Brien vs Leeta** |
+| **O'Brien** (Implementor) | `roles/obrien/` | **Dax + O'Brien** | Architecture context from Dax (so he knows the system constraints) and implementation briefs from O'Brien — receives from both |
+| **Ziyal** (Designer) | `roles/ziyal/` | Sisko, O'Brien | UI/UX design briefs, visual design, dashboard designs, frontend HTML prototypes |
+| **Leeta** (Landing Page) | `roles/leeta/` | O'Brien, Ziyal | Frontend/landing page slices O'Brien routes her way — marketing copy, landing page content |
+| **Nog** (Code Review) | `roles/nog/` | O'Brien, O'Brien | Code review on completed slices |
+| **Bashir** (QA) | `.claude/roles/bashir/` | O'Brien, O'Brien | QA and testing on completed slices |
 
 ### Known multi-recipient handoffs
 
@@ -32,43 +32,43 @@ These always produce multiple artifacts — do not send to only one:
 
 | Sender | Receivers | Why |
 |---|---|---|
-| **Dax** (architecture output) | **Kira + O'Brien** | Kira needs it to slice; O'Brien needs it to implement. Both must have it simultaneously. |
-| **Kira** (slice plan with mixed scope) | **O'Brien + Leeta** | Backend slices → O'Brien; frontend slices → Leeta; split rather than bundle |
+| **Dax** (architecture output) | **O'Brien + O'Brien** | O'Brien needs it to slice; O'Brien needs it to implement. Both must have it simultaneously. |
+| **O'Brien** (slice plan with mixed scope) | **O'Brien + Leeta** | Backend slices → O'Brien; frontend slices → Leeta; split rather than bundle |
 
 ### Natural flow
 
 ```
-Sisko (scope) → Dax (architecture) → Kira + O'Brien (parallel)
-                                       ↳ Kira slices → O'Brien (backend) or Leeta (frontend)
-Sisko (scope) → Ziyal (design) → Kira → O'Brien or Leeta
+Sisko (scope) → Dax (architecture) → O'Brien + O'Brien (parallel)
+                                       ↳ O'Brien slices → O'Brien (backend) or Leeta (frontend)
+Sisko (scope) → Ziyal (design) → O'Brien → O'Brien or Leeta
 ```
 
-**Kira's routing decision when briefing:**
+**O'Brien's routing decision when briefing:**
 - Backend (Node.js, watcher, relay, bridge, API) → **O'Brien**
 - Frontend (HTML, CSS, dashboard, landing page) → **Leeta** (public-facing) or **O'Brien** (product UI)
 - Both in one slice → split into two briefs, route separately
 
-**Technical work always goes to Dax before Kira.** Kira should never receive raw technical requirements without architectural guidance from Dax.
+**Technical work always goes to Dax before O'Brien.** O'Brien should never receive raw technical requirements without architectural guidance from Dax.
 
 ### Routing decision
 
 - "Should we build this? What's the scope?" → **Sisko**
-- "How should this be built? Any technical complexity?" → **Dax** (before Kira)
-- "Architecture output ready" → **Kira + O'Brien** (always both)
-- "Sequence, brief, backend vs frontend split" → **Kira**
-- "Build the backend / implement" → **O'Brien** (via Kira brief)
-- "Build the frontend / landing page" → **Leeta** (via Kira)
+- "How should this be built? Any technical complexity?" → **Dax** (before O'Brien)
+- "Architecture output ready" → **O'Brien + O'Brien** (always both)
+- "Sequence, brief, backend vs frontend split" → **O'Brien**
+- "Build the backend / implement" → **O'Brien** (via O'Brien brief)
+- "Build the frontend / landing page" → **Leeta** (via O'Brien)
 - "Design the UI / write the HTML prototype" → **Ziyal**
 - "Review this code" → **Nog**
 - "QA this slice" → **Bashir**
 
-When in doubt: **Dax before Kira** for anything technical.
+When in doubt: **Dax before O'Brien** for anything technical.
 
 ---
 
 ## Step 1: Write one artifact per receiver
 
-Write a separate handoff file for each receiver in their own folder. Content can be identical or tailored — Dax sending architecture to Kira may emphasize slicing guidance, while the same artifact to O'Brien emphasizes implementation constraints. Either way, each receiver gets their own file.
+Write a separate handoff file for each receiver in their own folder. Content can be identical or tailored — Dax sending architecture to O'Brien may emphasize slicing guidance, while the same artifact to O'Brien emphasizes implementation constraints. Either way, each receiver gets their own file.
 
 **File location:** `roles/{receiver}/inbox/HANDOFF-{short-description}.md`
 
@@ -110,7 +110,7 @@ This captures the closing token snapshot. The delta between open (check-handoffs
 
 ## Step 1c: Append outbound record to tt-audit
 
-After writing all handoff artifacts, append **one line** to `bridge/tt-audit-{role}.jsonl` where `{role}` is your role name, lowercase (e.g. `tt-audit-kira.jsonl` for Kira). Append via `wormhole_append_jsonl`. Never write to the merged `tt-audit.jsonl` directly — the watcher rebuilds it automatically.
+After writing all handoff artifacts, append **one line** to `bridge/tt-audit-{role}.jsonl` where `{role}` is your role name, lowercase (e.g. `tt-audit-obrien.jsonl` for O'Brien). Append via `wormhole_append_jsonl`. Never write to the merged `tt-audit.jsonl` directly — the watcher rebuilds it automatically.
 
 ```bash
 echo '{ "role": "<sending role, lowercase>", "ts": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'", "to": "<receiving role, lowercase>", "ref": "<handoff filename>" }' >> bridge/tt-audit-{role}.jsonl
@@ -177,12 +177,12 @@ Format:
 > - `{artifact path 2}` → {Role2}
 > Next: open a new context window as **{Role1}** first — {reason}.
 
-Example (Dax handing to Kira + O'Brien):
+Example (Dax handing to O'Brien + O'Brien):
 
-> **Handed off to Kira (Delivery) and O'Brien (Implementor).**
-> - `roles/kira/inbox/HANDOFF-BET2-RELAY-SLICING.md` → Kira
+> **Handed off to O'Brien (Delivery) and O'Brien (Implementor).**
+> - `roles/obrien/inbox/HANDOFF-BET2-RELAY-SLICING.md` → O'Brien
 > - `roles/obrien/inbox/HANDOFF-BET2-RELAY-ARCHITECTURE.md` → O'Brien
-> Next: open a new context window as **Kira** first — she needs to slice before O'Brien can build.
+> Next: open a new context window as **O'Brien** first — she needs to slice before O'Brien can build.
 
 ---
 

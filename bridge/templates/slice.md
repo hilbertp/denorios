@@ -7,8 +7,8 @@ title: ""
      Outcome-focused ("X will be possible / visible / working"), not technical.
      Displayed in the watcher terminal. Required for new slices. -->
 goal: ""
-from: kira
-to: obrien
+from: obrien
+to: rom
 <!-- priority: low | normal | high | spike -->
 priority: normal
 <!-- created: ISO 8601 timestamp when you wrote this slice. -->
@@ -21,12 +21,12 @@ timeout_min: null
 
 ## Objective
 
-<!-- One or two sentences: what should O'Brien accomplish? This defines scope. -->
+<!-- One or two sentences: what should Rom accomplish? This defines scope. -->
 
 ## Context
 
-<!-- Background O'Brien needs. Reference file paths or prior slice IDs — O'Brien can look them up.
-     The watcher injects nothing. Don't rely on O'Brien inferring context that isn't here or on disk. -->
+<!-- Background Rom needs. Reference file paths or prior slice IDs — Rom can look them up.
+     The watcher injects nothing. Don't rely on Rom inferring context that isn't here or on disk. -->
 
 ## Tasks
 
@@ -41,7 +41,7 @@ timeout_min: null
 
 ## Success criteria
 
-<!-- Checkable conditions Kira will use to evaluate the report.
-     O'Brien self-evaluates against these before writing his report. -->
+<!-- Checkable conditions Nog and Bashir will use to evaluate the result.
+     Rom self-evaluates against these before writing his report. -->
 
 1.

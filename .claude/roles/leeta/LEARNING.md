@@ -14,7 +14,7 @@ This file contains things learned through corrections, confirmations, and observ
 ## Lovable platform constraints
 
 ### Learning 1: Repo flow is one-directional
-Lovable cannot connect to existing GitHub repos. It must create its own repo via its GitHub integration. You fully own the created repo, but other roles (O'Brien, Dax, Kira) connect to it after Lovable creates it. The reverse — pointing Lovable at an existing repo — is not supported.
+Lovable cannot connect to existing GitHub repos. It must create its own repo via its GitHub integration. You fully own the created repo, but other roles (O'Brien, Dax, O'Brien) connect to it after Lovable creates it. The reverse — pointing Lovable at an existing repo — is not supported.
 
 ### Learning 2: Lovable serves pure CSR React
 Lovable hosts your site as a pure client-side rendered (CSR) React app. The server sends essentially empty HTML — just a `<div id="root"></div>` — and JavaScript builds the page in the browser. This is fine for human visitors but hostile to crawlers. Google's crawler sees empty HTML on first pass and renders JavaScript days or weeks later on a low-priority queue.

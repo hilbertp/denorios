@@ -22,7 +22,7 @@ After completing any significant piece of work, append one JSON line to the time
 ```json
 {
   "ts": "ISO 8601 timestamp (UTC)",
-  "role": "your role name, lowercase (e.g. dax, kira, obrien)",
+  "role": "your role name, lowercase (e.g. dax, obrien, obrien)",
   "deliverable": "The deliverable this work belongs to — e.g. 'slice-11-nog-gate', 'architecture-plan-v3', 'bet-landing-page'. This is the aggregation key.",
   "phase": "one of: planning, execution, review, housekeeping, fix",
   "brief_id": "brief ID if applicable, or null",
@@ -46,7 +46,7 @@ Use a short, stable, human-readable slug. Convention: `{type}-{name}`, for examp
 - `spike-auth-feasibility` — a feasibility spike
 - `housekeeping-branch-cleanup` — meta-work not tied to a feature
 
-Pick the name when you start the work. If you're unsure, ask Sisko or Kira what the deliverable should be called. Once named, use it consistently across all entries for that deliverable — don't rename mid-stream.
+Pick the name when you start the work. If you're unsure, ask Sisko or O'Brien what the deliverable should be called. Once named, use it consistently across all entries for that deliverable — don't rename mid-stream.
 
 ### `phase`
 - **planning** — scoping, designing, writing specs, architecture decisions

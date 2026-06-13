@@ -13,9 +13,9 @@ graph TD
     P[Philipp — Human Stakeholder]
     S[Sisko — Product Manager]
     D[Dax — Architect]
-    K[Kira — Delivery Coordinator]
+    K[O'Brien — Delivery Coordinator]
     Z[Ziyal — Designer]
-    OB[O'Brien — Backend Implementor]
+    R[Rom — Backend Implementor]
     L[Leeta — Frontend Implementor]
     N[Nog — Code Reviewer]
     B[Bashir — QA]
@@ -24,18 +24,18 @@ graph TD
     S --> D
     S --> Z
     D --> K
-    D --> OB
-    K --> OB
+    D --> R
+    K --> R
     K --> L
-    OB --> N
-    OB --> B
+    R --> N
+    R --> B
 
     style P fill:#f9d71c,stroke:#333,color:#000
     style S fill:#4a90d9,stroke:#333,color:#fff
     style D fill:#4a90d9,stroke:#333,color:#fff
     style K fill:#4a90d9,stroke:#333,color:#fff
     style Z fill:#4a90d9,stroke:#333,color:#fff
-    style OB fill:#4a90d9,stroke:#333,color:#fff
+    style R fill:#4a90d9,stroke:#333,color:#fff
     style L fill:#4a90d9,stroke:#333,color:#fff
     style N fill:#4a90d9,stroke:#333,color:#fff
     style B fill:#4a90d9,stroke:#333,color:#fff
@@ -62,12 +62,12 @@ roles/
 │   ├── LEARNING.md
 │   └── inbox/
 │       └── ...
-├── kira/
+├── obrien/
 │   ├── ROLE.md
 │   ├── LEARNING.md
 │   └── inbox/
 │       └── ...
-└── ... (obrien, ziyal, leeta, nog, bashir)
+└── ... (ziyal, leeta, nog, bashir)
 ```
 
 **Three zones, one purpose each:**
@@ -86,22 +86,25 @@ roles/
 sequenceDiagram
     participant S as Sisko (PM)
     participant D as Dax (Architect)
-    participant K as Kira (Delivery)
-    participant O as O'Brien (Implementor)
+    participant K as O'Brien (Delivery)
+    participant R as Rom (Implementor)
+    participant N as Nog (Review)
+    participant B as Bashir (QA)
 
     S->>D: HANDOFF → dax/inbox/
     Note over D: Reads inbox, does architecture work
-    D->>K: HANDOFF → kira/inbox/
-    D->>O: HANDOFF → obrien/inbox/
-    Note over D: (Architecture goes to both)
-    K->>O: STAGED brief → bridge/staged/
-    Note over O: Watcher picks up brief automatically
-    O->>K: DONE report → bridge/queue/
-    K->>K: Evaluate report
+    D->>K: HANDOFF → obrien/inbox/
+    D->>R: Context → slice file
+    Note over D: (Architecture informs slicing and implementation)
+    K->>R: STAGED brief → bridge/staged/
+    Note over R: Watcher picks up approved brief automatically
+    R->>K: DONE report → bridge/queue/
+    R->>N: Review handoff via watcher
+    N->>B: Regression gate before merge
     alt Accepted
-        K->>K: Merge branch to main
+        B->>K: Merge branch to main
     else Amendment needed
-        K->>O: New STAGED brief (amendment)
+        K->>R: New STAGED brief (amendment)
     end
 ```
 
@@ -172,7 +175,7 @@ When one role needs something from another role, they run `/handoff-to-teammate`
 
 | Type | Pattern | Example |
 |---|---|---|
-| Handoff | `inbox/HANDOFF-{description}.md` | `kira/inbox/HANDOFF-BET3-SLICING.md` |
+| Handoff | `inbox/HANDOFF-{description}.md` | `obrien/inbox/HANDOFF-BET3-SLICING.md` |
 | Response | `inbox/RESPONSE-{description}-FROM-{role}.md` | `sisko/inbox/RESPONSE-ARCHITECTURE-FROM-DAX.md` |
 
 ### Routing rules
@@ -182,20 +185,20 @@ flowchart TD
     Q{What kind of work?}
     Q -->|Scope/priority decision| S[Sisko]
     Q -->|Technical architecture| D[Dax]
-    Q -->|Sequence/brief/split| K[Kira]
-    Q -->|Backend build| O[O'Brien]
+    Q -->|Sequence/brief/split| K[O'Brien]
+    Q -->|Backend build| R[Rom]
     Q -->|Frontend/landing| L[Leeta]
     Q -->|UI/UX design| Z[Ziyal]
     Q -->|Code review| N[Nog]
     Q -->|QA/testing| B[Bashir]
 
-    D -->|Architecture output| K2[Kira + O'Brien]
-    Note1[Always both] -.- K2
+    D -->|Architecture output| K2[O'Brien + Rom context]
+    Note1[O'Brien keeps slice discipline] -.- K2
 
     style Note1 fill:#fff3cd,stroke:#856404,color:#856404
 ```
 
-**Rule of thumb:** Technical work always goes to Dax before Kira. Kira should never receive raw technical requirements without architectural guidance.
+**Rule of thumb:** Technical work always goes to Dax before O'Brien turns it into slices. Rom should never receive raw technical requirements without O'Brien's slice framing.
 
 ---
 
@@ -215,7 +218,7 @@ Together these give ROI: value created (human hours saved) vs. cost incurred (to
 ```json
 {
   "ts": "2026-04-12T19:30:00Z",
-  "role": "kira",
+  "role": "obrien",
   "deliverable": "bet3-ops-center-polish",
   "phase": "fix",
   "brief_id": null,
@@ -227,13 +230,13 @@ Together these give ROI: value created (human hours saved) vs. cost incurred (to
 }
 ```
 
-### Automated tracking (O'Brien's sessions)
+### Automated tracking (Rom's sessions)
 
-The watcher tracks O'Brien's token burn automatically — it captures `tokens_in`, `tokens_out`, and `cost_usd` from Claude Code's JSON output and writes them to `bridge/register.jsonl`.
+The watcher tracks Rom's token burn automatically — it captures `tokens_in`, `tokens_out`, and `cost_usd` from Claude Code's JSON output and writes them to `bridge/register.jsonl`.
 
 ### Manual tracking (Cowork role sessions)
 
-Cowork roles (Dax, Kira, Sisko, Ziyal, Leeta) are invisible to the watcher. Their token cost is captured by `bridge/usage-snapshot.js`, which reads the Claude desktop app's usage API. This runs at session start (`/check-handoffs`) and session end (`/wrap-up` or `/handoff-to-teammate`).
+Cowork roles (Dax, O'Brien, Sisko, Ziyal, Leeta) are invisible to the watcher. Their token cost is captured by `bridge/usage-snapshot.js`, which reads the Claude desktop app's usage API. This runs at session start (`/check-handoffs`) and session end (`/wrap-up` or `/handoff-to-teammate`).
 
 ---
 

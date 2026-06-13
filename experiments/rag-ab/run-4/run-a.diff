@@ -1,7 +1,7 @@
-diff --git a/.claude/roles/kira/RESPONSE-EVALUATOR-ARCHITECTURE-FROM-DAX.md b/.claude/roles/kira/RESPONSE-EVALUATOR-ARCHITECTURE-FROM-DAX.md
+diff --git a/.claude/roles/obrien/RESPONSE-EVALUATOR-ARCHITECTURE-FROM-DAX.md b/.claude/roles/obrien/RESPONSE-EVALUATOR-ARCHITECTURE-FROM-DAX.md
 index b7c6350..d3e98b4 100644
---- a/.claude/roles/kira/RESPONSE-EVALUATOR-ARCHITECTURE-FROM-DAX.md
-+++ b/.claude/roles/kira/RESPONSE-EVALUATOR-ARCHITECTURE-FROM-DAX.md
+--- a/.claude/roles/obrien/RESPONSE-EVALUATOR-ARCHITECTURE-FROM-DAX.md
++++ b/.claude/roles/obrien/RESPONSE-EVALUATOR-ARCHITECTURE-FROM-DAX.md
 @@ -113,7 +113,7 @@ The `failed_criteria` field is important — it gives O'Brien a checklist, not a
  ### 4. Evaluation outcomes
  
@@ -29,10 +29,10 @@ index b7c6350..d3e98b4 100644
  2. Rename: `{id}-EVALUATING.md` → `{id}-STUCK.md`
  3. Do NOT write another PENDING. The commission is dead until Philipp intervenes.
  4. Call `POST /api/bridge/review` with `{ id, verdict: "STUCK", reason }`
-diff --git a/.claude/roles/kira/inbox/RESPONSE-EVALUATOR-ARCHITECTURE-FROM-DAX.md b/.claude/roles/kira/inbox/RESPONSE-EVALUATOR-ARCHITECTURE-FROM-DAX.md
+diff --git a/.claude/roles/obrien/inbox/RESPONSE-EVALUATOR-ARCHITECTURE-FROM-DAX.md b/.claude/roles/obrien/inbox/RESPONSE-EVALUATOR-ARCHITECTURE-FROM-DAX.md
 index bcfb970..cdcc053 100644
---- a/.claude/roles/kira/inbox/RESPONSE-EVALUATOR-ARCHITECTURE-FROM-DAX.md
-+++ b/.claude/roles/kira/inbox/RESPONSE-EVALUATOR-ARCHITECTURE-FROM-DAX.md
+--- a/.claude/roles/obrien/inbox/RESPONSE-EVALUATOR-ARCHITECTURE-FROM-DAX.md
++++ b/.claude/roles/obrien/inbox/RESPONSE-EVALUATOR-ARCHITECTURE-FROM-DAX.md
 @@ -113,7 +113,7 @@ The `failed_criteria` field is important — it gives O'Brien a checklist, not a
  ### 4. Evaluation outcomes
  
@@ -67,7 +67,7 @@ index 72994e9..db8c265 100644
 @@ -125,6 +125,6 @@ Feed this via stdin to `claude -p`, same as commission execution. Parse the JSON
  ## Reference files
  
- - Full ADR: `repo/.claude/roles/kira/RESPONSE-EVALUATOR-ARCHITECTURE-FROM-DAX.md` (complete design with register event timeline example)
+ - Full ADR: `repo/.claude/roles/obrien/RESPONSE-EVALUATOR-ARCHITECTURE-FROM-DAX.md` (complete design with register event timeline example)
 -- Current watcher: `repo/bridge/watcher.js` (945 lines — read it, especially `invokeOBrien`, `poll`, `crashRecovery`, `registerEvent`)
 +- Current watcher: `repo/bridge/watcher.js` (945 lines — read it, especially `invokeOBrien`, `poll`, `crashRecovery`, `appendSliceEvent`)
  - Current server: `repo/dashboard/server.js` (137 lines — the CORS fix target)
@@ -79,7 +79,7 @@ index 3b6c105..e2cf159 100644
 @@ -125,6 +125,6 @@ Feed this via stdin to `claude -p`, same as commission execution. Parse the JSON
  ## Reference files
  
- - Full ADR: `repo/.claude/roles/kira/RESPONSE-EVALUATOR-ARCHITECTURE-FROM-DAX.md` (complete design with register event timeline example)
+ - Full ADR: `repo/.claude/roles/obrien/RESPONSE-EVALUATOR-ARCHITECTURE-FROM-DAX.md` (complete design with register event timeline example)
 -- Current watcher: `repo/bridge/orchestrator.js` (945 lines — read it, especially `invokeOBrien`, `poll`, `crashRecovery`, `registerEvent`)
 +- Current watcher: `repo/bridge/orchestrator.js` (945 lines — read it, especially `invokeOBrien`, `poll`, `crashRecovery`, `appendSliceEvent`)
  - Current server: `repo/dashboard/server.js` (137 lines — the CORS fix target)
@@ -456,7 +456,7 @@ index 0fdab60..a71fe2f 100644
  
 -        registerEvent(id, 'NOG_DECISION', { round, verdict: 'REJECTED', reason: 'verdict_unreadable', apendment_cycle: round });
 +        appendSliceEvent(id, 'NOG_DECISION', { round, verdict: 'REJECTED', reason: 'verdict_unreadable', apendment_cycle: round });
-         appendKiraEvent({
+         appendO'BrienEvent({
            event: 'NOG_ESCALATION',
            slice_id: id,
 @@ -3535,7 +3535,7 @@ function invokeNog(id) {

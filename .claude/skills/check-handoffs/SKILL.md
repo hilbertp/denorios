@@ -15,7 +15,7 @@ Handoff files follow the naming convention `HANDOFF-*.md` and live in the role's
 
 Before checking for handoffs, verify that your previous session's time was logged:
 
-1. **Identify your role name** (lowercase, e.g. `dax`, `kira`, `sisko`).
+1. **Identify your role name** (lowercase, e.g. `dax`, `obrien`, `sisko`).
 
 2. **Read `bridge/tt-audit.jsonl`.** Find the most recent line where `"role"` matches your role name.
    - If **no entry exists** for your role — skip this entire self-audit. This is your first session; there's nothing to check.
@@ -46,7 +46,7 @@ This captures a baseline token snapshot for this session. Non-blocking — if it
 
 ## Steps
 
-1. **Identify your role name.** Check which DS9 role you are currently operating as (e.g., ziyal, sisko, kira, dax, leeta, obrien, bashir, nog, worf, odo).
+1. **Identify your role name.** Check which DS9 role you are currently operating as (e.g., ziyal, sisko, obrien, dax, leeta, obrien, bashir, nog, worf, odo).
 
 2. **Check your inbox.** All incoming handoffs live in your inbox folder:
    ```

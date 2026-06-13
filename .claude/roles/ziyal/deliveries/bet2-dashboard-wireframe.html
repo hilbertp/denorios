@@ -553,9 +553,9 @@
   <!-- ═══ ROLES ═══ -->
   <div class="roles">
     <div class="role-card">
-      <div class="role-name">Kira</div>
+      <div class="role-name">O'Brien</div>
       <div class="role-function">Delivery Coordinator</div>
-      <div class="role-status connected" id="kiraStatus">
+      <div class="role-status connected" id="obrienStatus">
         <div class="role-status-dot"></div>
         connected
       </div>
@@ -703,7 +703,7 @@
       'Connects the pipeline: picks up queued commissions and routes them to O\'Brien for development, then evaluates his work against acceptance criteria. While offline, commissions queue up and won\'t be processed until it restarts.';
 
     // Roles
-    setRole('kiraStatus', 'connected', 'connected');
+    setRole('obrienStatus', 'connected', 'connected');
     setRole('obrienStatus', 'active', 'developing');
 
     // Hero: active slice
@@ -867,8 +867,8 @@
     document.getElementById('watcherTooltip').textContent =
       'Connects the pipeline: picks up queued commissions and routes them to O\'Brien for development, then evaluates his work against acceptance criteria. While offline, commissions queue up and won\'t be processed until it restarts.';
 
-    // Roles: Kira connected but O'Brien idle
-    setRole('kiraStatus', 'connected', 'connected');
+    // Roles: O'Brien connected but O'Brien idle
+    setRole('obrienStatus', 'connected', 'connected');
     setRole('obrienStatus', 'idle', 'idle');
 
     // Hero: idle
@@ -877,7 +877,7 @@
     slice.innerHTML = `
       <div class="dev-slice-label">Slice in Development</div>
       <div class="idle-content">Nothing in progress</div>
-      <div class="idle-hint">Waiting for the next commission. Kira writes them when there's work to do.</div>`;
+      <div class="idle-hint">Waiting for the next commission. O'Brien writes them when there's work to do.</div>`;
 
     // Queue empty
     document.getElementById('queueCount').textContent = '0';
@@ -917,8 +917,8 @@
     document.getElementById('watcherTooltip').textContent =
       'This service is temporarily unavailable and is restarting automatically. Work already in the queue is safe and will resume as soon as the service recovers.';
 
-    // Roles: Kira still connected (she writes files independently), O'Brien status unknown
-    setRole('kiraStatus', 'connected', 'connected');
+    // Roles: O'Brien still connected (she writes files independently), O'Brien status unknown
+    setRole('obrienStatus', 'connected', 'connected');
     setRole('obrienStatus', 'idle', 'idle');
 
     // Hero: show what was in progress but mark it honestly

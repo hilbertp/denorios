@@ -15,7 +15,7 @@ Sisko placed two handoffs in Dax's inbox: `HANDOFF-RELAY-SERVICE.md` (architectu
 
 ## The recommendation in one paragraph
 
-Wrap the existing file-queue bridge in a Docker container. Don't replace it. One Node.js process runs both the watcher and a dashboard HTTP server. `docker compose up` starts everything. The dashboard is a single HTML file with five elements — enough for a stranger to see the pipeline working. The file queue remains the source of truth. Kira writes files, the watcher detects them, `claude -p` invokes O'Brien inside the container. No new protocols, no new languages, no build step.
+Wrap the existing file-queue bridge in a Docker container. Don't replace it. One Node.js process runs both the watcher and a dashboard HTTP server. `docker compose up` starts everything. The dashboard is a single HTML file with five elements — enough for a stranger to see the pipeline working. The file queue remains the source of truth. O'Brien writes files, the watcher detects them, `claude -p` invokes O'Brien inside the container. No new protocols, no new languages, no build step.
 
 ---
 
@@ -30,13 +30,13 @@ Covers all five deliverables requested:
 4. Repo topology (Section 5)
 5. Risk assessment (Section 7)
 
-Also includes preliminary answers to Ziyal's Bet 3 architecture questions (Section 9) and a commission slicing recommendation for Kira (Section 10).
+Also includes preliminary answers to Ziyal's Bet 3 architecture questions (Section 9) and a commission slicing recommendation for O'Brien (Section 10).
 
 ---
 
 ## FINAL — Evaluation runs from the relay, no spikes, straight to build
 
-**Evaluation model:** The relay invokes evaluation via `claude -p` — same pattern as O'Brien. Cold context, cheap, targeted. Result goes to `register.jsonl`. If amendment needed, a new PENDING commission is written automatically. Kira in Cowork reads the register on demand when Philipp asks. No Cowork cron job, no notifications, no context window bloat.
+**Evaluation model:** The relay invokes evaluation via `claude -p` — same pattern as O'Brien. Cold context, cheap, targeted. Result goes to `register.jsonl`. If amendment needed, a new PENDING commission is written automatically. O'Brien in Cowork reads the register on demand when Philipp asks. No Cowork cron job, no notifications, no context window bloat.
 
 **Amendment loop:** Hard cap at 5 failed cycles. After 5, the evaluation service reassesses whether ACs still make sense given the evidence, writes STUCK to the register. Dashboard shows it. Philipp intervenes.
 

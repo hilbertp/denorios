@@ -463,7 +463,7 @@
                 <span class="h-status h-merged">done</span><span class="h-dur">3m 12s</span><span class="h-tok">5.7k</span><span class="h-cost">$0.42</span>
               </div>
               <div class="h-expand-body">
-                <span class="h-expand-desc">Full-screen overlay for reviewing Kira's spec — Rendered and Source tabs. Approval actions scoped to staged vs. accepted context.</span>
+                <span class="h-expand-desc">Full-screen overlay for reviewing O'Brien's spec — Rendered and Source tabs. Approval actions scoped to staged vs. accepted context.</span>
                 <button class="h-details-btn">Details ›</button>
               </div>
             </div>
@@ -597,7 +597,7 @@
             <span class="crew-name">Sisko</span>
             <span class="crew-role">Product Manager</span>
             <span class="crew-status crew-status-active">active</span>
-            <span class="crew-fn">Owns product direction. Defines bets, sets priorities, slices work through Kira.</span>
+            <span class="crew-fn">Owns product direction. Defines bets, sets priorities, slices work through O'Brien.</span>
           </div>
 
           <div class="crew-card">
@@ -605,12 +605,12 @@
             <span class="crew-name">Ziyal</span>
             <span class="crew-role">UX Specialist</span>
             <span class="crew-status crew-status-active">active</span>
-            <span class="crew-fn">Lo-fi wireframes and written specs. Output is optimised for fast stakeholder sign-off, not visual polish. Hands off to Kira with zero ambiguity.</span>
+            <span class="crew-fn">Lo-fi wireframes and written specs. Output is optimised for fast stakeholder sign-off, not visual polish. Hands off to O'Brien with zero ambiguity.</span>
           </div>
 
           <div class="crew-card">
             <span class="crew-num">03</span>
-            <span class="crew-name">Kira</span>
+            <span class="crew-name">O'Brien</span>
             <span class="crew-role">Delivery Lead</span>
             <span class="crew-status crew-status-active">active</span>
             <span class="crew-fn">Translates product direction into slice specs. Stages work for Sisko approval.</span>
@@ -725,7 +725,7 @@
         </div>
       </div>
 
-      <div class="ann-inline">Rendered tab shows Kira's spec formatted for fast scanning — goal, scope, ACs. This is the default view because most of the time you're reading to approve, not editing. Three actions: Approve sends to O'Brien. Refine sends back to Kira for another pass. Reject drops it entirely.</div>
+      <div class="ann-inline">Rendered tab shows O'Brien's spec formatted for fast scanning — goal, scope, ACs. This is the default view because most of the time you're reading to approve, not editing. Three actions: Approve sends to O'Brien. Refine sends back to O'Brien for another pass. Reject drops it entirely.</div>
 
     </div>
   </div>
@@ -793,7 +793,7 @@ redesign (separate slice).
         </div>
       </div>
 
-      <div class="ann-inline">Source tab = raw markdown, editable in-place. You can fix a typo, tighten scope, or rewrite an AC without leaving the dashboard. After editing: Approve sends your version to O'Brien. Refine sends your edits back to Kira to incorporate and polish. Either way, the file on disk is the source of truth.</div>
+      <div class="ann-inline">Source tab = raw markdown, editable in-place. You can fix a typo, tighten scope, or rewrite an AC without leaving the dashboard. After editing: Approve sends your version to O'Brien. Refine sends your edits back to O'Brien to incorporate and polish. Either way, the file on disk is the source of truth.</div>
 
     </div>
   </div>
@@ -910,7 +910,7 @@ redesign (separate slice).
                 <span class="h-status h-merged">done</span><span class="h-dur">3m 12s</span><span class="h-tok">5.7k</span><span class="h-cost">$0.42</span>
               </div>
               <div class="h-expand-body">
-                <span class="h-expand-desc">Full-screen overlay for reviewing Kira's spec — Rendered and Source tabs. Approval actions scoped to staged vs. accepted context.</span>
+                <span class="h-expand-desc">Full-screen overlay for reviewing O'Brien's spec — Rendered and Source tabs. Approval actions scoped to staged vs. accepted context.</span>
                 <button class="h-details-btn">Details ›</button>
               </div>
             </div>
@@ -1071,7 +1071,7 @@ redesign (separate slice).
         <div class="detail-body">
           <div class="spec-rendered">
             <h3>Objective</h3>
-            <p>Build a full-screen overlay triggered by clicking Edit on any queue row. Shows Kira's slice spec in two formats: Rendered (default, formatted for scanning) and Source (raw markdown, editable inline). Approval actions are scoped to the item's current queue state.</p>
+            <p>Build a full-screen overlay triggered by clicking Edit on any queue row. Shows O'Brien's slice spec in two formats: Rendered (default, formatted for scanning) and Source (raw markdown, editable inline). Approval actions are scoped to the item's current queue state.</p>
 
             <h3>Context</h3>
             <p>See <code>ops-dashboard-spec.md</code> — Slice Detail Overlay section. Reference wireframes: <code>ops-ux-concept.html</code> Screens ② and ③. Overlay replaces viewport content below the header — not a modal dialog.</p>
@@ -1081,7 +1081,7 @@ redesign (separate slice).
               <li>Create overlay container with two tabs: Rendered and Source</li>
               <li>Rendered tab: parse and display spec sections (Goal, Scope, Out of Scope, Acceptance Criteria)</li>
               <li>Source tab: editable textarea, content bound to slice file on disk</li>
-              <li>Actions footer — staged context: Approve / Refine / Reject; accepted context: Save edits / Send to Kira / Remove from queue</li>
+              <li>Actions footer — staged context: Approve / Refine / Reject; accepted context: Save edits / Send to O'Brien / Remove from queue</li>
               <li>Dismiss on ✕ close or Escape key; no unsaved-changes prompt</li>
             </ol>
 

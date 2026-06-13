@@ -1,7 +1,7 @@
 # Bet 2 Dashboard — Design Spec
 
 **From:** Ziyal (Product Designer)
-**To:** Kira (Delivery Coordinator)
+**To:** O'Brien (Delivery Coordinator)
 **Date:** 2026-04-08
 **Scope:** Bet 2 — Contributor-facing relay dashboard
 **Responds to:** `HANDOFF-BET2-DASHBOARD-FROM-SISKO.md`
@@ -25,7 +25,7 @@ Single-column, max-width 960px, centered. Four vertical sections stacked top to 
 ┌─────────────────────────────────────────┐
 │  HEADER                    HEALTH PILL  │
 ├─────────────────────────────────────────┤
-│  [Kira]  [O'Brien]  [Nog]  [Bashir]    │  ← role status row (4-col grid)
+│  [O'Brien]  [O'Brien]  [Nog]  [Bashir]    │  ← role status row (4-col grid)
 ├─────────────────────────────────────────┤
 │                                         │
 │  ████ ACTIVE COMMISSION ████████████    │  ← hero element, full width
@@ -116,13 +116,13 @@ The product clicks when a stranger watches a commission go from **PENDING → IN
 
 ### What the dashboard shows when idle
 
-1. **Active commission zone:** Replaced with a single message: "Nothing in progress" + hint: "Waiting for the next bet. Kira will write the first commission when work resumes." Zone has default border, no glow, reduced opacity. Clearly different from the live in-progress state.
+1. **Active commission zone:** Replaced with a single message: "Nothing in progress" + hint: "Waiting for the next bet. O'Brien will write the first commission when work resumes." Zone has default border, no glow, reduced opacity. Clearly different from the live in-progress state.
 
 2. **Queue panel:** "No commissions in queue." No hint text needed — the idle message above explains the state.
 
 3. **Recent completions:** Still shows history if any exists. History in the recent panel is not confusing — it's clearly labelled as past work.
 
-4. **Role status:** Kira disconnected, O'Brien idle. Honest.
+4. **Role status:** O'Brien disconnected, O'Brien idle. Honest.
 
 5. **Health pill:** ONLINE — the relay is running, even if no work is happening.
 
@@ -142,7 +142,7 @@ The product clicks when a stranger watches a commission go from **PENDING → IN
 
 | Role | Possible states | How derived |
 |---|---|---|
-| Kira | `connected` / `disconnected` | `kira-heartbeat.json` freshness < 5min |
+| O'Brien | `connected` / `disconnected` | `obrien-heartbeat.json` freshness < 5min |
 | O'Brien | `active` / `idle` / `error` / `available` | Watcher's own state (commission in flight? last error?) |
 | Nog | `coming soon` (fixed) | Hardcoded |
 | Bashir | `coming soon` (fixed) | Hardcoded |
@@ -212,12 +212,12 @@ O'Brien's call on any responsive edge cases not covered here.
 - **API implementation** — that's Dax's architecture doc, Section 4.5
 - **Relay server code** — that's B1 (server slice), separate from dashboard
 - **README content** — that's B3 (integration slice)
-- **Kira heartbeat convention** — Kira needs to know to write `kira-heartbeat.json`; that's a Kira onboarding update, not a dashboard design decision
+- **O'Brien heartbeat convention** — O'Brien needs to know to write `obrien-heartbeat.json`; that's a O'Brien onboarding update, not a dashboard design decision
 - **LCARS ops dashboard (Bet 3)** — completely separate surface, deliberately different aesthetic
 
 ---
 
-## 8. Slicing Guidance for Kira
+## 8. Slicing Guidance for O'Brien
 
 Dax's architecture doc (Section 10) proposes four slices. The dashboard is **B2** in that sequence. From a design perspective, the dashboard slice can be broken down further if needed:
 

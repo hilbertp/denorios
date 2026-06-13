@@ -104,7 +104,7 @@ The following are registered in `state/gate-telemetry.js:VALID_EVENTS` but have 
 | `bridge/state/branch-state-recovery.js` | 2 emission sites (BRANCH_STATE_*) |
 | `bridge/new-slice.js` | 1 emission site (RESTAGED) |
 | `bridge/state/gate-alerts.js` | 0 (pure reader, no writes) |
-| `bridge/kira-events.js` | 0 (writes to kira-events.jsonl, not register.jsonl) |
+| `bridge/obrien-events.js` | 0 (writes to obrien-events.jsonl, not register.jsonl) |
 | `bridge/lifecycle-translate.js` | 0 (read-time translator, no writes) |
 | `bridge/rr-compute.js` | 0 (reader only) |
 | `bridge/state-doctor.js` | 0 (reader only) |

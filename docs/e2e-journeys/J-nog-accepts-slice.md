@@ -60,5 +60,5 @@ Nog reviews Rom's implementation against the acceptance criteria and goal, runs 
 
 - `docs/architecture/NOG-GATE-ADR.md` is referenced in prior scouting output but does not exist on current main. Nog's five review phases are described in `.claude/roles/nog/ROLE.md` (if it exists) but the ADR itself is absent. Route to Dax to confirm whether the ADR was merged or is forthcoming.
 - Does Nog receive prior round reviews when reviewing Round 2+? The pipeline spec describes appended blocks as auditable history, but it's unclear whether Nog's context window includes all prior rounds automatically or whether O'Brien must explicitly include them in the invocation.
-- The `REVIEW_RECEIVED` event is emitted alongside `NOG_PASS` and `ACCEPTED` — what consumes `REVIEW_RECEIVED` specifically? Is it for the dashboard's history panel, or for Kira's event drain?
+- The `REVIEW_RECEIVED` event is emitted alongside `NOG_PASS` and `ACCEPTED` — what consumes `REVIEW_RECEIVED` specifically? Is it for the dashboard's history panel or another legacy event drain?
 - After a slice is ACCEPTED, does it appear in a distinct "ACCEPTED" section of the dashboard or just disappear from the active view until the next gate run?

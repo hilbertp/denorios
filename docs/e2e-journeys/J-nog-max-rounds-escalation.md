@@ -55,7 +55,7 @@ After five failed rework rounds, the slice's round cap is exhausted. On Nog's si
 ## Open questions
 
 - What register event is emitted when the round cap is exhausted and the slice routes to O'Brien? The pipeline spec describes the routing but does not specify the event name (candidates: `MAX_ROUNDS_EXHAUSTED`, `ESCALATED_TO_OBRIEN`, `NOG_ESCALATION`).
-- Does the watcher send a `NOG_ESCALATION` event to `bridge/kira-events.jsonl` on round-cap exhaustion? The Kira Activation ADR lists `NOG_ESCALATION` as a kira-event type; the pipeline spec does not reference kira-events. Route to Dax/Worf to confirm.
+- Does the watcher send any legacy `NOG_ESCALATION` signal outside `bridge/register.jsonl` on round-cap exhaustion? Current user-facing routing should go to O'Brien.
 - Does the dashboard surface the max-rounds-escalation state visually to Philipp? The Queue panel would show the slice in the staged section, but is there a badge or warning indicating why it returned to staged rather than being newly authored?
 - After O'Brien reworks the slice and restages it, does it retain its original ID or does O'Brien create a new slice with a new ID? The pipeline spec does not specify this.
 - If O'Brien determines that the slice cannot be fixed and should be abandoned, is there a "reject/kill" action available on staged slices?

@@ -17,7 +17,7 @@ Evaluation runs via `claude -p` from the relay, same infrastructure as O'Brien. 
 ### Amendment loop mitigation
 Hard cap at 5 failed amendment cycles (`maxAmendments: 5` in `bridge.config.json`). After 5 failures, the evaluation service escalates: reassesses whether ACs still make sense in light of evidence from failed attempts, writes a STUCK event to the register with a reassessment note. Dashboard shows STUCK. Philipp intervenes.
 
-### Kira in Cowork
+### O'Brien in Cowork
 Read-only on pipeline status. Reads `register.jsonl` on demand when Philipp asks. Does not run evaluation herself. Usability handled through review and iteration.
 
 ### Value risk

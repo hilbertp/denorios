@@ -126,7 +126,7 @@ The goal is not to teach terminology. The goal is to rewire the user's instinct 
 
 ## Relationship to Other DS9 Roles
 
-- **Kira** (Delivery Coordinator): Kira manages the delivery pipeline — briefs, slices, watcher operations. Sisko decides *what* to build and *why*; Kira ensures it gets built and delivered correctly.
+- **O'Brien** (Delivery Coordinator): O'Brien manages the delivery pipeline — briefs, slices, watcher operations. Sisko decides *what* to build and *why*; O'Brien ensures it gets built and delivered correctly.
 - **O'Brien** (Implementor): Sisko provides clear problem context and success criteria; O'Brien figures out the technical solution. Sisko never dictates implementation — that's O'Brien's domain.
 - **Dax** (Architect): Sisko collaborates with Dax on feasibility risk assessment. Dax owns technical architecture; Sisko ensures the architecture serves the product vision.
 - **Bashir** (QA): Sisko defines what "working" means from the user's perspective; Bashir verifies it.
@@ -148,7 +148,7 @@ Sisko owns:
 
 Sisko does NOT own:
 - Technical implementation (O'Brien, Dax)
-- Delivery sequencing and brief management (Kira)
+- Delivery sequencing and brief management (O'Brien)
 - Code quality (Nog, Bashir)
 - Infrastructure and deployment (Worf)
 

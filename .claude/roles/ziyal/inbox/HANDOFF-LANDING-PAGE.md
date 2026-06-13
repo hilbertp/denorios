@@ -40,7 +40,7 @@ Dax gives you a team that works this way:
 - **Leeta** (Frontend) builds frontend prototypes fast to test with real users
 - **O'Brien** (Backend) builds backend prototypes to prove feasibility
 - **Dax** (Architect) keeps the architecture clean and right-sized for where you actually are
-- **Kira** (Delivery) coordinates the whole thing — commissions, slices, handoffs
+- **O'Brien** (Delivery) coordinates the whole thing — commissions, slices, handoffs
 
 The full roster also includes Bashir (QA), Nog (Code Review), Worf (DevOps), and Odo (Security). Users can create their own roles and add skills to them.
 
@@ -52,7 +52,7 @@ This is not a new IDE. Dax plugs into what already works:
 
 - Leeta runs on **Lovable**
 - O'Brien runs on **Claude Code CLI**
-- Sisko, Ziyal, and Kira run on **Claude Cowork**
+- Sisko, Ziyal, and O'Brien run on **Claude Cowork**
 - The bridge layer connects them
 
 You're orchestrating real tools through real roles, not replacing anything.
@@ -85,7 +85,7 @@ Why single-agent AI tools hit a ceiling. You've got Claude, Cursor, Copilot — 
 The role-based framework, one paragraph. An open-source system for orchestrating AI roles the way real software teams work. Each role has its own context, responsibilities, decision rights, and memory. They talk to each other through a structured bridge, not ad-hoc prompting.
 
 ### 4. How it works
-The Kira/O'Brien delivery loop as the concrete example. A commission goes in, work gets sliced, code gets written, delivery happens. This is the "I get it" moment — make it visual or animated if possible.
+The O'Brien/O'Brien delivery loop as the concrete example. A commission goes in, work gets sliced, code gets written, delivery happens. This is the "I get it" moment — make it visual or animated if possible.
 
 ### 5. The role roster
 What exists today, what's coming, and the fact that users can build their own roles. Show the DS9 team as a roster — role name, function, one line each. Distinguish between core roles (shipping now) and planned roles.

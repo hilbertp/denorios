@@ -3,9 +3,9 @@
 id: ""
 <!-- title: Brief title, copied from the brief frontmatter. -->
 title: ""
-from: obrien
-to: kira
-<!-- status: DONE = all criteria met. PARTIAL = some done, some not. BLOCKED = need Kira's input. -->
+from: rom
+to: nog
+<!-- status: DONE = all criteria met. PARTIAL = some done, some not. BLOCKED = need O'Brien's input. -->
 status: DONE
 <!-- commission_id: ID of the brief this report responds to. Usually same as id. -->
 commission_id: ""
@@ -35,9 +35,9 @@ compaction_occurred: false
 
 <!-- What didn't work, error details, root cause if known. Write "Nothing." if clean. -->
 
-## Blockers / Questions for Kira
+## Blockers / Questions for O'Brien
 
-<!-- Anything Kira must decide or provide before work can continue.
+<!-- Anything O'Brien must decide or provide before work can continue.
      If status is BLOCKED, describe the blocker here in actionable detail.
      Write "None." if there are no open questions. -->
 

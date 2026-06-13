@@ -33,7 +33,7 @@ The current file-queue bridge works. Slices 1-10 were delivered through it. The 
 - `claude -p --permission-mode bypassPermissions` is the O'Brien invocation path
 - `register.jsonl` remains the event log
 - `heartbeat.json` remains the liveness signal
-- Kira still writes commissions from Cowork; O'Brien still executes via Claude Code CLI
+- O'Brien still writes commissions from Cowork; O'Brien still executes via Claude Code CLI
 
 **Rationale:** PROJECT-VISION.md says "files are the source of truth" and "agents keep their powers." A relay that replaces the file queue with an opaque database violates both principles. A relay that wraps the file queue in better process management and adds a visibility layer respects both.
 
@@ -60,7 +60,7 @@ The current file-queue bridge works. Slices 1-10 were delivered through it. The 
                          │           │
            ┌─────────────┘           └─────────────┐
            │                                       │
-    Kira (Cowork)                          O'Brien (Claude Code)
+    O'Brien (Cowork)                          O'Brien (Claude Code)
     writes to bridge/queue/                reads commission,
     reads reports                          writes reports,
     via mounted volume                     invoked by watcher
@@ -111,17 +111,17 @@ services:
 
 ## 3. Connection Model
 
-Sisko's handoff asks: "How does Kira talk to the relay? How does the relay invoke O'Brien?"
+Sisko's handoff asks: "How does O'Brien talk to the relay? How does the relay invoke O'Brien?"
 
-### 3.1 Kira -> Relay
+### 3.1 O'Brien -> Relay
 
-**Decision:** Kira continues writing files to `bridge/queue/`. No change.
+**Decision:** O'Brien continues writing files to `bridge/queue/`. No change.
 
-Kira operates in Cowork with a mounted workspace. The mount maps to the host filesystem. The Docker container mounts the same directory. When Kira writes `019-PENDING.md`, the watcher inside the container detects it on the next poll cycle.
+O'Brien operates in Cowork with a mounted workspace. The mount maps to the host filesystem. The Docker container mounts the same directory. When O'Brien writes `019-PENDING.md`, the watcher inside the container detects it on the next poll cycle.
 
-There is no connection to "maintain" — Kira's connection is the filesystem mount. If Cowork is running and the workspace is mounted, Kira is "connected." If not, she's "disconnected." The relay detects this by checking whether the Cowork session has recently written files (or we add a Kira heartbeat file — see Section 8.1).
+There is no connection to "maintain" — O'Brien's connection is the filesystem mount. If Cowork is running and the workspace is mounted, O'Brien is "connected." If not, she's "disconnected." The relay detects this by checking whether the Cowork session has recently written files (or we add a O'Brien heartbeat file — see Section 8.1).
 
-**Why not HTTP or WebSockets:** Kira in Cowork has file tools but no built-in HTTP client for posting to a local relay. Adding an MCP tool for this is possible but unnecessary — file writes already work and are proven across 10 slices. Introducing a new communication channel adds a failure mode with no benefit.
+**Why not HTTP or WebSockets:** O'Brien in Cowork has file tools but no built-in HTTP client for posting to a local relay. Adding an MCP tool for this is possible but unnecessary — file writes already work and are proven across 10 slices. Introducing a new communication channel adds a failure mode with no benefit.
 
 ### 3.2 Relay -> O'Brien
 
@@ -150,11 +150,11 @@ Trade-off: container build takes longer, Claude version drifts from host, and au
 
 ### 3.3 Connection status for the dashboard
 
-The dashboard needs to show Kira and O'Brien as connected/disconnected.
+The dashboard needs to show O'Brien and O'Brien as connected/disconnected.
 
-**Kira status:** Kira writes a lightweight heartbeat file `bridge/kira-heartbeat.json` at the start of each Cowork session and periodically during active work. The relay reads this file. If it exists and the timestamp is < 5 minutes old, Kira is "connected." Otherwise, "disconnected."
+**O'Brien status:** O'Brien writes a lightweight heartbeat file `bridge/obrien-heartbeat.json` at the start of each Cowork session and periodically during active work. The relay reads this file. If it exists and the timestamp is < 5 minutes old, O'Brien is "connected." Otherwise, "disconnected."
 
-This is a new convention but requires zero infrastructure — Kira writes a file (which she already knows how to do), and the relay reads it (which it already does for the watcher heartbeat).
+This is a new convention but requires zero infrastructure — O'Brien writes a file (which she already knows how to do), and the relay reads it (which it already does for the watcher heartbeat).
 
 **O'Brien status:** Derived from the watcher's own state:
 - If a commission is IN_PROGRESS, O'Brien is "active" (executing)
@@ -181,7 +181,7 @@ This is the Bet 2 contributor dashboard — the minimum experience that makes th
 
 ### 4.2 What it shows (exactly five things)
 
-1. **Role status panel** — Kira (connected/disconnected), O'Brien (connected/disconnected), Nog and Bashir (grayed out, "coming soon"). Role names include their function: "Kira — Delivery Coordinator."
+1. **Role status panel** — O'Brien (connected/disconnected), O'Brien (connected/disconnected), Nog and Bashir (grayed out, "coming soon"). Role names include their function: "O'Brien — Delivery Coordinator."
 
 2. **Active commission** — If IN_PROGRESS: title, current stage, owner (O'Brien), elapsed time. This is the heartbeat of the product. If nothing is active, show the last completed commission.
 
@@ -227,14 +227,14 @@ Dashboard (browser)
 Server handler
     │
     ├── reads heartbeat.json (watcher state)
-    ├── reads kira-heartbeat.json (Kira connection)
+    ├── reads obrien-heartbeat.json (O'Brien connection)
     ├── reads bridge/queue/*.md (commission list + frontmatter)
     │
     ▼
 Returns JSON:
 {
   "roles": {
-    "kira": { "status": "connected", "lastSeen": "..." },
+    "obrien": { "status": "connected", "lastSeen": "..." },
     "obrien": { "status": "active", "activity": "Executing commission 019" },
     "nog": { "status": "coming_soon" },
     "bashir": { "status": "coming_soon" }
@@ -351,7 +351,7 @@ If this fails, fallback: the relay container runs only the HTTP server + dashboa
 
 ### 7.2 Volume mount latency
 
-**Risk:** File writes from Kira (via Cowork's mounted workspace) may take >5s to propagate through Docker's volume mount layer, causing missed poll cycles.
+**Risk:** File writes from O'Brien (via Cowork's mounted workspace) may take >5s to propagate through Docker's volume mount layer, causing missed poll cycles.
 **Likelihood:** Low on macOS with bind mounts. Higher with Docker Desktop's VirtioFS.
 **Impact:** Low. A missed poll cycle means a 5-second delay, not data loss.
 **Mitigation:** Test with real Cowork writes during validation.
@@ -370,15 +370,15 @@ If this fails, fallback: the relay container runs only the HTTP server + dashboa
 **Impact:** Medium. The bet's success metric (5 contributors in 60 days) depends on the dashboard making the use case obvious.
 **Mitigation:** The active commission element is the key. If a stranger watches a commission go from PENDING to IN_PROGRESS with "O'Brien" as the owner, the product clicks. Prioritize this animation/transition in the UI. Additionally, the empty-state experience ships with a pre-loaded demo commission and a snapshot of a completed pipeline (see Section 8.6).
 
-### 7.5 REVISED — The real feasibility risk: Kira's evaluation loop
+### 7.5 REVISED — The real feasibility risk: O'Brien's evaluation loop
 
-~~Original spike priority was `claude -p` in Docker. That's been demoted.~~ The primary risk for Bet 2 is the Kira evaluation loop — how Kira automatically reads O'Brien's reports and decides ACCEPTED or APENDMENT without generating notification spam to Philipp.
+~~Original spike priority was `claude -p` in Docker. That's been demoted.~~ The primary risk for Bet 2 is the O'Brien evaluation loop — how O'Brien automatically reads O'Brien's reports and decides ACCEPTED or APENDMENT without generating notification spam to Philipp.
 
 **The problem in detail:**
 
-Kira lives in Philipp's Cowork conversation window. That window is the command center — Philipp talks to Kira there to organize work, ask about slice status, and make scope decisions. Kira must be up to date when Philipp walks in.
+O'Brien lives in Philipp's Cowork conversation window. That window is the command center — Philipp talks to O'Brien there to organize work, ask about slice status, and make scope decisions. O'Brien must be up to date when Philipp walks in.
 
-In v0, a Cowork scheduled task (`kira-commission-watch`, every 3 minutes) polled the queue and evaluated DONE files. This kept Kira current. But it fired every 3 minutes *regardless of whether anything was in the review queue*, and every firing generated a notification to Philipp. 20+ pings per hour with nothing to say. Unacceptable.
+In v0, a Cowork scheduled task (`obrien-commission-watch`, every 3 minutes) polled the queue and evaluated DONE files. This kept O'Brien current. But it fired every 3 minutes *regardless of whether anything was in the review queue*, and every firing generated a notification to Philipp. 20+ pings per hour with nothing to say. Unacceptable.
 
 **REVISED (Sisko, 2026-04-08 — second revision):**
 
@@ -394,17 +394,17 @@ The relay already invokes O'Brien via `claude -p`. It uses the same mechanism fo
 4. Evaluation result gets written to `register.jsonl` (ACCEPTED or APENDMENT event)
 5. If APENDMENT: the evaluator writes a new PENDING commission to the queue → O'Brien picks it up → loop continues autonomously
 6. Dashboard reads the register → shows status within 5s
-7. Kira in Cowork reads the register on demand when Philipp asks "what happened to slice X?"
+7. O'Brien in Cowork reads the register on demand when Philipp asks "what happened to slice X?"
 
 **What this eliminates:**
 - No Cowork cron job → no notification spam
-- No context window bloat in Kira's Cowork session → cheaper token burn
+- No context window bloat in O'Brien's Cowork session → cheaper token burn
 - No new platform capabilities required → no dependency on Cowork scheduled task behavior
 
 **What this introduces (new risks — see 7.6, 7.7, 7.8):**
 - The evaluator runs with a cold context window — can it make reliable accept/reject decisions?
 - Apendment loops — what stops the evaluator and O'Brien from disagreeing forever?
-- Kira in Cowork is now read-only on pipeline status — is that sufficient for Philipp?
+- O'Brien in Cowork is now read-only on pipeline status — is that sufficient for Philipp?
 
 **Build order — spike-first, Cagan discipline:**
 
@@ -424,7 +424,7 @@ The relay already invokes O'Brien via `claude -p`. It uses the same mechanism fo
 
 **Risk:** Evaluator and O'Brien disagree forever, burning tokens with no convergence.
 
-**Resolution (Sisko decision, 2026-04-08):** Hard cap at **n < 5** failed apendment cycles per commission. After the cap, the evaluation service escalates: Kira (the evaluation function) re-examines the situation, assesses whether the ACs still make sense in light of the evidence from the failed attempts, and flags the commission as STUCK with a reassessment note. The dashboard shows STUCK in red. Philipp intervenes.
+**Resolution (Sisko decision, 2026-04-08):** Hard cap at **n < 5** failed apendment cycles per commission. After the cap, the evaluation service escalates: O'Brien (the evaluation function) re-examines the situation, assesses whether the ACs still make sense in light of the evidence from the failed attempts, and flags the commission as STUCK with a reassessment note. The dashboard shows STUCK in red. Philipp intervenes.
 
 Implementation:
 - `maxApendments: 5` in `bridge.config.json`
@@ -445,15 +445,15 @@ Implementation:
 
 ### 8.2 Connection model?
 
-**File-based for Kira, `claude -p` for O'Brien, HTTP polling for the dashboard.** No WebSockets, no new protocols. Each connection type is proven in the current system.
+**File-based for O'Brien, `claude -p` for O'Brien, HTTP polling for the dashboard.** No WebSockets, no new protocols. Each connection type is proven in the current system.
 
 ### 8.3 Where does state live?
 
-**Files.** `bridge/queue/` for commissions, `heartbeat.json` for watcher status, `register.jsonl` for event history, `kira-heartbeat.json` for Kira connection status. The unified server's in-memory state is a cache that's rebuilt from files on startup.
+**Files.** `bridge/queue/` for commissions, `heartbeat.json` for watcher status, `register.jsonl` for event history, `obrien-heartbeat.json` for O'Brien connection status. The unified server's in-memory state is a cache that's rebuilt from files on startup.
 
-### 8.4 How does Kira talk to the relay?
+### 8.4 How does O'Brien talk to the relay?
 
-**She doesn't.** She writes files to the queue directory, same as today. The relay reads them. No new interface for Kira.
+**She doesn't.** She writes files to the queue directory, same as today. The relay reads them. No new interface for O'Brien.
 
 ### 8.5 How does the relay invoke O'Brien?
 
@@ -498,7 +498,7 @@ These questions are from `HANDOFF-ARCHITECTURE-BRIEF.md`. Full answers are defer
 
 ### 9.4 Economics / token tracking
 
-**Already partially solved.** The watcher extracts token usage from `claude -p --output-format json` output and writes it to register DONE events. This covers O'Brien's token burn. Kira's and Nog's token burn requires a reporting convention at session end — deferred to Bet 3.
+**Already partially solved.** The watcher extracts token usage from `claude -p --output-format json` output and writes it to register DONE events. This covers O'Brien's token burn. O'Brien's and Nog's token burn requires a reporting convention at session end — deferred to Bet 3.
 
 ### 9.5 Unified startup
 
@@ -507,13 +507,13 @@ These questions are from `HANDOFF-ARCHITECTURE-BRIEF.md`. Full answers are defer
 ### 9.6 Blind spots
 
 1. **Auth in Docker:** The biggest unknown. Spike it immediately.
-2. **Kira heartbeat convention:** New file (`kira-heartbeat.json`). Kira needs to know about it — add to KIRA.md.
+2. **O'Brien heartbeat convention:** New file (`obrien-heartbeat.json`). O'Brien needs to know about it — add to OBRIEN.md.
 3. **Dashboard content for empty queue:** What does a stranger see when they first run `docker compose up` and no commissions exist? A demo commission or a clear "waiting for first commission" state?
 4. **README for strangers:** The current README is 2 lines. The `docker compose up` experience needs a README that explains what the stranger is looking at.
 
 ---
 
-## 10. Summary for Kira (Commission Slicing)
+## 10. Summary for O'Brien (Commission Slicing)
 
 No spikes. All identified risks (Docker auth, evaluation quality, apendment loops) are standard engineering problems with known solutions. Handle them during implementation.
 
@@ -521,11 +521,11 @@ No spikes. All identified risks (Docker auth, evaluation quality, apendment loop
 
 | Slice | Title | What it delivers |
 |---|---|---|
-| **B0** | Evaluator in `orchestrator.js` | Second poll pass for DONE files; EVALUATING rename; `claude -p` evaluation prompt; ACCEPTED/REVIEWED/STUCK outcomes; apendment commission writer; cycle counter; crash recovery extension; CORS + `0.0.0.0` in `server.js`. **Urgent — unblocks Kira.** |
+| **B0** | Evaluator in `orchestrator.js` | Second poll pass for DONE files; EVALUATING rename; `claude -p` evaluation prompt; ACCEPTED/REVIEWED/STUCK outcomes; apendment commission writer; cycle counter; crash recovery extension; CORS + `0.0.0.0` in `server.js`. **Urgent — unblocks O'Brien.** |
 | **B1** | Unified relay server | `relay/server.js` merging watcher + HTTP + API; Dockerfile + docker-compose.yml. |
 | **B2** | Contributor dashboard | `relay/dashboard.html` with 5 elements + demo commission, polling `/api/bridge`. New states (ACCEPTED, REVIEWED, STUCK) rendered. |
 | **B3** | Integration + README | Full `docker compose up` flow tested; repo README rewritten for strangers |
-| **B4** | Kira status reading | Kira in Cowork can read register/status on demand — "what happened to slice X?" works |
+| **B4** | O'Brien status reading | O'Brien in Cowork can read register/status on demand — "what happened to slice X?" works |
 
 B0 ships into the existing `orchestrator.js` (no Docker required). All other slices proceed in order after B0.
 
@@ -533,12 +533,12 @@ Total estimated effort: 5-7 O'Brien commissions. Start with B0.
 
 ### B0 detail — evaluator architecture (2026-04-09 addition, v2)
 
-The `kira-commission-watch` Cowork scheduled task has been disabled — it was generating a sandbox artifact every minute, polluting the workspace. B0 replaces it entirely with a relay-invoked evaluator that covers the complete commission lifecycle: commission → execute → evaluate → amend-or-accept → merge.
+The `obrien-commission-watch` Cowork scheduled task has been disabled — it was generating a sandbox artifact every minute, polluting the workspace. B0 replaces it entirely with a relay-invoked evaluator that covers the complete commission lifecycle: commission → execute → evaluate → amend-or-accept → merge.
 
-Full design in `roles/kira/RESPONSE-EVALUATOR-ARCHITECTURE-FROM-DAX.md`. Summary:
+Full design in `roles/obrien/RESPONSE-EVALUATOR-ARCHITECTURE-FROM-DAX.md`. Summary:
 
 **The complete cycle, autonomously:**
-1. Kira writes PENDING → watcher invokes O'Brien → O'Brien writes DONE
+1. O'Brien writes PENDING → watcher invokes O'Brien → O'Brien writes DONE
 2. Watcher renames DONE → EVALUATING → invokes evaluator via `claude -p`
 3. Evaluator reads `{id}-COMMISSION.md` (ACs) + EVALUATING file (report) → returns verdict
 4. If ACCEPTED: rename to ACCEPTED, write **merge PENDING** → O'Brien merges branch to main

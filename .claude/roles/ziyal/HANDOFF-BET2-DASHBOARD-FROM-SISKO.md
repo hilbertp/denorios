@@ -44,12 +44,12 @@ Dax's architecture specifies these. Your job is to make them visually clear to a
 
 Which roles exist and whether they're connected.
 
-- **Kira** — Delivery Coordinator (connected / disconnected)
+- **O'Brien** — Delivery Coordinator (connected / disconnected)
 - **O'Brien** — Implementor (connected / disconnected)
 - **Nog** — Code Reviewer (coming soon, grayed out)
 - **Bashir** — QA (coming soon, grayed out)
 
-Each role must show its name AND its function. "Kira" alone means nothing to a stranger. "Kira — Delivery Coordinator" tells the story.
+Each role must show its name AND its function. "O'Brien" alone means nothing to a stranger. "O'Brien — Delivery Coordinator" tells the story.
 
 The "coming soon" slots are important: they signal that the system is extensible. This is a team, not a pair.
 
@@ -65,7 +65,7 @@ If nothing is active, show the last completed commission so the board is never e
 
 ### 3. Queue view
 
-Pending commissions waiting to be picked up. Even one item in the queue tells a story: "Kira wrote this, the watcher will pick it up, O'Brien will execute it."
+Pending commissions waiting to be picked up. Even one item in the queue tells a story: "O'Brien wrote this, the watcher will pick it up, O'Brien will execute it."
 
 ### 4. Recent completions
 
@@ -121,7 +121,7 @@ A design spec (wireframe, annotated mockup, or whatever fidelity answers the des
 4. **Empty state** — how the demo commission + pipeline hint work visually
 5. **Responsive notes** — if you have an opinion on mobile/tablet, include it. If not, mark it as O'Brien's call.
 
-Deliver to Kira's inbox (or leave in your folder for Kira to pick up). Kira slices and commissions O'Brien.
+Deliver to O'Brien's inbox (or leave in your folder for O'Brien to pick up). O'Brien slices and commissions O'Brien.
 
 ---
 

@@ -55,7 +55,7 @@ Dax is an open-source framework for orchestrating AI agents as a structured soft
 
 **Step 1**: Sisko + Ziyal design a bet — discover what's worth building through experiments.
 
-**Step 2**: Kira composes slices with requirements and acceptance criteria.
+**Step 2**: O'Brien composes slices with requirements and acceptance criteria.
 
 **Step 3**: O'Brien and/or Leeta build it — backend, frontend, or both.
 
@@ -63,7 +63,7 @@ Dax is an open-source framework for orchestrating AI agents as a structured soft
 
 **Step 5**: Bashir checks acceptance criteria end-to-end.
 
-**Step 6**: Kira accepts, amends, or rejects as the final instance.
+**Step 6**: O'Brien accepts, amends, or rejects as the final instance.
 
 **Annotation**: No human relay. No copy-pasting context between tools. The agents talk to each other.
 
@@ -83,7 +83,7 @@ Call a team meeting with any combination of roles. You pick who's in the room an
 **Example cards:**
 - **Creative alignment** — Ziyal + Jake + Vic review a landing page draft. Does the design serve the copy? Does the copy match the brand?
 - **Architecture risk** — Dax + O'Brien + Odo debate whether a new integration is worth the attack surface. Trade-offs surfaced before code is written.
-- **Sprint planning** — Sisko + Kira + O'Brien scope the next slice. What's the bet? What's feasible?
+- **Sprint planning** — Sisko + O'Brien + O'Brien scope the next slice. What's the bet? What's feasible?
 
 **Closing line**: You're always in the room. You set the agenda, you hear the arguments, you make the call. The roles give you perspectives you'd otherwise have to hold in your own head.
 
@@ -101,7 +101,7 @@ Call a team meeting with any combination of roles. You pick who's in the room an
 |------|----------|--------|
 | **Sisko** | Product Manager — discovers what to build through bets, not roadmaps | Shipping |
 | **Ziyal** | Product Designer — UX flows, wireframes, specs, accessibility | Shipping |
-| **Kira** | Delivery Coordinator — composes slices, evaluates delivery, final acceptance | Shipping |
+| **O'Brien** | Delivery Coordinator — composes slices, evaluates delivery, final acceptance | Shipping |
 | **O'Brien** | Implementor — autonomous code execution from commission to merge | Shipping |
 | **Leeta** | Frontend Engineer — builds UI prototypes fast in Lovable | Shipping |
 | **Nog** | Code Review — quality gates, standards enforcement | Planned |

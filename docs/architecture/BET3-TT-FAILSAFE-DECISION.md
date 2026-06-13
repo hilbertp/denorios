@@ -3,7 +3,7 @@
 **Author:** Dax (Architect)
 **Date:** 2026-04-12T05:50:00Z
 **Scope:** Bet 3 — T&T enforcement for Cowork roles
-**In response to:** `repo/.claude/roles/dax/HANDOFF-TT-FAILSAFE-DECISION-FROM-KIRA.md`
+**In response to:** `repo/.claude/roles/dax/HANDOFF-TT-FAILSAFE-DECISION-FROM-OBRIEN.md`
 
 ---
 
@@ -20,7 +20,7 @@ Yes, but cheaply. O'Brien's tracking is now structural and closed. The Cowork ro
 When `handoff-to-teammate` sends a handoff, it appends one line to `bridge/tt-audit.jsonl`:
 
 ```json
-{ "role": "dax", "ts": "2026-04-12T05:22:00Z", "to": "kira", "ref": "HANDOFF-BET3-SLICE-TRACKING-FROM-DAX.md" }
+{ "role": "dax", "ts": "2026-04-12T05:22:00Z", "to": "obrien", "ref": "HANDOFF-BET3-SLICE-TRACKING-FROM-DAX.md" }
 ```
 
 When any role runs `check-handoffs` to open a new session, it reads `tt-audit.jsonl` for its own last outbound entry, then checks `timesheet.jsonl` for a manual entry from this role (`estimated_by` or `role` field) with a timestamp after that outbound. If none found, it emits a warning before surfacing the new handoffs:

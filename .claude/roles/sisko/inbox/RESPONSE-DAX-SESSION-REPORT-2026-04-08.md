@@ -19,14 +19,14 @@ Single session. Three deliverables, twelve learnings, five future ideas captured
 **Response artifact:** `roles/sisko/RESPONSE-BET2-ARCHITECTURE-FROM-DAX.md`
 **Human-equivalent:** 7h (5h initial + 2h revisions)
 
-Onboarded from scratch — read full codebase (Architecture v1, PRD v2, Capability Map, all contracts, orchestrator.js, server.js, KIRA.md, CLAUDE.md, all handoffs). Produced architecture document covering relay service, dashboard spec, migration path, repo topology, risk assessment.
+Onboarded from scratch — read full codebase (Architecture v1, PRD v2, Capability Map, all contracts, orchestrator.js, server.js, OBRIEN.md, CLAUDE.md, all handoffs). Produced architecture document covering relay service, dashboard spec, migration path, repo topology, risk assessment.
 
 Three revision cycles with Sisko. Key decisions resolved:
 
-- **Evaluation model:** Relay invokes evaluation via `claude -p`, not Cowork cron. Eliminates notification spam and context window bloat. Kira's Cowork window becomes read-only on pipeline status.
-- **Amendment loop:** Hard cap at 5 failed cycles, then Kira reassesses whether ACs still make sense given evidence from attempts.
+- **Evaluation model:** Relay invokes evaluation via `claude -p`, not Cowork cron. Eliminates notification spam and context window bloat. O'Brien's Cowork window becomes read-only on pipeline status.
+- **Amendment loop:** Hard cap at 5 failed cycles, then O'Brien reassesses whether ACs still make sense given evidence from attempts.
 - **No spikes:** Docker auth, cold evaluation quality, amendment convergence are standard engineering — handle during build, don't spike.
-- **Four build slices:** B1–B4, no spikes, direct implementation. Kira slices when Sisko commissions.
+- **Four build slices:** B1–B4, no spikes, direct implementation. O'Brien slices when Sisko commissions.
 
 ## Deliverable 2: Idea-Capture Skill
 
@@ -43,7 +43,7 @@ Wired into team infrastructure:
 - TEAM-STANDARDS.md updated — new standard #2 (Idea Capture), renumbered existing standards to 3–5
 - Estimate-hours skill updated with checkpoint instruction
 
-**Eval results:** Ran 3 test scenarios (Kira reviewing DONE report, Dax mid-architecture, O'Brien mid-implementation), each with-skill and without-skill baseline. With-skill: 15/15 assertions passed. Without-skill: 9/15. Baselines captured ideas but in freeform formats with priority labels and verbose structure. The skill enforces consistent format, no priority assignment, and concise entries — at zero additional token cost.
+**Eval results:** Ran 3 test scenarios (O'Brien reviewing DONE report, Dax mid-architecture, O'Brien mid-implementation), each with-skill and without-skill baseline. With-skill: 15/15 assertions passed. Without-skill: 9/15. Baselines captured ideas but in freeform formats with priority labels and verbose structure. The skill enforces consistent format, no priority assignment, and concise entries — at zero additional token cost.
 
 Eval viewer generated at `skills/idea-capture-workspace/eval-viewer.html`.
 

@@ -20,7 +20,7 @@ The twist: most of the team is AI. Every agent starts every session fresh — no
 
 **Vibecoders** — you prompt AI to build things. You work with Sisko (PM) and Ziyal (Product Designer) to shape what gets built, then watch it flow through the pipeline. You never touch code. You write briefs, review reports, approve or kill.
 
-**Deep-skill developers** — you want to extend the system itself. The watcher, evaluator, queue state machine, and Ops Center are yours to modify. You can write briefs for O'Brien, change how he's invoked, add new evaluation logic, or build new roles.
+**Deep-skill developers** — you want to extend the system itself. The watcher, queue state machine, and Ops Center are yours to modify. You can write slices for Rom, change how he's invoked, add review or gate logic, or build new roles.
 
 **Business roles** — PMs, product designers, coordinators. The handoff protocol, staging gate, and apendment cycle are your tools. You shape the work and verify the outcomes.
 
@@ -28,13 +28,13 @@ All three types work on the same team. The pipeline is designed so they don't st
 
 ### What you can do with it today
 
-**Run the full autonomous pipeline.** `./scripts/start.sh` starts the watcher and Ops Center. Drop a brief into the queue. The watcher picks it up, invokes O'Brien (Claude Code CLI), validates his DONE report, evaluates it against acceptance criteria, and either merges the branch to main or writes an apendment for another try. Five apendment cycles max, then it stops and asks the human.
+**Run the full autonomous pipeline.** `./scripts/start.sh` starts the watcher and Ops Center. Stage and approve a slice. The watcher picks it up, invokes Rom (Claude Code CLI), validates his DONE report, sends it to Nog for code review, and holds the merge for Bashir's regression gate. Five apendment cycles max, then it stops and asks the human.
 
-**Stage and approve work before it executes.** Kira writes briefs to a staging area. Philipp reviews them in the Ops Center — approve, amend with a note, reject, or edit the brief body in place. Nothing executes until the human says go.
+**Stage and approve work before it executes.** O'Brien writes briefs to a staging area. Philipp reviews them in the Ops Center — approve, amend with a note, reject, or edit the brief body in place. Nothing executes until the human says go.
 
 **Watch the pipeline in real time.** The Ops Center at `localhost:4747` shows watcher status, current brief, queue depth, recent completions with outcomes, and cumulative token cost. The watcher terminal prints structured lifecycle blocks per brief with progress, timing, and cost.
 
-**Track economics across every role.** Every O'Brien session automatically logs tokens, cost, elapsed time, and human-equivalent hours. Cowork roles log manually via skill. The timesheet is a single JSONL file — one source of truth for what this team costs vs. what it delivers.
+**Track economics across every role.** Every Rom session automatically logs tokens, cost, elapsed time, and human-equivalent hours. Cowork roles log manually via skill. The timesheet is a single JSONL file — one source of truth for what this team costs vs. what it delivers.
 
 **Trace every decision.** The register (`register.jsonl`) is an append-only audit trail. Every state transition — commissioned, done, error, accepted, merged, apendment, stuck — is a JSON line with timestamp, brief ID, and context. If it's not in the register, it didn't happen.
 
@@ -92,7 +92,7 @@ The apendment cap at 5 cycles is the automated version. If a brief can't be comp
 | `user-research` | Plan and conduct user research studies |
 | `research-synthesis` | Distill findings into themes, insights, recommendations |
 
-**How discovery flows:** Sisko writes handoffs to Dax (feasibility) and Ziyal (experience). They respond into Sisko's inbox. The conversation is traceable through the file chain. Once risks are retired, Sisko packages the work and hands it to Dax for architecture or directly to Kira for delivery.
+**How discovery flows:** Sisko writes handoffs to Dax (feasibility) and Ziyal (experience). They respond into Sisko's inbox. The conversation is traceable through the file chain. Once risks are retired, Sisko packages the work and hands it to Dax for architecture or directly to O'Brien for delivery.
 
 ### Phase 2 — Architecture: how it works at the system level
 
@@ -100,7 +100,7 @@ The apendment cap at 5 cycles is the automated version. If a brief can't be comp
 |---|---|---|---|
 | **Dax** | Architect | `.claude/roles/dax/ROLE.md` | Active |
 
-**Dax** translates product requirements into technical decisions — file formats, execution models, protocols, error handling, system topology. She does not own implementation (O'Brien) or delivery sequencing (Kira).
+**Dax** translates product requirements into technical decisions — file formats, execution models, protocols, error handling, system topology. She does not own implementation (Rom) or delivery sequencing (O'Brien).
 
 **Dax's skills:** Global skills + engineering suite (architecture, system-design, code-review, debug, documentation, testing-strategy, tech-debt, incident-response, deploy-checklist, standup).
 
@@ -108,7 +108,7 @@ The apendment cap at 5 cycles is the automated version. If a brief can't be comp
 
 **Anti-patterns she guards against:** Architecture astronaut syndrome, decision hoarding, ego attachment to prior decisions, ivory tower isolation, scope creep enablement.
 
-**Output rule:** Architecture work always hands off to **both** Kira (for slicing) and O'Brien (for implementation context). Dax never briefs O'Brien directly.
+**Output rule:** Architecture work always hands off to **O'Brien** for slicing and may include **Rom** implementation context. Dax does not bypass O'Brien's slice discipline.
 
 **Architecture documents in the repo:**
 
@@ -123,26 +123,26 @@ The apendment cap at 5 cycles is the automated version. If a brief can't be comp
 
 | Role | Function | Identity | Status |
 |---|---|---|---|
-| **Kira** | Delivery Coordinator | `KIRA.md` (repo root) + `.claude/roles/kira/ROLE.md` | Active |
+| **O'Brien** | Dev Team Lead | `.claude/roles/obrien/ROLE.md` | Active |
 
-**Kira** is the bridge between product intent and engineering execution. She decomposes architecture into briefs (scoped units of work), stages them for Philipp's review, and manages the apendment cycle.
+**O'Brien** is the bridge between product intent and engineering execution. He decomposes architecture into slices, stages them for Philipp's review, and manages the apendment cycle.
 
-**Kira's skills:** Global skills. Kira doesn't need specialized plugin skills — her function is coordination, and the global handoff/economics/debrief skills cover it.
+**O'Brien's skills:** Global skills. O'Brien doesn't need specialized plugin skills — his function is coordination, and the global handoff/economics/debrief skills cover it.
 
 **Decision rights:** Brief decomposition, slice sizing, acceptance criteria, apendment decisions, escalation to Sisko.
 
 **Anti-patterns:** Micro-tasking, kitchen-sink briefs, vague objectives, "while you're at it" scope creep, rubber-stamping reports, accepting branch violations, skipping escalation at apendment limit, inventing requirements to avoid escalating.
 
-**What Kira does NOT do:** Rename queue files, delete queue files, write ERROR files, invoke `claude -p`, commit code, expand or contract scope unilaterally.
+**What O'Brien does NOT do:** Rename queue files, delete queue files, write ERROR files, invoke `claude -p`, commit code, expand or contract scope unilaterally.
 
-**Brief writing:** Kira writes to `bridge/staged/`. Format spec in `docs/contracts/brief-format.md`. Required frontmatter: `id`, `title`, `from`, `to`, `priority`, `created`. Required body: Objective, Context, Tasks, Constraints, Success criteria. Slice sizing: 2–7 ACs, 3–10 files, 10–30 min expected. Branch: `slice/{n}-{short-description}`.
+**Brief writing:** O'Brien writes to `bridge/staged/`. Format spec in `docs/contracts/brief-format.md`. Required frontmatter: `id`, `title`, `from`, `to`, `priority`, `created`. Required body: Objective, Context, Tasks, Constraints, Success criteria. Slice sizing: 2–7 ACs, 3–10 files, 10–30 min expected. Branch: `slice/{n}-{short-description}`.
 
 **The staging gate — the human's checkpoint:** Briefs land in `bridge/staged/{id}-STAGED.md`. The Ops Center presents them to Philipp:
 
 | Philipp's action | What happens |
 |---|---|
 | **Approve** | Brief moves to queue. Watcher picks it up. |
-| **Amend** | Returned to Kira with a note. She rewrites. |
+| **Amend** | Returned to O'Brien with a note. He rewrites. |
 | **Reject** | Moved to trash. Dead. |
 | **Edit body** | Philipp edits in place, then approves. |
 
@@ -152,14 +152,14 @@ The apendment cap at 5 cycles is the automated version. If a brief can't be comp
 
 | Role | Function | Identity | Status |
 |---|---|---|---|
-| **O'Brien** | Backend Implementor | `.claude/CLAUDE.md` (anchor) | Active |
+| **Rom** | Backend Implementor | `.claude/CLAUDE.md` (headless anchor) | Active |
 | **Leeta** | Frontend Developer (Lovable) | `.claude/roles/leeta/ROLE.md` | Active |
 
-**O'Brien** is headless. Invoked by the watcher via `claude -p`. Cold start every time — no memory. His anchor file and the project filesystem are his entire context. He reads the brief, executes tasks, writes a DONE report with five mandatory metrics (`tokens_in`, `tokens_out`, `elapsed_ms`, `estimated_human_hours`, `compaction_occurred`).
+**Rom** is headless. Invoked by the watcher via `claude -p`. Cold start every time unless a rework round resumes his prior session. His anchor file and the project filesystem are his entire context. He reads the slice, executes tasks, and writes a DONE report with mandatory metrics.
 
-**O'Brien's skills:** None — he's headless, not a Cowork session. He has the full project filesystem and `.claude/CLAUDE.md` as his anchor.
+**Rom's skills:** None — he's headless, not a Cowork session. He has the full project filesystem and `.claude/CLAUDE.md` as his anchor.
 
-**Leeta** builds frontend surfaces on Lovable (React + Cloudflare Pages). Receives briefs from Kira and design specs from Ziyal. Lovable-specific — not a general-purpose frontend role.
+**Leeta** builds frontend surfaces on Lovable (React + Cloudflare Pages). Receives briefs from O'Brien and design specs from Ziyal. Lovable-specific — not a general-purpose frontend role.
 
 **Leeta's skills:** Global skills.
 
@@ -167,12 +167,12 @@ The apendment cap at 5 cycles is the automated version. If a brief can't be comp
 
 Queue state machine:
 ```
-PENDING → IN_PROGRESS → DONE → EVALUATING → ACCEPTED → MERGED
-                     ↘ ERROR                ↘ REVIEWED → QUEUED (apendment, same ID)
+STAGED → QUEUED → IN_PROGRESS → DONE → NOG → ACCEPTED → BASHIR → MERGED
+                              ↘ ERROR       ↘ QUEUED (apendment, same ID)
                                             ↘ STUCK (cycle 5+)
 ```
 
-Brief lifecycle: watcher finds PENDING → renames to IN_PROGRESS → writes COMMISSIONED to register → pipes brief to `claude -p` → monitors for activity (inactivity timeout: 5 min silence, not wall-clock) → O'Brien writes DONE → watcher validates metrics → valid DONE → EVALUATING → evaluator invoked → verdict.
+Brief lifecycle: watcher finds QUEUED/PENDING work → renames to IN_PROGRESS → writes COMMISSIONED to register → pipes slice to `claude -p` → monitors for activity (inactivity timeout: 5 min silence, not wall-clock) → Rom writes DONE → watcher validates metrics → Nog reviews → Bashir gates before merge.
 
 Crash recovery on startup: stale IN_PROGRESS re-queued, stale EVALUATING re-queued, ACCEPTED with unmerged branch → merge attempted or Philipp alerted.
 
@@ -184,22 +184,20 @@ Configuration (`bridge/bridge.config.json`): poll interval, inactivity timeout, 
 
 | Role | Function | Identity | Status |
 |---|---|---|---|
-| **Evaluator** | AC verification | Stateless `claude -p` (Kira persona) | Active |
-| **Kira** | Manual evaluation fallback | `KIRA.md` | Active |
-| **Nog** | Code Reviewer | *Not yet created* | Planned |
+| **Nog** | Code Review | `.claude/roles/nog/ROLE.md` | Active |
 | **Bashir** | QA / Testing | `.claude/roles/bashir/ROLE.md` | Active |
 
-**Autonomous evaluator:** After valid DONE, the watcher evaluates automatically. Reads original brief (ACs) + DONE report → constructs prompt (Kira persona) → invokes `claude -p` (cold, stateless) → parses JSON verdict.
+**Nog review:** After a valid DONE report, the watcher dispatches Nog automatically. Nog reads the original slice, Rom's report, and the actual code changes, then returns ACCEPTED, REJECTED, ESCALATE, or OVERSIZED.
+
+**Bashir gate:** Before merge, Bashir runs regression coverage against the accepted slices. A regression pass advances the merge path; a regression fail halts the gate with the failing ACs and test evidence.
 
 **ACCEPTED** → register event → auto-merge (`git merge --no-ff`) → push. Merge failure: abort, register MERGE_FAILED, alert Philipp.
 
-**APENDMENT_NEEDED** → register event → rewrite slice in-place as QUEUED (apendment) → O'Brien picks it up next cycle.
+**APENDMENT_NEEDED** → register event → rewrite slice in-place as QUEUED (apendment) → Rom picks it up next cycle.
 
 **STUCK** → cycle 5+ → register STUCK → watcher halts → Philipp intervenes.
 
-**Kira manual fallback** when watcher is offline.
-
-Nog (code reviewer — linting, best practices, architecture compliance) replaces anonymous evaluator. Bashir (QA — test strategy, holistic correctness) pairs with Nog.
+**O'Brien fallback** when a slice needs re-scoping or the watcher is offline.
 
 ### Phase 6 — Operations & Economics: learning and growing
 
@@ -208,9 +206,9 @@ Nog (code reviewer — linting, best practices, architecture compliance) replace
 | **Worf** | DevOps / Tech Lead | *Not yet created* | Planned |
 | **Quark** | Economics Tracker | *Not yet created* | Planned |
 
-**Worf** will own CI/CD, rollout/rollback, branch compliance, per-slice technical briefing for O'Brien. Currently split informally across Kira + watcher.
+**Worf** will own CI/CD, rollout/rollback, branch compliance, per-slice technical briefing for Rom. Currently split informally across O'Brien + watcher.
 
-**Quark** will own automated cross-role economics, efficiency metrics, optimization recommendations. Currently manual (Cowork roles) or watcher-automated (O'Brien only).
+**Quark** will own automated cross-role economics, efficiency metrics, optimization recommendations. Currently manual (Cowork roles) or watcher-automated (Rom only).
 
 The infrastructure these roles will use is already built and accumulating data:
 
@@ -245,14 +243,14 @@ These enforce the behavioral standards that keep a team of stateless AI agents c
 |---|---|
 | Scope, priority, kill decisions, escalations | **Sisko** |
 | Technical architecture, feasibility | **Dax** |
-| Slicing, brief writing, acceptance | **Kira** |
-| Backend implementation | **O'Brien** |
+| Slicing, brief writing, acceptance | **O'Brien** |
+| Backend implementation | **Rom** |
 | Frontend / landing page | **Leeta** |
 | UI/UX design, user research | **Ziyal** |
-| Code review | **Nog** (planned) |
+| Code review | **Nog** |
 | QA / testing | **Bashir** |
 
-Dax outputs always go to **both** Kira and O'Brien. Kira mixed-scope briefs split to O'Brien (backend) + Leeta (frontend).
+Dax outputs go through **O'Brien** for sequencing. O'Brien mixed-scope briefs split to Rom (backend) + Leeta (frontend).
 
 ### Seven team standards
 
@@ -292,14 +290,12 @@ inbox/        — Incoming work from other roles (written via /handoff-to-teamma
 
 ### What's built (Bet 2 — complete)
 
-The autonomous pipeline: staging gate → brief queue → watcher → O'Brien invocation → metrics validation → autonomous evaluation → auto-merge or apendment loop → STUCK escalation. Ops Center with live API. Economics infrastructure. Role system with identity, learning, inbox, and six global skills. Native launch via `./scripts/start.sh`. 65 briefs processed to date.
+The autonomous pipeline: staging gate → brief queue → watcher → Rom invocation → metrics validation → Nog review → Bashir regression gate → auto-merge or apendment loop → STUCK escalation. Ops Center with live API. Economics infrastructure. Role system with identity, learning, inbox, and six global skills. Native launch via `./scripts/start.sh`.
 
 ### What's next
 
 | Feature | Why it matters |
 |---|---|
-| **Nog** (code reviewer) | Replaces anonymous evaluator with a proper code review identity — linting, best practices, architecture compliance |
-| **Bashir** (QA) | Test strategy and holistic quality assurance as a distinct function from code review |
 | **Worf** (DevOps / tech lead) | CI/CD, rollout/rollback, branch enforcement — nobody owns this holistically yet |
 | **Quark** (economics tracker) | Automated cross-role cost tracking and optimization recommendations from the data |
 | **Vic** (brand voice) | Brand system and tone guidelines across all public-facing surfaces |
@@ -321,7 +317,7 @@ The autonomous pipeline: staging gate → brief queue → watcher → O'Brien in
 | `/api/bridge` | GET | Live pipeline state: heartbeat, queue, briefs, recent completions, economics |
 | `/api/bridge/staged` | GET | Staged briefs awaiting Philipp's review |
 | `/api/bridge/staged/{id}/approve` | POST | Approve brief → queue |
-| `/api/bridge/staged/{id}/amend` | POST | Return to Kira with note |
+| `/api/bridge/staged/{id}/amend` | POST | Return to O'Brien with note |
 | `/api/bridge/staged/{id}/reject` | POST | Reject to trash |
 | `/api/bridge/staged/{id}/update-body` | POST | Edit brief body in place |
 | `/api/bridge/review` | POST | Receive evaluator verdict |
@@ -331,11 +327,11 @@ The autonomous pipeline: staging gate → brief queue → watcher → O'Brien in
 | Key | Default | What it controls |
 |---|---|---|
 | `pollIntervalMs` | `5000` | Queue poll frequency |
-| `inactivityTimeoutMs` | `300000` | Kill O'Brien after this many ms of silence |
+| `inactivityTimeoutMs` | `300000` | Kill Rom after this many ms of silence |
 | `heartbeatIntervalMs` | `60000` | Heartbeat write frequency |
 | `claudeCommand` | `"claude"` | CLI binary path |
 | `claudeArgs` | `["-p", "--permission-mode", "bypassPermissions", "--output-format", "json"]` | Passed to every invocation |
-| `projectDir` | `".."` | cwd for O'Brien (repo root) |
+| `projectDir` | `".."` | cwd for Rom (repo root) |
 
 ### File map
 
@@ -361,16 +357,15 @@ repo/
 │   ├── server.js               ← HTTP server + API
 │   └── lcars-dashboard.html    ← Ops Center UI
 ├── .claude/
-│   ├── CLAUDE.md               ← O'Brien's anchor file
+│   ├── CLAUDE.md               ← Rom's headless anchor file
 │   ├── TEAM-STANDARDS.md       ← Entry point for every role
 │   ├── roles/                  ← Per-role: ROLE.md, LEARNING.md, inbox/
 │   │   ├── sisko/              ← Product Manager
 │   │   ├── ziyal/              ← Product Designer
 │   │   ├── dax/                ← Architect
-│   │   ├── kira/               ← Delivery Coordinator
-│   │   ├── obrien/             ← Backend Implementor
+│   │   ├── obrien/             ← Dev Team Lead
 │   │   ├── leeta/              ← Frontend Developer
-│   │   ├── nog/                ← Code Reviewer (planned)
+│   │   ├── nog/                ← Code Reviewer
 │   │   └── bashir/             ← QA
 │   └── skills/                 ← Team skills (also in Cowork plugin)
 │       ├── check-handoffs/     ← Session start
@@ -384,7 +379,6 @@ repo/
 │   ├── CONTRIBUTOR-GUIDE.md    ← Team workflow guide
 │   ├── architecture/           ← ADRs and architecture docs
 │   └── contracts/              ← Brief format, report format specs
-├── KIRA.md                     ← Kira's operational runbook
 ├── IDEAS.md                    ← Feature backlog (Sisko owns)
 ├── DEBRIEF.md                  ← Untriaged team observations
 ├── scripts/start.sh            ← Start Ops Center + orchestrator natively

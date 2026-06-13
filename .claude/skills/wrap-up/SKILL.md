@@ -48,14 +48,14 @@ Persist these to your **project anchor file** — the file that future invocatio
 
 | Role | Project anchor |
 |---|---|
-| Kira | `KIRA.md` Section K (Project Status) |
+| O'Brien | `OBRIEN.md` Section K (Project Status) |
 | Sisko | Equivalent project status section |
 | Dax | Relevant ADR or architecture doc |
 | Other roles | Their primary project state file |
 
 **Format:** Append to the existing status section. Timestamp each entry. Be specific — "Philipp: don't retry slice 12, killing it (2026-04-14)" is useful. "Some changes were discussed" is not.
 
-**Why this step exists:** Other processes read your project anchor to understand current state. The event drain reads KIRA.md before deciding how to handle a STUCK brief. A new Cowork session reads KIRA.md to know where things stand. If your directives only live in the conversation, those processes act on stale context. This step makes the conversation's decisions durable.
+**Why this step exists:** Other processes read your project anchor to understand current state. The event drain reads OBRIEN.md before deciding how to handle a STUCK brief. A new Cowork session reads OBRIEN.md to know where things stand. If your directives only live in the conversation, those processes act on stale context. This step makes the conversation's decisions durable.
 
 **If nothing new was decided this session, skip this step.**
 
@@ -101,7 +101,7 @@ Key fields to get right:
 - `notes` — explain the estimate so it's auditable later
 - `deliverable` — the grouping slug, consistent with prior entries for the same work
 
-**Location:** `bridge/timesheet-{role}.jsonl` where `{role}` is your role name, lowercase (e.g. `timesheet-kira.jsonl` for Kira). Append via `wormhole_append_jsonl` targeting the per-role file. Never write to the merged `timesheet.jsonl` directly — the watcher rebuilds it automatically.
+**Location:** `bridge/timesheet-{role}.jsonl` where `{role}` is your role name, lowercase (e.g. `timesheet-obrien.jsonl` for O'Brien). Append via `wormhole_append_jsonl` targeting the per-role file. Never write to the merged `timesheet.jsonl` directly — the watcher rebuilds it automatically.
 
 ---
 
@@ -144,7 +144,7 @@ If no new ideas surfaced, skip this step.
 
 ## Step 6: Stamp anchor
 
-Append one line to `bridge/anchors-{role}.jsonl` where `{role}` is your role name, lowercase (e.g. `anchors-kira.jsonl` for Kira). Append via `wormhole_append_jsonl`. Never write to the merged `anchors.jsonl` directly — the watcher rebuilds it automatically.
+Append one line to `bridge/anchors-{role}.jsonl` where `{role}` is your role name, lowercase (e.g. `anchors-obrien.jsonl` for O'Brien). Append via `wormhole_append_jsonl`. Never write to the merged `anchors.jsonl` directly — the watcher rebuilds it automatically.
 
 ```json
 {
@@ -183,7 +183,7 @@ If the user mentioned what they're doing next, acknowledge it. Otherwise, don't 
 
 | Step | Action | Output |
 |---|---|---|
-| 1 | Consolidate directives and decisions | Role's project anchor (e.g. KIRA.md) |
+| 1 | Consolidate directives and decisions | Role's project anchor (e.g. OBRIEN.md) |
 | 2 | Capture learnings | LEARNING.md + DEBRIEF.md |
 | 3 | Estimate hours | bridge/timesheet-{role}.jsonl |
 | 4 | Record session cost | In timesheet notes |

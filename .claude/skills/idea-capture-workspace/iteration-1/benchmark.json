@@ -18,7 +18,7 @@
       },
       "evals": [
         {
-          "eval_name": "eval-kira-done-report",
+          "eval_name": "eval-obrien-done-report",
           "pass_rate": 1.0,
           "tokens": 59591,
           "duration_s": 41.5,
@@ -59,7 +59,7 @@
       },
       "evals": [
         {
-          "eval_name": "eval-kira-done-report",
+          "eval_name": "eval-obrien-done-report",
           "pass_rate": 0.6,
           "tokens": 57863,
           "duration_s": 39.7,

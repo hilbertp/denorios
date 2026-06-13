@@ -1,7 +1,7 @@
 # Operations Center — UX Specification
 
 **Author:** Ziyal (UX Specialist)
-**For:** Kira (Delivery Lead) → O'Brien (Backend Engineer)
+**For:** O'Brien (Delivery Lead) → O'Brien (Backend Engineer)
 **Status:** Locked — 6 screens complete
 **Reference wireframes:**
 - `ops-ux-concept.html` — full dashboard, 5 screens (incl. history briefing detail)
@@ -26,7 +26,7 @@ It is not a public product. It is an ops tool. Density and accuracy matter more 
 | Screen | What it shows |
 |---|---|
 | ① Active Build | O'Brien building. Queue has both staged and accepted items. History shows one row expanded (two-step pattern). |
-| ② Slice Detail — Rendered | Edit clicked on a staged queue item. Kira's spec formatted for reading. Default view. |
+| ② Slice Detail — Rendered | Edit clicked on a staged queue item. O'Brien's spec formatted for reading. Default view. |
 | ③ Slice Detail — Source | Source tab selected. Same overlay, raw markdown editable inline. |
 | ④ Idle — Staged items | O'Brien not building. Active Build shows Idle A nudge. Queue has staged items only. History all collapsed. |
 | ⑤ History — Briefing Detail | "Details ›" clicked on a history row. Full original brief shown read-only. No approval actions. |
@@ -108,8 +108,8 @@ The header never shows slice data, elapsed time, or queue counts.
 ### Slice identity
 
 - **ID** (`#054`) — small, muted. Secondary.
-- **Title** — large (19px), bold. Written by Kira.
-- **Short description** — one sentence, shown in full, no truncation. Kira is responsible for keeping it short enough to fit on one line at panel width. If it wraps, fix the slice file, not the UI.
+- **Title** — large (19px), bold. Written by O'Brien.
+- **Short description** — one sentence, shown in full, no truncation. O'Brien is responsible for keeping it short enough to fit on one line at panel width. If it wraps, fix the slice file, not the UI.
 
 ### Pipeline stages
 
@@ -161,7 +161,7 @@ When O'Brien is not building, the panel shows one of three states in priority or
 
 **Position:** Left column, directly below Active Build
 
-Shows every slice Kira has delivered — both unaccepted (staged) and accepted (in build order). All in one list. No separate gate panel. Approval is inline.
+Shows every slice O'Brien has delivered — both unaccepted (staged) and accepted (in build order). All in one list. No separate gate panel. Approval is inline.
 
 ### Sprint label
 
@@ -182,7 +182,7 @@ Every slice belongs to a sprint (`Sprint 1`, `Sprint 2`, …). The sprint is a b
 
 ### Two row states
 
-**Staged** — delivered by Kira, not yet accepted:
+**Staged** — delivered by O'Brien, not yet accepted:
 - Sprint badge, title, `[Accept]` (green) + `[Edit]`
 - Accept moves the slice into the build queue at the next available position
 - Edit opens the Slice Detail overlay (staged context: Approve / Refine / Reject)
@@ -191,7 +191,7 @@ Every slice belongs to a sprint (`Sprint 1`, `Sprint 2`, …). The sprint is a b
 **Accepted** — approved by Philipp, in build order:
 - Sprint badge, title, `[✓ Accepted]` (green filled) + `[Edit]`
 - `[✓ Accepted]` is a toggle — clicking again returns the slice to staged
-- Edit opens the Slice Detail overlay (accepted context: Save edits / Send to Kira / Remove from queue)
+- Edit opens the Slice Detail overlay (accepted context: Save edits / Send to O'Brien / Remove from queue)
 - Drag handle active — drag to reprioritize
 
 ### Approval order = build order
@@ -210,7 +210,7 @@ Amendments are auto-accepted and locked at position #1. Their drag handle is gra
 
 Full-width overlay over the dashboard. Two tabs:
 
-**Rendered (default)** — Kira's spec formatted for fast scanning:
+**Rendered (default)** — O'Brien's spec formatted for fast scanning:
 - Sections: Goal · Scope · Out of Scope · Acceptance Criteria
 - Acceptance Criteria are the primary thing to verify
 - Screen ② in the wireframe
@@ -225,16 +225,16 @@ Full-width overlay over the dashboard. Two tabs:
 | Context | Actions |
 |---|---|
 | Staged item (Edit from staged row) | **Approve** · **Refine** · **Reject** |
-| Accepted item (Edit from accepted row) | **Save edits** · **Send to Kira** · **Remove from queue** |
+| Accepted item (Edit from accepted row) | **Save edits** · **Send to O'Brien** · **Remove from queue** |
 
 **Staged context:**
 - Approve — sends slice to O'Brien; enters build queue
-- Refine — returns to Kira for another pass; removed from queue
+- Refine — returns to O'Brien for another pass; removed from queue
 - Reject — drops the slice entirely; removed from queue (destructive, right-aligned)
 
 **Accepted context:**
 - Save edits — writes changes to the slice file on disk; no re-approval needed
-- Send to Kira — removes from queue, routes back to Kira for a revision pass
+- Send to O'Brien — removes from queue, routes back to O'Brien for a revision pass
 - Remove from queue — drops the slice entirely (destructive, right-aligned)
 
 The overlay is dismissed with `✕ close` top-right of the overlay header.
@@ -378,8 +378,8 @@ Builds accepted features end-to-end. Owns the watcher, relay, and server.
 | # | Name | Role | Status | Function |
 |---|---|---|---|---|
 | 01 | Sisko | Product Manager | Active | Owns the product vision, shapes bets, and approves what gets built. |
-| 02 | Ziyal | UX Specialist | Active | Lo-fi wireframes and written specs. Output is optimised for fast stakeholder sign-off, not visual polish. Hands off to Kira with zero ambiguity. |
-| 03 | Kira | Delivery Lead | Active | Breaks designs into slices, sequences the queue, and coordinates the pipeline. |
+| 02 | Ziyal | UX Specialist | Active | Lo-fi wireframes and written specs. Output is optimised for fast stakeholder sign-off, not visual polish. Hands off to O'Brien with zero ambiguity. |
+| 03 | O'Brien | Delivery Lead | Active | Breaks designs into slices, sequences the queue, and coordinates the pipeline. |
 | 04 | O'Brien | Backend Engineer | Active | Builds accepted features end-to-end. Owns the watcher, relay, and server. |
 | 05 | Nog | Code Reviewer | Planned | Peer-reviews O'Brien's output before it ships. Flags anti-patterns, style issues, and lint failures. |
 | 06 | Bashir | QA Engineer | Planned | Writes and runs E2E tests covering user journeys. Sprint-gated by default. |

@@ -11,7 +11,7 @@
 
 Wormhole architecture locked. The two-copy / filesystem-sync design you proposed was rejected during research and replaced with a **local MCP server on macOS**. POC passed — the permission-prompt blocker is solved with production-grade evidence, not speculation.
 
-ADR is at `docs/architecture/WORMHOLE-ADR.md`. It answers every question from your handoff except two that only resolve through live experiment during Kira activation wiring.
+ADR is at `docs/architecture/WORMHOLE-ADR.md`. It answers every question from your handoff except two that only resolve through live experiment during O'Brien activation wiring.
 
 ---
 
@@ -46,7 +46,7 @@ Your proposed Wormhole (macOS daemon mirroring between a sandbox-internal copy a
 
 ---
 
-## Scope implications for Kira activation
+## Scope implications for O'Brien activation
 
 ### What O'Brien builds (4 slices, per ADR)
 
@@ -71,7 +71,7 @@ Your proposed Wormhole (macOS daemon mirroring between a sandbox-internal copy a
 
 ---
 
-## Open questions that may reshape the Kira activation slice
+## Open questions that may reshape the O'Brien activation slice
 
 Neither blocks the ADR or O'Brien's first slice. Both affect sequencing of the drain itself.
 
@@ -83,10 +83,10 @@ Neither blocks the ADR or O'Brien's first slice. Both affect sequencing of the d
 - **Scenario B** — consent is per-session and the prompt queues invisibly → drain stalls forever.
 - **Scenario C** — consent is per-session and headless sessions auto-reject → drain fails loudly.
 
-**Who resolves:** me, through a live-fire test during Kira activation wiring (~30 min).
+**Who resolves:** me, through a live-fire test during O'Brien activation wiring (~30 min).
 
 **Impact on your roadmap:**
-- A: Kira activation unchanged from prior plan.
+- A: O'Brien activation unchanged from prior plan.
 - B: Slice 3 (consent preflight) becomes a blocker for the drain. ~half-slice of extra work.
 - C: Larger design — a daily "warmup" ritual Philipp runs once to prime each session class.
 
@@ -98,13 +98,13 @@ Smaller version of #1 — does a second Cowork window (interactive, not headless
 
 ## What I need from you
 
-1. **Pushback on the ADR direction?** Flag before Kira starts slicing. I can fold in changes cheaply now, expensive later.
+1. **Pushback on the ADR direction?** Flag before O'Brien starts slicing. I can fold in changes cheaply now, expensive later.
 2. **Rescope conversation with Philipp.** He asked you to — specifically around Sprint 3 scope. Key deltas from your original assumptions:
    - No daemon/launchd/sync work. Less infrastructure than planned.
    - Writer-split migration is still in scope (unchanged).
    - Slice 3 (consent preflight) is a conditional commitment. Depends on live test.
-   - Kira can start the drain as soon as Slices 1–2 land; Slice 3 can follow if needed.
-3. **Commitment question for the rescope:** is Slice 3 a Sprint 3 deliverable if Scenario B lands, or do we punt to Sprint 4 and accept that Kira's drain needs manual session warmup in the interim?
+   - O'Brien can start the drain as soon as Slices 1–2 land; Slice 3 can follow if needed.
+3. **Commitment question for the rescope:** is Slice 3 a Sprint 3 deliverable if Scenario B lands, or do we punt to Sprint 4 and accept that O'Brien's drain needs manual session warmup in the interim?
 
 ---
 
@@ -114,4 +114,4 @@ Smaller version of #1 — does a second Cowork window (interactive, not headless
 - `wormhole-poc/server.js` — reference implementation, currently live in Philipp's Cowork
 - Previous ADR content superseded in git history
 
-Kira handoff waits on your pass. Flag or greenlight.
+O'Brien handoff waits on your pass. Flag or greenlight.
