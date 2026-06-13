@@ -1,18 +1,24 @@
 # Regression Catalogue — Coverage
 
-*Maintained by Bashir (QA). Last updated 2026-06-12, after landing the full journey catalogue.*
+*Maintained by Bashir (QA). Last updated 2026-06-13, after the e2e browser layer + the promote-gate visibility/drift fixes.*
 
-## Suite facts
+## Two test layers
+
+QA runs two suites, kept separate on purpose:
+- **`regression/`** — fast `node --test` API/contract gate (the hot loop; this doc's tables).
+- **`e2e/`** — real Playwright browser clicktests of the Ops dashboard (**23 tests / 12 journeys**): crew-dossier, lcars-mode, engineering-queue, conversation-menu, ci-strip-report, gate-button (incl. red/yellow flagging, live gate phases, stale-success drift guards), history-logbook, economics-ledger, drag-reorder, pipeline-lifecycle, rollback (topology + History-row). Run: `npx playwright test`. It is a **promote-gate merge blocker** (`promote.yml` runs it between the regression suite and the fast-forward), so it does not run on every dev push — `if: github.event_name != 'push'` in `ci.yml`; verify on a clean runner with `gh workflow run ci.yml --ref dev`.
+
+## Suite facts (regression layer)
 
 | Fact | Value |
 |---|---|
 | Runner | `node --test 'regression/**/*.test.js'` (Node 24, no npm deps) |
-| Total tests | **172** |
-| Passing | **163** |
+| Total tests | **186** |
+| Passing | **177** |
 | Failing | **0** |
 | Skipped (documented findings, see below) | **9** |
-| Wall time (local, M-series mac) | ~2.5 s |
-| CI | `.github/workflows/ci.yml` runs the identical command on every dev push; `promote.yml` re-runs it on a clean runner before fast-forwarding main |
+| Wall time (local, M-series mac) | ~5 s |
+| CI | `.github/workflows/ci.yml` runs the identical command on every dev push; `promote.yml` re-runs it (plus the e2e suite) on a clean runner before fast-forwarding main |
 
 Every test name carries a `J-<journey>` tag and/or a `slice-<id>-ac-<index>` tag so failures trace to a journey step or acceptance criterion. This convention is itself enforced by a meta-test (`j-gate-fail-retry` slice-316-ac-9).
 
