@@ -6,6 +6,10 @@
 <title>Operations Center</title>
 <link rel="stylesheet" href="/tokens.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Antonio:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   /* ── CSS variables (kept for JS compatibility, remapped to clean palette) ── */
   :root {
@@ -1113,6 +1117,96 @@
     border-color: #9ca3af;
     box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   }
+
+  /* Planned cards (Worf) are clickable too — re-enable pointer events */
+  .crew-card.planned.crew-card-clickable { pointer-events: auto; cursor: pointer; }
+
+  /* ── Crew action menu (popover on card click) ─────────────────────────────── */
+  .crew-menu {
+    position: fixed;
+    z-index: 980;
+    min-width: 230px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.18);
+    padding: 6px;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+  .crew-menu-head {
+    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+    color: #9ca3af; padding: 8px 10px 6px;
+  }
+  .crew-menu-item {
+    display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+    background: none; border: none; border-radius: 6px; padding: 9px 10px;
+    font-size: 13px; color: #374151; cursor: pointer; font-family: inherit;
+  }
+  .crew-menu-item:hover { background: var(--bg-hover); }
+  .crew-menu-icon { width: 16px; text-align: center; color: #6b7280; flex-shrink: 0; }
+  .crew-menu-sep { height: 1px; background: var(--border); margin: 4px 6px; }
+
+  /* ── Crew dossier tabs ────────────────────────────────────────────────────── */
+  .crew-dossier-tabs { display: flex; gap: 4px; }
+  .crew-tab {
+    background: none; border: none; border-radius: 6px 6px 0 0; padding: 6px 14px;
+    font-size: 13px; font-weight: 500; color: #6b7280; cursor: pointer;
+    font-family: system-ui, -apple-system, sans-serif; border-bottom: 2px solid transparent;
+  }
+  .crew-tab:hover { color: #374151; background: var(--bg-hover); }
+  .crew-tab.active { color: #111827; border-bottom-color: #111827; }
+
+  /* ── Crew artifact list ───────────────────────────────────────────────────── */
+  .crew-artifact-list { list-style: none; margin: 0; padding: 0; }
+  .crew-artifact-item {
+    display: flex; align-items: center; gap: 12px; padding: 11px 12px;
+    border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; cursor: pointer;
+    transition: border-color 120ms ease, background 120ms ease;
+  }
+  .crew-artifact-item:hover { border-color: #9ca3af; background: var(--bg-hover); }
+  .crew-artifact-kind {
+    font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+    color: #6b7280; border: 1px solid var(--border-strong); border-radius: 4px;
+    padding: 2px 6px; flex-shrink: 0; min-width: 42px; text-align: center;
+  }
+  .crew-artifact-main { min-width: 0; flex: 1; }
+  .crew-artifact-title { font-size: 13px; font-weight: 500; color: #111827; display: block; }
+  .crew-artifact-path {
+    font-size: 11px; color: #9ca3af; font-family: monospace; display: block;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .crew-artifact-meta { font-size: 11px; color: #9ca3af; flex-shrink: 0; }
+  .crew-artifact-back {
+    display: inline-flex; align-items: center; gap: 6px; background: none; border: none;
+    cursor: pointer; font-size: 12px; color: #6b7280; padding: 4px 0; margin-bottom: 12px;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+  .crew-artifact-back:hover { color: #111827; }
+  .crew-dossier-empty { color: #9ca3af; font-size: 13px; padding: 8px 0; }
+
+  /* ── Crew toasts ──────────────────────────────────────────────────────────── */
+  #crew-toasts {
+    position: fixed; right: 20px; bottom: 20px; z-index: 1000;
+    display: flex; flex-direction: column; gap: 10px; max-width: 400px;
+  }
+  .crew-toast {
+    background: var(--bg-panel); border: 1px solid var(--border-strong); border-radius: 10px;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.16); padding: 12px 14px;
+    font-family: system-ui, -apple-system, sans-serif; animation: toast-in 0.25s ease;
+  }
+  .crew-toast-title { font-size: 13px; font-weight: 600; color: #111827; margin-bottom: 4px; }
+  .crew-toast-body { font-size: 12px; color: #6b7280; line-height: 1.5; }
+  .crew-toast-cmd {
+    margin-top: 8px; font-family: monospace; font-size: 11px; color: #374151;
+    background: var(--bg-hover); border-radius: 6px; padding: 8px; word-break: break-all; white-space: pre-wrap;
+  }
+  .crew-toast-actions { display: flex; gap: 8px; margin-top: 8px; }
+  .crew-toast-btn {
+    font-size: 12px; padding: 5px 10px; border-radius: 6px; cursor: pointer;
+    border: 1px solid var(--border-strong); background: transparent; color: #374151;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+  .crew-toast-btn:hover { background: var(--bg-hover); }
 
   /* Regression catalogue overlay body (Bashir crew card) */
   .regression-coverage-body {
@@ -3175,6 +3269,162 @@
 <body>
 <div id="api-retry-toasts"></div>
 
+<style>
+/* ── Panel owner chips (both skins) ─────────────────────────────────────── */
+.panel-owner {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--ink-3); vertical-align: middle; margin-left: 8px;
+  padding: 2px 8px; border-radius: 99px; border: 1px solid var(--border);
+  background: var(--bg-subtle); font-family: system-ui, -apple-system, sans-serif; white-space: nowrap;
+}
+.panel-owner::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--ink-4); }
+.panel-owner[data-role="obrien"]::before { background: #0ea5e9; }
+.panel-owner[data-role="rom"]::before    { background: var(--rom); }
+.panel-owner[data-role="nog"]::before    { background: var(--nog); }
+.panel-owner[data-role="bashir"]::before { background: var(--bashir); }
+
+/* ── LCARS toggle switch (header, both skins) ───────────────────────────── */
+.header-status { display: flex; align-items: center; gap: 14px; }
+.lcars-switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+.lcars-switch-text { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: var(--ink-3); }
+.lcars-switch input { position: absolute; opacity: 0; pointer-events: none; }
+.lcars-switch-track { width: 40px; height: 21px; border-radius: 99px; background: var(--border-strong); position: relative; transition: background 150ms ease; flex-shrink: 0; }
+.lcars-switch-thumb { position: absolute; top: 2px; left: 2px; width: 17px; height: 17px; border-radius: 50%; background: #fff; transition: left 150ms ease; box-shadow: 0 1px 2px rgba(0,0,0,0.25); }
+.lcars-switch input:checked + .lcars-switch-track { background: #ff9c00; }
+.lcars-switch input:checked + .lcars-switch-track .lcars-switch-thumb { left: 21px; }
+
+/* ── Auto-approve toggle (Proposed Improvement section) ─────────────────── */
+.queue-section-label-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.auto-approve-active { color: var(--ok); font-weight: 600; font-size: 10px; text-transform: none; letter-spacing: 0; }
+.auto-approve-toggle { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; user-select: none; text-transform: none; letter-spacing: 0; }
+.auto-approve-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.auto-approve-track { width: 32px; height: 18px; border-radius: 99px; background: var(--border-strong); position: relative; transition: background 150ms ease; flex-shrink: 0; }
+.auto-approve-thumb { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: left 150ms ease; box-shadow: 0 1px 2px rgba(0,0,0,0.25); }
+.auto-approve-toggle input:checked + .auto-approve-track { background: var(--ok); }
+.auto-approve-toggle input:checked + .auto-approve-track .auto-approve-thumb { left: 16px; }
+.auto-approve-text { font-size: 11px; font-weight: 600; color: var(--ink-3); }
+.auto-approve-toggle input:checked ~ .auto-approve-text { color: var(--ok); }
+
+/* ── Logbook lifecycle chain (committed to dev → regression → on main) ───── */
+.outcome-chain { display: inline-flex; align-items: center; gap: 0; font-size: 8.5px; font-weight: 700; line-height: 1; }
+.chain-stage { text-transform: uppercase; letter-spacing: 0.02em; padding: 2px 4px; border-radius: 99px; border: 1px solid var(--border-strong); white-space: nowrap; }
+.chain-stage.pending { background: var(--bg-hover); color: var(--ink-4); border-color: var(--border); }
+.chain-stage.done.stage-dev  { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+.chain-stage.done.stage-reg  { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+.chain-stage.done.stage-main { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+.chain-link { width: 4px; height: 2px; background: var(--border-strong); margin: 0 1px; border-radius: 2px; flex-shrink: 0; }
+.chain-link.done { background: #16a34a; }
+
+/* ── Economics (Quark's Ledger) ─────────────────────────────────────────── */
+.ledger-pending { color: var(--ink-4); }
+.ledger-row-empty td { opacity: 0.55; }
+.ledger-note { font-size: 11px; color: var(--ink-3); line-height: 1.5; margin-top: 10px; max-width: 780px; }
+.ledger-note strong { color: var(--ink-2); font-weight: 600; }
+
+/* ════════════════════ LCARS MODE — dark alternate skin ════════════════════ */
+body.lcars-mode {
+  --bg-page:#05050a; --bg-panel:#12121e; --bg-subtle:#1a1a28; --bg-hover:#26263c; --bg-active:#2c2247;
+  --border:#33334d; --border-strong:#4c4c72;
+  --ink:#ffd9a8; --ink-2:#e7d6ff; --ink-3:#b6a4e0; --ink-4:#897ab0;
+  --ok:#5fd17a; --ok-bg:#0f2417; --ok-border:#1f5b35;
+  --warn:#ffb74d; --warn-bg:#2a1f08; --warn-border:#6b4e16;
+  --err:#ff7a7a; --err-bg:#2a1212; --err-border:#6b2330;
+  --info:#7aa2ff; --info-bg:#111a33; --info-border:#2a3d72;
+  --rom:#cc99ff; --rom-bg:#1d1633; --nog:#ffb347; --nog-bg:#2a1f08; --bashir:#5cd0e0; --bashir-bg:#0c2228;
+  --branch-main:#5fd17a; --branch-dev:#cc99ff;
+  --lcars-amber:#ff9c00; --lcars-lavender:#cc99cc; --lcars-blue:#6699ff;
+  background:#000 !important; color:var(--ink);
+}
+body.lcars-mode .dashboard-container { background:#000; }
+
+/* Headings → LCARS amber + the Antonio face */
+body.lcars-mode .header-title,
+body.lcars-mode [class*="-title"],
+body.lcars-mode [class*="-label"],
+body.lcars-mode .crew-name {
+  color: var(--lcars-amber) !important;
+  font-family: 'Antonio','Oswald',system-ui,sans-serif;
+  letter-spacing: 0.06em;
+}
+/* Body + dim text → light (defeats the hardcoded greys) */
+body.lcars-mode .header-subtitle,
+body.lcars-mode [class*="-subtitle"],
+body.lcars-mode [class*="-function"],
+body.lcars-mode [class*="-role"],
+body.lcars-mode [class*="-body"],
+body.lcars-mode [class*="-text"],
+body.lcars-mode [class*="-meta"],
+body.lcars-mode [class*="-stage"],
+body.lcars-mode [class*="-goal"],
+body.lcars-mode [class*="-secondary"],
+body.lcars-mode [class*="-value"],
+body.lcars-mode [class*="-id"],
+body.lcars-mode td, body.lcars-mode th, body.lcars-mode li, body.lcars-mode p {
+  color: var(--ink-2) !important;
+}
+body.lcars-mode .crew-number,
+body.lcars-mode [class*="-num"],
+body.lcars-mode [class*="ctx"],
+body.lcars-mode [class*="-hint"],
+body.lcars-mode [class*="-dim"] { color: var(--ink-3) !important; }
+/* Stragglers the substring rules miss */
+body.lcars-mode .postbuild-lane-name,
+body.lcars-mode [class*="lane-name"],
+body.lcars-mode .null-val { color: var(--ink-2) !important; }
+
+/* Panels → dark, with the LCARS rounded-elbow accent rail */
+body.lcars-mode .topo-panel,
+body.lcars-mode .active-slice,
+body.lcars-mode .postbuild-panel,
+body.lcars-mode .queue-panel,
+body.lcars-mode .slice-history,
+body.lcars-mode .crew-card,
+body.lcars-mode .cost-center,
+body.lcars-mode .history-detail-panel,
+body.lcars-mode .crew-menu,
+body.lcars-mode .crew-toast {
+  background: var(--bg-panel) !important;
+  border-color: var(--border) !important;
+}
+body.lcars-mode .topo-panel,
+body.lcars-mode .active-slice,
+body.lcars-mode .postbuild-panel,
+body.lcars-mode .queue-panel,
+body.lcars-mode .slice-history {
+  border-left: 5px solid var(--lcars-amber) !important;
+  border-radius: 4px 16px 16px 4px !important;
+}
+body.lcars-mode .crew-card {
+  border-left: 4px solid var(--lcars-lavender) !important;
+  border-radius: 3px 14px 14px 3px !important;
+}
+
+/* Header bar + switch label in amber */
+body.lcars-mode .header { border-bottom: 1px solid var(--border) !important; }
+body.lcars-mode .header-title { color: var(--lcars-amber) !important; }
+body.lcars-mode .lcars-switch-text { color: var(--lcars-amber) !important; }
+
+/* Code / monospace stays legible */
+body.lcars-mode code, body.lcars-mode pre { background:#1c1c2c !important; color:#ffd9a8 !important; }
+/* Hardcoded-white panels → dark */
+body.lcars-mode [style*="background:#fff"], body.lcars-mode [style*="background: #fff"] { background:var(--bg-panel) !important; }
+/* Status text on dark: brighten hardcoded semantic colors that don't flip via tokens */
+body.lcars-mode .outcome-pill { color: var(--ink) !important; }
+body.lcars-mode .outcome-error { color: #ff8a8a !important; }
+body.lcars-mode .outcome-on-dev { color: #93b4ff !important; }
+body.lcars-mode .gate-health-row, body.lcars-mode .gate-health-row span { color: var(--ink-2) !important; }
+/* Dossier tabs */
+body.lcars-mode .crew-tab { color: var(--ink-3) !important; }
+body.lcars-mode .crew-tab.active { color: var(--lcars-amber) !important; border-bottom-color: var(--lcars-amber) !important; }
+/* Logbook lifecycle chain — dark-tinted stages */
+body.lcars-mode .chain-stage.done.stage-dev  { background:#0f2417 !important; color:#5fd17a !important; border-color:#1f5b35 !important; }
+body.lcars-mode .chain-stage.done.stage-reg  { background:#2a1f08 !important; color:#ffb74d !important; border-color:#6b4e16 !important; }
+body.lcars-mode .chain-stage.done.stage-main { background:#111a33 !important; color:#7aa2ff !important; border-color:#2a3d72 !important; }
+body.lcars-mode .chain-stage.pending { background:#1a1a28 !important; color:var(--ink-4) !important; border-color:#33334d !important; }
+body.lcars-mode .chain-link.done { background:#5fd17a !important; }
+</style>
+
 <div class="dashboard-container">
 
   <!-- ── HEADER ──────────────────────────────────────────────────────── -->
@@ -3184,6 +3434,11 @@
       <div class="header-subtitle">Operations Center</div>
     </div>
     <div class="header-status">
+      <label class="lcars-switch" title="Toggle LCARS mode (dark skin)">
+        <span class="lcars-switch-text">LCARS</span>
+        <input type="checkbox" id="lcars-toggle" onchange="toggleLcarsMode(this.checked)">
+        <span class="lcars-switch-track"><span class="lcars-switch-thumb"></span></span>
+      </label>
       <span class="health-pill" id="ops-health-pill">
         <span class="health-pill-dot"></span>
         <span id="ops-health-label">ONLINE</span>
@@ -3196,7 +3451,7 @@
   <div class="topo-row">
     <div class="topo-panel" id="topo-panel">
       <div class="topo-panel-head">
-        <span class="topo-panel-title">Branch Topology</span>
+        <span class="topo-panel-title">Branch Topology (Infirmary) <span class="panel-owner" data-role="bashir">Bashir</span></span>
         <button class="topo-collapse-btn" id="topo-collapse-btn" onclick="toggleTopoCollapse()" aria-label="Toggle branch topology panel">&#9662;</button>
       </div>
       <div class="topo-panel-body" id="topo-panel-body">
@@ -3225,6 +3480,7 @@
             <span class="ci-strip-glyph" id="ci-strip-regression-glyph">&#9675;</span>
             <span class="ci-strip-row-text" id="ci-strip-regression-text">no run yet</span>
             <a class="ci-strip-link" id="ci-strip-regression-link" href="#" target="_blank" rel="noopener" style="display:none">&#8599; view</a>
+            <a class="ci-strip-link" id="ci-strip-regression-report" href="#" onclick="viewRegressionReport(); return false;" title="What regressed — Bashir's report, routed to O'Brien on failure">&#9636; report</a>
           </div>
           <div class="ci-strip-row" id="ci-strip-promote">
             <span class="ci-strip-row-label" title="promote.yml — operator-gated. Re-tests dev on a clean runner, then fast-forwards origin/main to the tested commit. Green = main moves; red = main untouched.">Promote</span>
@@ -3263,7 +3519,7 @@
 
         <!-- Header row: label left, timer right -->
         <div class="active-slice-header">
-          <div class="active-slice-label">Active Build</div>
+          <div class="active-slice-label">Active Build (Workshop) <span class="panel-owner" data-role="rom">Rom</span></div>
           <div class="active-slice-timer" id="active-timer-block" style="display:none">
             <div class="active-slice-timer-value" id="mission-elapsed">0m 00s</div>
             <div class="active-slice-timer-label">elapsed</div>
@@ -3296,7 +3552,7 @@
           <div class="active-slice-idle-glyph" id="idle-glyph">&#9201;</div>
           <div class="active-slice-idle-primary">Standing by</div>
           <div class="active-slice-idle-secondary">Picks up the next approved slice automatically</div>
-          <div class="staged-hint-pill" id="staged-hint-pill" style="display:none">0 staged</div>
+          <div class="staged-hint-pill" id="staged-hint-pill" style="display:none">0 proposed</div>
         </div>
 
         <!-- Progress block: anchored to bottom via margin-top:auto -->
@@ -3326,7 +3582,7 @@
     <!-- POST-BUILD PIPELINE -->
     <div class="panel-postbuild">
       <div class="postbuild-panel" id="postbuild-panel">
-        <div class="section-title">Post-Build Pipeline</div>
+        <div class="section-title">Post-Build (Quality Diagnostics) <span class="panel-owner" data-role="nog">Nog</span></div>
         <div class="postbuild-lane" id="nog-lane">
           <div class="postbuild-lane-header">
             <span class="postbuild-lane-name">Nog &middot; Code Reviewer</span>
@@ -3411,11 +3667,11 @@
     <div class="panel-queue">
       <div class="queue-panel">
         <div class="queue-panel-header">
-          <div class="section-title">Queue</div>
+          <div class="section-title">Engineering Queue <span class="panel-owner" data-role="obrien">O'Brien</span></div>
           <span class="queue-info-icon" title="Approval order = build order. First accepted = first built. Drag to reprioritize.">(i)</span>
         </div>
         <div id="queue-list">
-          <div class="queue-empty">Queue is clear.</div>
+          <div class="queue-empty">Engineering Queue is clear.</div>
         </div>
       </div>
     </div>
@@ -3423,7 +3679,7 @@
     <!-- HISTORY -->
     <div class="panel-history">
       <div class="slice-history" style="margin-bottom:0">
-        <div class="section-title">History</div>
+        <div class="section-title">History (Logbook) <span class="panel-owner" data-role="obrien">O'Brien</span></div>
         <div class="history-table-header">
           <span class="col-chevron"></span>
           <span class="col-id">#</span>
@@ -3472,7 +3728,7 @@
     <div class="section-title">Crew</div>
     <div class="crew-grid">
 
-      <div class="crew-card active">
+      <div class="crew-card active crew-card-clickable" onclick="openCrewMenu(event, 'sisko')" title="New / resume conversation · inspect role">
         <div class="crew-number">01</div>
         <div class="crew-name">Sisko</div>
         <div class="crew-role">Product Manager</div>
@@ -3480,7 +3736,7 @@
         <div class="crew-function">Owns the product vision, shapes bets, and approves what gets built.</div>
       </div>
 
-      <div class="crew-card active">
+      <div class="crew-card active crew-card-clickable" onclick="openCrewMenu(event, 'ziyal')" title="New / resume conversation · inspect role">
         <div class="crew-number">02</div>
         <div class="crew-name">Ziyal</div>
         <div class="crew-role">UX Specialist</div>
@@ -3488,7 +3744,7 @@
         <div class="crew-function">Lo-fi wireframes and written specs. Output is optimised for fast stakeholder sign-off, not visual polish. Hands off to O'Brien with zero ambiguity.</div>
       </div>
 
-      <div class="crew-card active">
+      <div class="crew-card active crew-card-clickable" onclick="openCrewMenu(event, 'obrien')" title="New / resume conversation · inspect role">
         <div class="crew-number">03</div>
         <div class="crew-name">Chief O'Brien</div>
         <div class="crew-role">Tech Lead</div>
@@ -3496,7 +3752,7 @@
         <div class="crew-function">Sequences the queue, directs delivery, writes slices, and owns the dev process.</div>
       </div>
 
-      <div class="crew-card active">
+      <div class="crew-card active crew-card-clickable" onclick="openCrewMenu(event, 'rom')" title="New / resume conversation · inspect role">
         <div class="crew-number">04</div>
         <div class="crew-name">Rom</div>
         <div class="crew-role">Backend Implementor</div>
@@ -3504,7 +3760,7 @@
         <div class="crew-function">Builds accepted features end-to-end. Owns the watcher, relay, and server.</div>
       </div>
 
-      <div class="crew-card active">
+      <div class="crew-card active crew-card-clickable" onclick="openCrewMenu(event, 'nog')" title="New / resume conversation · inspect role">
         <div class="crew-number">05</div>
         <div class="crew-name">Nog</div>
         <div class="crew-role">Evaluator</div>
@@ -3512,15 +3768,15 @@
         <div class="crew-function">Evaluates Rom's output against acceptance criteria before it ships.</div>
       </div>
 
-      <div class="crew-card active crew-card-clickable" onclick="viewRegressionCatalogue()" title="View the regression catalogue coverage overview">
+      <div class="crew-card active crew-card-clickable" onclick="openCrewMenu(event, 'bashir')" title="New / resume conversation · inspect role">
         <div class="crew-number">06</div>
         <div class="crew-name">Bashir</div>
         <div class="crew-role">QA Engineer</div>
         <span class="crew-badge badge-active">active</span>
-        <div class="crew-function">Writes and runs the journey regression suite that gates promotion to main. Click for the coverage overview.</div>
+        <div class="crew-function">Writes and runs the journey regression suite that gates promotion to main. Coverage overview lives in his Artifacts tab.</div>
       </div>
 
-      <div class="crew-card active">
+      <div class="crew-card active crew-card-clickable" onclick="openCrewMenu(event, 'dax')" title="New / resume conversation · inspect role">
         <div class="crew-number">07</div>
         <div class="crew-name">Dax</div>
         <div class="crew-role">Architect</div>
@@ -3528,12 +3784,12 @@
         <div class="crew-function">Holds the system architecture. Consulted on structural decisions and long-range design.</div>
       </div>
 
-      <div class="crew-card planned">
+      <div class="crew-card active crew-card-clickable" onclick="openCrewMenu(event, 'worf')" title="New / resume conversation · inspect role">
         <div class="crew-number">08</div>
         <div class="crew-name">Worf</div>
-        <div class="crew-role">TBD</div>
-        <span class="crew-badge badge-planned">planned</span>
-        <div class="crew-function">Role to be defined.</div>
+        <div class="crew-role">DevOps / Release Engineer</div>
+        <span class="crew-badge badge-active">active</span>
+        <div class="crew-function">Owns how code moves — branches, CI/CD, feature flags, locks, and the merge ceremony. Builds the gate; Philipp presses the button.</div>
       </div>
 
     </div>
@@ -3542,7 +3798,7 @@
   <!-- ── COST CENTER ─────────────────────────────────────────────────────── -->
   <section class="cost-center" id="cost-center">
     <div class="cost-center-header" onclick="toggleCostCenter()">
-      <div class="section-title">Cost Center</div>
+      <div class="section-title">Economics (Quark's Ledger)</div>
       <span class="cost-center-toggle" id="cost-center-toggle">▾</span>
     </div>
     <div class="cost-center-body" id="cost-center-body">
@@ -3552,15 +3808,22 @@
             <th>Role</th>
             <th>Model</th>
             <th>Count</th>
-            <th>Tokens In</th>
-            <th>Tokens Out</th>
+            <th>Input</th>
+            <th title="Cache-reuse (context) tokens — not captured by the orchestrator yet">Context</th>
+            <th title="Extended-thinking tokens — not captured by the orchestrator yet">Thinking</th>
+            <th>Output</th>
             <th>Cost (USD)</th>
           </tr>
         </thead>
         <tbody id="cost-center-tbody">
-          <tr><td colspan="6" class="null-val">Loading…</td></tr>
+          <tr><td colspan="8" class="null-val">Loading…</td></tr>
         </tbody>
       </table>
+      <div class="ledger-note">
+        <strong>Input</strong> and <strong>Output</strong> are tracked per role. <strong>Context</strong> (cache reuse) and
+        <strong>Thinking</strong> tokens aren't recorded yet — the orchestrator captures only input+output, and only Rom &amp;
+        Nog report usage automatically (interactive roles aren't instrumented). Wire those up to fill the empty columns.
+      </div>
       <div class="cost-center-updated" id="cost-center-updated"></div>
     </div>
   </section>
@@ -3622,6 +3885,39 @@
     <div class="regression-coverage-body" id="regression-coverage-body"></div>
   </div>
 </div>
+
+<!-- Crew action menu (popover on card click) -->
+<div class="crew-menu" id="crew-menu" style="display:none">
+  <div class="crew-menu-head" id="crew-menu-head">Role</div>
+  <button class="crew-menu-item" onclick="startCrewConversation('new')"><span class="crew-menu-icon">＋</span> New conversation</button>
+  <button class="crew-menu-item" onclick="startCrewConversation('resume')"><span class="crew-menu-icon">↻</span> Resume last conversation</button>
+  <div class="crew-menu-sep"></div>
+  <button class="crew-menu-item" onclick="inspectCrewRole()"><span class="crew-menu-icon">🔍</span> Inspect role</button>
+</div>
+
+<!-- Crew dossier overlay (Inspect role → Role / Memory / Artifacts tabs) -->
+<div class="history-detail-overlay" id="crew-dossier-overlay" style="display:none">
+  <div class="history-detail-panel">
+    <div class="history-detail-header">
+      <div class="history-detail-header-left">
+        <div class="history-detail-header-top">
+          <span class="history-detail-id" id="crew-dossier-id"></span>
+          <span class="history-detail-title" id="crew-dossier-title"></span>
+        </div>
+        <div class="crew-dossier-tabs">
+          <button class="crew-tab active" data-tab="role" onclick="showDossierTab('role')">Role</button>
+          <button class="crew-tab" data-tab="memory" onclick="showDossierTab('memory')">Memory</button>
+          <button class="crew-tab" data-tab="artifacts" onclick="showDossierTab('artifacts')">Artifacts</button>
+        </div>
+      </div>
+      <button class="history-detail-close" onclick="closeCrewDossier()">&times; close</button>
+    </div>
+    <div class="regression-coverage-body" id="crew-dossier-body"></div>
+  </div>
+</div>
+
+<!-- Crew toasts (conversation launch feedback) -->
+<div id="crew-toasts"></div>
 
 <!-- Stop Build confirmation dialog (outside grid, fixed overlay) -->
 <div class="stop-confirm-overlay" id="stop-confirm-overlay" style="display:none">
@@ -3806,6 +4102,10 @@
 
   // Staged items count — updated by fetchCombinedQueue()
   let stagedItemCount = 0;
+  // Standing auto-approve: when on, new proposals promote to Approved Work Orders
+  // automatically (no manual review). Off by default; persisted per browser.
+  let autoApproveOn = false;
+  try { autoApproveOn = localStorage.getItem('ds9-auto-approve') === '1'; } catch (_) {}
 
   // ── Nog active state ──────────────────────────────────────────────────────
   let nogElapsedInterval = null;
@@ -4234,10 +4534,10 @@
 
         // Staged-count hint pill
         if (stagedItemCount > 0) {
-          pillEl.textContent = `${stagedItemCount} staged`;
+          pillEl.textContent = `${stagedItemCount} proposed`;
           pillEl.style.display = '';
         } else {
-          pillEl.textContent = '0 staged';
+          pillEl.textContent = '0 proposed';
           pillEl.style.display = '';
         }
       }
@@ -4563,14 +4863,32 @@
     return '\u2014';
   }
 
-  function outcomeHtml(outcome) {
+  // Dev \u2192 regression \u2192 main lifecycle chain. dev is always reached for a logged
+  // slice; reg fills when the gate passed; main fills on merge-to-main.
+  function lifecycleChainHtml(onMain, regressionPassed) {
+    const reg  = !!regressionPassed || !!onMain;
+    const main = !!onMain;
+    const status = main ? 'on main' : 'on dev';
+    const stage = (cls, on, label, title) =>
+      `<span class="chain-stage ${cls} ${on ? 'done' : 'pending'}" title="${title}">${label}</span>`;
+    return '<span class="outcome-chain" title="Lifecycle \u2014 committed to dev \u2192 regression gate \u2192 merged to main. '
+      + `Currently ${status}.">`
+      + stage('stage-dev', true, 'dev', 'Committed to dev')
+      + `<span class="chain-link ${reg ? 'done' : ''}"></span>`
+      + stage('stage-reg', reg, 'reg', reg ? 'Regression gate passed' : 'Regression pending \u2014 next gate run')
+      + `<span class="chain-link ${main ? 'done' : ''}"></span>`
+      + stage('stage-main', main, 'main', main ? 'Merged to main' : 'Not yet on main')
+      + '</span>';
+  }
+
+  function outcomeHtml(outcome, row) {
+    // Dev-lifecycle outcomes render as the committed-to-dev \u2192 regression \u2192 on-main chain.
+    if (outcome === 'ON_DEV' || outcome === 'ON_MAIN' || outcome === 'ACCEPTED') {
+      return lifecycleChainHtml(row && row.onMain, row && row.regressionPassed);
+    }
     switch (outcome) {
-      case 'ON_DEV':
-        return '<span class="outcome-pill outcome-on-dev" title="Squashed onto dev. Awaits Bashir regression pass to advance dev \u2192 main.">on dev</span>';
       case 'DEFERRED':
         return '<span class="outcome-pill outcome-deferred" title="Squash deferred — Bashir gate was running. Will squash to dev when the gate clears.">deferred</span>';
-      case 'ACCEPTED':
-        return '<span class="outcome-pill outcome-on-dev">accepted</span>';
       case 'MAX_ROUNDS_EXHAUSTED':
         return '<span class="outcome-pill outcome-max-rounds">max rounds</span>';
       case 'ESCALATED_TO_OBRIEN':
@@ -4636,7 +4954,7 @@
           <span class="col-id history-row-id">#${eid}</span>
           <span class="col-title history-row-title">${escHtml(c.title || '')}</span>
           <span class="col-round">${escHtml(roundDisplay)}</span>
-          <span class="col-outcome">${outcomeHtml(outcome)}</span>
+          <span class="col-outcome">${outcomeHtml(outcome, c)}</span>
           <span class="col-duration">${fmtDuration(durMs)}</span>
           <span class="col-tokens">${fmtTokens(tokIn, tokOut)}</span>
           <span class="col-cost">${fmtCostWithFallback(costUsd, tokIn, tokOut)}</span>
@@ -4981,6 +5299,33 @@
     }
   }
 
+  // Bashir's latest regression report — what regressed (routed to O'Brien on failure).
+  async function viewRegressionReport() {
+    const overlay = document.getElementById('regression-coverage-overlay');
+    const body = document.getElementById('regression-coverage-body');
+    overlay.style.display = '';
+    regressionCoverageOpen = true;
+    body.innerHTML = '<span class="null-val">Loading...</span>';
+    document.getElementById('regression-coverage-updated').textContent = 'regression/LAST-RUN.md';
+    try {
+      const res = await fetch('/api/regression/report');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      if (!data.markdown) {
+        body.innerHTML = '<span class="null-val">No regression report yet — appears once the gate (or <code>scripts/regression-report.js</code>) has run.</span>';
+        return;
+      }
+      const flag = data.status === 'fail' ? '🔴 failing' : data.status === 'pass' ? '🟢 passing' : '';
+      document.getElementById('regression-coverage-updated').textContent =
+        `regression/LAST-RUN.md — ${flag} · updated ${new Date(data.updated).toLocaleString()}`;
+      body.innerHTML = (typeof renderMd === 'function')
+        ? renderMd(data.markdown)
+        : (typeof marked !== 'undefined' ? marked.parse(data.markdown) : `<pre>${escHtml(data.markdown)}</pre>`);
+    } catch (err) {
+      body.innerHTML = `<span class="null-val">Could not load report: ${escHtml(String(err))}</span>`;
+    }
+  }
+
   function closeRegressionCoverage() {
     document.getElementById('regression-coverage-overlay').style.display = 'none';
     regressionCoverageOpen = false;
@@ -4996,6 +5341,247 @@
   document.getElementById('regression-coverage-overlay').addEventListener('click', (e) => {
     if (e.target === e.currentTarget) closeRegressionCoverage();
   });
+
+  // ── Crew menu + dossier + conversations (slice: crew-dossier-tabs) ───────────
+  let crewMenuRole    = null;
+  let crewDossierData = null;
+  let crewDossierRole = null;
+  let crewDossierOpen = false;
+  let crewReqSeq      = 0;   // monotonic token: a newer dossier/artifact fetch invalidates older ones
+
+  function cap(s) { return String(s).charAt(0).toUpperCase() + String(s).slice(1); }
+
+  function openCrewMenu(evt, role) {
+    evt.stopPropagation();
+    crewMenuRole = role;
+    const menu = document.getElementById('crew-menu');
+    const nameEl = evt.currentTarget.querySelector('.crew-name');
+    document.getElementById('crew-menu-head').textContent = nameEl ? nameEl.textContent : cap(role);
+    menu.style.display = '';
+    // Position near the click, clamped to the viewport.
+    const mw = menu.offsetWidth || 230, mh = menu.offsetHeight || 170;
+    let x = evt.clientX, y = evt.clientY;
+    if (x + mw + 12 > window.innerWidth)  x = window.innerWidth  - mw - 12;
+    if (y + mh + 12 > window.innerHeight) y = window.innerHeight - mh - 12;
+    menu.style.left = Math.max(12, x) + 'px';
+    menu.style.top  = Math.max(12, y) + 'px';
+  }
+
+  function closeCrewMenu() {
+    document.getElementById('crew-menu').style.display = 'none';
+  }
+
+  async function startCrewConversation(mode) {
+    const role = crewMenuRole;
+    closeCrewMenu();
+    if (!role) return;
+    try {
+      const res = await fetch(`/api/crew/${role}/conversation`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ mode }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      let title, body;
+      if (data.mode === 'resume') {
+        title = `Resuming conversation with ${cap(role)}`;
+        body  = data.launched ? 'Opened in a new Terminal window.' : 'Run this command to resume:';
+      } else {
+        title = `New conversation with ${cap(role)}`;
+        body  = (mode === 'resume' && !data.had_previous)
+          ? 'No previous conversation on record — started a fresh one.'
+          : (data.launched ? 'Opened in a new Terminal window.' : 'Run this command to start:');
+      }
+      crewToast(title, body, data.launched ? null : data.command);
+    } catch (err) {
+      crewToast(`Couldn't start conversation with ${cap(role)}`, String(err), null);
+    }
+  }
+
+  function inspectCrewRole() {
+    const role = crewMenuRole;
+    closeCrewMenu();
+    if (role) openCrewDossier(role);
+  }
+
+  async function openCrewDossier(role) {
+    const reqId = ++crewReqSeq;
+    crewDossierRole = role;
+    crewDossierData = null;
+    crewDossierOpen = true;
+    document.getElementById('crew-dossier-overlay').style.display = '';
+    document.getElementById('crew-dossier-id').textContent    = role.toUpperCase();
+    document.getElementById('crew-dossier-title').textContent = 'Loading…';
+    document.getElementById('crew-dossier-body').innerHTML    = '<span class="crew-dossier-empty">Loading…</span>';
+    setActiveTab('role');
+    try {
+      const res  = await fetch(`/api/crew/${role}/dossier`);
+      const data = await res.json();
+      if (reqId !== crewReqSeq) return;   // a newer card was opened while this was in flight
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      crewDossierData = data;
+      const m = data.meta || {};
+      document.getElementById('crew-dossier-id').textContent    = `${m.num || ''} · ${(m.title || '').toUpperCase()}`.trim();
+      document.getElementById('crew-dossier-title').textContent = m.name || cap(role);
+      showDossierTab('role');
+    } catch (err) {
+      if (reqId !== crewReqSeq) return;
+      document.getElementById('crew-dossier-body').innerHTML =
+        `<span class="crew-dossier-empty">Could not load dossier: ${escHtml(String(err))}</span>`;
+    }
+  }
+
+  function setActiveTab(tab) {
+    document.querySelectorAll('#crew-dossier-overlay .crew-tab').forEach(b => {
+      b.classList.toggle('active', b.dataset.tab === tab);
+    });
+  }
+
+  function renderMd(md) {
+    // Dossier/artifact markdown is read verbatim from in-repo files that crew agents
+    // (Rom/Nog/…) write, so it is untrusted. marked v9 passes raw HTML through, so we
+    // sanitize before innerHTML. If DOMPurify failed to load, fail safe to escaped text
+    // rather than inject raw HTML.
+    if (typeof marked === 'undefined') return `<pre>${escHtml(md)}</pre>`;
+    const html = marked.parse(md);
+    return (typeof DOMPurify !== 'undefined') ? DOMPurify.sanitize(html) : `<pre>${escHtml(md)}</pre>`;
+  }
+
+  function fmtUpdated(iso) {
+    if (!iso) return '';
+    try { return `updated ${new Date(iso).toLocaleString()}`; } catch (_) { return ''; }
+  }
+
+  function showDossierTab(tab) {
+    if (!crewDossierData) return;
+    setActiveTab(tab);
+    const body = document.getElementById('crew-dossier-body');
+    const d = crewDossierData;
+    if (tab === 'role') {
+      body.innerHTML = (d.role && d.role.markdown)
+        ? renderMd(d.role.markdown) + `<hr><div class="crew-artifact-meta">${escHtml(fmtUpdated(d.role.updated))}</div>`
+        : '<div class="crew-dossier-empty">No role description on file yet.</div>';
+    } else if (tab === 'memory') {
+      body.innerHTML = (d.memory && d.memory.markdown)
+        ? renderMd(d.memory.markdown) + `<hr><div class="crew-artifact-meta">${escHtml(fmtUpdated(d.memory.updated))}</div>`
+        : '<div class="crew-dossier-empty">No memory vault yet — Memory Protocol pending approval.</div>';
+    } else if (tab === 'artifacts') {
+      const items = d.artifacts || [];
+      if (!items.length) {
+        body.innerHTML = '<div class="crew-dossier-empty">No artifacts on file yet.</div>';
+        return;
+      }
+      let html = '<ul class="crew-artifact-list">';
+      items.forEach((a, i) => {
+        html += `<li class="crew-artifact-item" onclick="openCrewArtifact(${i})">`
+              +   `<span class="crew-artifact-kind">${escHtml(a.kind)}</span>`
+              +   `<span class="crew-artifact-main">`
+              +     `<span class="crew-artifact-title">${escHtml(a.title)}</span>`
+              +     `<span class="crew-artifact-path">${escHtml(a.path)}</span>`
+              +   `</span>`
+              +   `<span class="crew-artifact-meta">${escHtml(fmtUpdated(a.updated))}</span>`
+              + `</li>`;
+      });
+      html += '</ul>';
+      body.innerHTML = html;
+    }
+  }
+
+  async function openCrewArtifact(index) {
+    const reqId = ++crewReqSeq;
+    const d = crewDossierData;
+    const role = crewDossierRole;
+    if (!d || !d.artifacts || !d.artifacts[index]) return;
+    const a = d.artifacts[index];
+    const body = document.getElementById('crew-dossier-body');
+    body.innerHTML = '<span class="crew-dossier-empty">Loading…</span>';
+    const back = `<button class="crew-artifact-back" onclick="showDossierTab('artifacts')">&larr; all artifacts</button>`;
+    try {
+      const res  = await fetch(`/api/crew/artifact?role=${encodeURIComponent(role)}&path=${encodeURIComponent(a.path)}`);
+      const data = await res.json();
+      if (reqId !== crewReqSeq) return;   // dossier was re-opened / another artifact clicked
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      const head   = `<div class="slice-rendered-section-label">${escHtml(a.title)} — <code>${escHtml(a.path)}</code></div>`;
+      const rawUrl = `/api/crew/artifact/raw?role=${encodeURIComponent(role)}&path=${encodeURIComponent(a.path)}`;
+      if (data.kind === 'md') {
+        body.innerHTML = back + head + renderMd(data.content);
+      } else if (data.kind === 'html') {
+        body.innerHTML = back + head
+          + `<p><a href="${rawUrl}" target="_blank" rel="noopener">Open rendered &#8599;</a></p>`
+          + `<pre><code>${escHtml(data.content)}</code></pre>`;
+      } else {
+        body.innerHTML = back + head
+          + `<p><a href="${rawUrl}" target="_blank" rel="noopener">Open raw &#8599;</a></p>`
+          + `<pre><code>${escHtml(data.content)}</code></pre>`;
+      }
+    } catch (err) {
+      body.innerHTML = back + `<div class="crew-dossier-empty">Could not load artifact: ${escHtml(String(err))}</div>`;
+    }
+  }
+
+  function closeCrewDossier() {
+    document.getElementById('crew-dossier-overlay').style.display = 'none';
+    crewDossierOpen = false;
+  }
+
+  function crewToast(title, bodyText, command) {
+    const wrap = document.getElementById('crew-toasts');
+    const el = document.createElement('div');
+    el.className = 'crew-toast';
+    const t = document.createElement('div'); t.className = 'crew-toast-title'; t.textContent = title;
+    const b = document.createElement('div'); b.className = 'crew-toast-body';  b.textContent = bodyText || '';
+    el.appendChild(t); el.appendChild(b);
+    if (command) {
+      const c = document.createElement('div'); c.className = 'crew-toast-cmd'; c.textContent = command;
+      el.appendChild(c);
+    }
+    const actions = document.createElement('div'); actions.className = 'crew-toast-actions';
+    if (command) {
+      const copy = document.createElement('button'); copy.className = 'crew-toast-btn'; copy.textContent = 'Copy command';
+      copy.addEventListener('click', () => {
+        if (navigator.clipboard) navigator.clipboard.writeText(command);
+        copy.textContent = 'Copied ✓';
+      });
+      actions.appendChild(copy);
+    }
+    const dismiss = document.createElement('button'); dismiss.className = 'crew-toast-btn'; dismiss.textContent = 'Dismiss';
+    dismiss.addEventListener('click', () => el.remove());
+    actions.appendChild(dismiss);
+    el.appendChild(actions);
+    wrap.appendChild(el);
+    if (!command) setTimeout(() => el.remove(), 6000);
+  }
+
+  // Close the menu on any outside click; Escape closes menu + dossier; backdrop closes dossier.
+  document.addEventListener('click', (e) => {
+    const menu = document.getElementById('crew-menu');
+    if (menu.style.display !== 'none' && !menu.contains(e.target)) closeCrewMenu();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeCrewMenu();
+      if (crewDossierOpen) { closeCrewDossier(); e.stopPropagation(); }
+    }
+  });
+  document.getElementById('crew-dossier-overlay').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeCrewDossier();
+  });
+
+  // ── LCARS mode (dark alternate skin) ────────────────────────────────────────
+  function toggleLcarsMode(on) {
+    document.body.classList.toggle('lcars-mode', on);
+    try { localStorage.setItem('ds9-lcars-mode', on ? '1' : '0'); } catch (_) {}
+    const t = document.getElementById('lcars-toggle');
+    if (t) t.checked = on;
+  }
+  (function initLcarsMode() {
+    let on = false;
+    try { on = localStorage.getItem('ds9-lcars-mode') === '1'; } catch (_) {}
+    document.body.classList.toggle('lcars-mode', on);
+    const t = document.getElementById('lcars-toggle');
+    if (t) t.checked = on;
+  })();
 
   // ── Services panel ───────────────────────────────────────────────────────────
   function fmtAge(seconds) {
@@ -5259,7 +5845,7 @@
     let actionsHtml;
     if (isQueued) {
       const unapproveBtn = isInPipeline ? ''
-        : `<button class="btn btn-ghost queue-btn-unapprove" onclick="queueUnapprove('${eid}')" title="Move back to staged" aria-label="Un-approve and return to staged">&#8630;</button>`;
+        : `<button class="btn btn-ghost queue-btn-unapprove" onclick="queueUnapprove('${eid}')" title="Move back to Proposed Improvement" aria-label="Un-approve and return to Proposed Improvement">&#8630;</button>`;
       actionsHtml = `${unapproveBtn}
         <button class="btn queue-btn-edit" onclick="queueEdit('${eid}')">Edit</button>`;
     } else if (isStaged) {
@@ -5313,9 +5899,9 @@
     let html = '';
 
     // ── Approved section (top) ──
-    html += '<div class="queue-section-label">Approved</div>';
+    html += '<div class="queue-section-label">Approved Work Orders</div>';
     if (approvedRows.length === 0) {
-      html += '<div class="queue-empty-card">No approved slices waiting. Approve from staged below to fill the queue.</div>';
+      html += '<div class="queue-empty-card">No approved work orders waiting. Approve a proposed improvement below to fill the queue.</div>';
     } else {
       html += approvedRows.map((row, idx) => renderQueueRow(row, { position: idx + 1 })).join('');
     }
@@ -5324,9 +5910,18 @@
     html += '<hr class="queue-section-divider">';
 
     // ── Staged section (bottom) ──
-    html += '<div class="queue-section-label">Staged</div>';
+    html += '<div class="queue-section-label queue-section-label-row">'
+          +   '<span>Proposed Improvement'
+          +     (autoApproveOn ? ' <span class="auto-approve-active">&middot; promoting automatically</span>' : '')
+          +   '</span>'
+          +   '<label class="auto-approve-toggle" title="Auto-approve: when ON, every new proposal is promoted straight to Approved Work Orders with no manual review — this dispatches builds to Rom automatically.">'
+          +     `<input type="checkbox" ${autoApproveOn ? 'checked' : ''} onchange="toggleAutoApprove(this.checked)">`
+          +     '<span class="auto-approve-track"><span class="auto-approve-thumb"></span></span>'
+          +     '<span class="auto-approve-text">Auto-approve</span>'
+          +   '</label>'
+          + '</div>';
     if (stagedRows.length === 0) {
-      html += '<div class="queue-empty-card">Nothing staged. O\'Brien proposes new work here.</div>';
+      html += '<div class="queue-empty-card">No proposed improvements yet. O\'Brien proposes new work here.</div>';
     } else {
       html += stagedRows.map(row => renderQueueRow(row, {})).join('');
     }
@@ -5337,6 +5932,8 @@
     setupDragAndDrop();
     // Restore chevron expanded state after re-render
     restoreQueueExpanded();
+    // Standing auto-approve: sweep any fresh proposals into the approved queue
+    if (autoApproveOn) autoApproveSweep();
   }
 
   // ── Queue row chevron expand (single-row-at-a-time, lazy-load) ──────────
@@ -5471,6 +6068,35 @@
         fetchBridge();
       }
     } catch (_) {}
+  }
+
+  // ── Standing auto-approve (Proposed Improvement) ─────────────────────────────
+  let _autoApproveRunning = false;
+  let _autoApproveLastAt  = 0;
+  function toggleAutoApprove(on) {
+    autoApproveOn = on;
+    try { localStorage.setItem('ds9-auto-approve', on ? '1' : '0'); } catch (_) {}
+    renderQueueList();          // reflect toggle + active note immediately
+    if (on) autoApproveSweep(); // promote whatever is already proposed
+  }
+  async function autoApproveSweep() {
+    if (!autoApproveOn || _autoApproveRunning) return;
+    if (Date.now() - _autoApproveLastAt < 2500) return;   // throttle: never tight-loop
+    _autoApproveLastAt = Date.now();
+    _autoApproveRunning = true;
+    try {
+      // Snapshot the current proposals (amendment-needing slices are not auto-approvable).
+      const ids = (cachedStagedItems || [])
+        .filter(s => s.status !== 'NEEDS_APENDMENT')
+        .map(s => s.id);
+      for (const id of ids) {
+        if (!autoApproveOn) break;
+        await queueAccept(id);                            // POSTs /approve, refreshes caches
+        await new Promise(r => setTimeout(r, 150));
+      }
+    } finally {
+      _autoApproveRunning = false;
+    }
   }
 
   async function queueUnapprove(id) {
@@ -6141,26 +6767,32 @@
     } catch (_) {}
   }
 
+  const LEDGER_ROLE_NAMES = { obrien: "O'Brien", sisko: 'Sisko', ziyal: 'Ziyal', rom: 'Rom',
+    nog: 'Nog', bashir: 'Bashir', dax: 'Dax', worf: 'Worf', leeta: 'Leeta' };
+
   function renderCostCenter(data) {
     const tbody = document.getElementById('cost-center-tbody');
     if (!tbody) return;
 
     let rows = '';
     for (const row of data.by_role) {
-      const name = row.role.charAt(0).toUpperCase() + row.role.slice(1);
-      rows += `<tr>
+      const name = LEDGER_ROLE_NAMES[row.role] || (row.role.charAt(0).toUpperCase() + row.role.slice(1));
+      const noSpend = (row.input == null && row.output == null && row.cost_usd == null);
+      rows += `<tr${noSpend ? ' class="ledger-row-empty"' : ''}>
         <td>${name}</td>
         <td>${row.model ?? '—'}</td>
         <td>${countLabel(row.role, row.count)}</td>
-        <td>${fmtTokens(row.tokens_in)}</td>
-        <td>${fmtTokens(row.tokens_out)}</td>
+        <td>${fmtTokens(row.input)}</td>
+        <td class="ledger-pending" title="Cache-reuse (context) tokens — not captured yet">&mdash;</td>
+        <td class="ledger-pending" title="Extended-thinking tokens — not captured yet">&mdash;</td>
+        <td>${fmtTokens(row.output)}</td>
         <td>${fmtCost(row.cost_usd)}</td>
       </tr>`;
     }
     // Total row
-    rows += `<tr>
+    rows += `<tr class="ledger-total">
       <td><strong>Total</strong></td>
-      <td></td><td></td><td></td><td></td>
+      <td></td><td></td><td></td><td></td><td></td><td></td>
       <td>${fmtCost(data.total_cost_usd)}</td>
     </tr>`;
     tbody.innerHTML = rows;

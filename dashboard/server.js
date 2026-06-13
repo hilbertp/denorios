@@ -3,7 +3,7 @@
 const http = require('http');
 const fs   = require('fs');
 const path = require('path');
-const { execFileSync } = require('child_process');
+const { execFileSync, execFile } = require('child_process');
 
 const PORT         = process.env.DASHBOARD_PORT ? parseInt(process.env.DASHBOARD_PORT, 10) : 4747;
 const HOST         = process.env.DASHBOARD_HOST ?? '0.0.0.0';
@@ -28,6 +28,224 @@ const CORS_ORIGIN  = 'https://dax-dashboard.lovable.app';
 // Hide DONE slices older than this many days from the Queue panel.
 // Pre-lifecycle stragglers sit in DONE forever; this keeps them out of sight.
 const STALE_DONE_DAYS = 7;
+
+// ── Crew dossier (slice: crew-dossier-tabs) ─────────────────────────────────
+// Clicking a crew card opens a menu: New / Resume conversation, Inspect role.
+// "Inspect role" opens a 3-tab dossier — ROLE description / MEMORY / ARTIFACTS.
+// All file reads are read-only and scoped to REPO_ROOT. Conversation launch is
+// best-effort (opens Terminal running `claude`); the exact command is always
+// returned so the UI can show it when auto-launch is unavailable.
+const os     = require('os');
+const crypto = require('crypto');
+
+const ROLE_CONVERSATIONS = path.join(REPO_ROOT, 'bridge', 'role-conversations.json');
+
+const CREW = {
+  sisko:  { num: '01', name: 'Sisko',         title: 'Product Manager' },
+  ziyal:  { num: '02', name: 'Ziyal',         title: 'UX Specialist' },
+  obrien: { num: '03', name: "Chief O'Brien", title: 'Tech Lead' },
+  rom:    { num: '04', name: 'Rom',           title: 'Backend Implementor' },
+  nog:    { num: '05', name: 'Nog',           title: 'Evaluator' },
+  bashir: { num: '06', name: 'Bashir',        title: 'QA Engineer' },
+  dax:    { num: '07', name: 'Dax',           title: 'Architect' },
+  worf:   { num: '08', name: 'Worf',          title: 'DevOps / Release Engineer' },
+  leeta:  { num: '—',  name: 'Leeta',         title: 'Frontend' },
+};
+
+// ROLE tab (first existing wins) + MEMORY tab (every existing source concatenated).
+const ROLE_SOURCES = {
+  sisko:  { role: ['.claude/roles/sisko/ROLE.md'],  memory: ['.claude/roles/sisko/memory/MEMORY.md',  '.claude/roles/sisko/LEARNING.md'] },
+  ziyal:  { role: ['.claude/roles/ziyal/ROLE.md'],  memory: ['.claude/roles/ziyal/memory/MEMORY.md',  '.claude/roles/ziyal/LEARNING.md'] },
+  obrien: { role: ['.claude/roles/obrien/ROLE.md'], memory: ['.claude/roles/obrien/memory/MEMORY.md', '.claude/roles/obrien/LEARNING.md'] },
+  rom:    { role: ['.claude/CLAUDE.md'],             memory: ['.claude/roles/rom/CRAFT.md',            '.claude/roles/rom/LEARNING.md'] },
+  nog:    { role: ['.claude/roles/nog/ROLE.md'],    memory: ['.claude/roles/nog/memory/MEMORY.md',    '.claude/roles/nog/LEARNING.md'] },
+  bashir: { role: ['.claude/roles/bashir/ROLE.md'], memory: ['.claude/roles/bashir/memory/MEMORY.md', '.claude/roles/bashir/LEARNING.md'] },
+  dax:    { role: ['.claude/roles/dax/ROLE.md'],    memory: ['.claude/roles/dax/memory/MEMORY.md',    '.claude/roles/dax/LEARNING.md'] },
+  worf:   { role: ['.claude/roles/worf/ROLE.md'],   memory: ['.claude/roles/worf/memory/MEMORY.md',   '.claude/roles/worf/LEARNING.md'] },
+  leeta:  { role: ['.claude/roles/leeta/ROLE.md'],  memory: ['.claude/roles/leeta/memory/MEMORY.md',  '.claude/roles/leeta/LEARNING.md'] },
+};
+
+// ARTIFACTS tab — curated, in-repo, clickable. Missing files are filtered out at request time.
+const CREW_ARTIFACTS = {
+  sisko: [
+    { title: 'Bet 2 — architecture response',         path: '.claude/roles/sisko/RESPONSE-BET2-ARCHITECTURE-FROM-DAX.md' },
+    { title: 'Eval-loop spike — handoff',             path: '.claude/roles/sisko/HANDOFF-EVAL-LOOP-SPIKE-FROM-DAX.md' },
+    { title: 'Internal-improvement features',         path: '.claude/roles/sisko/RESPONSE-INTERNAL-IMPROVEMENT-FEATURES-FROM-DAX.md' },
+    { title: 'Dax session report — response',         path: '.claude/roles/sisko/RESPONSE-DAX-SESSION-REPORT-2026-04-08.md' },
+  ],
+  ziyal: [
+    { title: 'Ops UX concept (hi-fi)',                path: '.claude/roles/ziyal/deliveries/ops-ux-concept.html' },
+    { title: 'Ops dashboard — spec',                  path: '.claude/roles/ziyal/deliveries/ops-dashboard-spec.md' },
+    { title: 'Bet 2 dashboard — wireframe',           path: '.claude/roles/ziyal/deliveries/bet2-dashboard-wireframe.html' },
+    { title: 'Bet 2 dashboard — design spec',         path: '.claude/roles/ziyal/deliveries/bet2-dashboard-design-spec.md' },
+    { title: 'Landing — wireframe v1',                path: '.claude/roles/ziyal/deliveries/dax-landing-wireframe-v1.html' },
+    { title: 'Landing — copy draft v1',               path: '.claude/roles/ziyal/deliveries/landing-page-copy-draft-v1.md' },
+    { title: 'Leeta landing-page — handoff',          path: '.claude/roles/ziyal/deliveries/HANDOFF-LEETA-LANDING-PAGE.md' },
+  ],
+  obrien: [
+    { title: 'Git strategy',                          path: 'docs/git-strategy.md' },
+    { title: 'Slice 309 — DONE report',               path: 'bridge/queue/309-DONE.md' },
+    { title: 'Slice 304 — DONE report',               path: 'bridge/queue/304-DONE.md' },
+    { title: 'Evaluator implementation — handoff',    path: '.claude/roles/obrien/HANDOFF-EVALUATOR-IMPLEMENTATION-FROM-DAX.md' },
+    { title: 'Bet 3 slice-tracking — handoff',        path: '.claude/roles/obrien/HANDOFF-BET3-SLICE-TRACKING-FROM-DAX.md' },
+  ],
+  rom: [
+    { title: 'Dashboard server',                      path: 'dashboard/server.js' },
+    { title: 'Orchestrator',                          path: 'bridge/orchestrator.js' },
+    { title: 'Git finalizer',                         path: 'bridge/git-finalizer.js' },
+    { title: 'New-slice generator',                   path: 'bridge/new-slice.js' },
+  ],
+  nog: [
+    { title: 'Review prompt builder',                 path: 'bridge/nog-prompt.js' },
+    { title: 'Refactor-risk compute',                 path: 'bridge/rr-compute.js' },
+  ],
+  bashir: [
+    { title: 'Last regression report (what regressed)', path: 'regression/LAST-RUN.md' },
+    { title: 'Regression coverage — overview',        path: 'regression/COVERAGE.md' },
+    { title: 'Regression suite — README',             path: 'regression/README.md' },
+    { title: 'Top-5 user journeys (tests)',           path: 'regression/top-user-journeys/top-5-user-journeys.test.js' },
+    { title: 'Slice 311 — regression test',           path: 'regression/slice-311.test.js' },
+  ],
+  dax: [
+    { title: 'Architecture brief',                    path: 'docs/architecture/DAX-ARCHITECTURE-BRIEF.md' },
+    { title: 'Bet 2 — relay/dashboard architecture',  path: 'docs/architecture/BET2-RELAY-DASHBOARD-ARCHITECTURE.md' },
+    { title: 'Bet 3 — per-slice tracking',            path: 'docs/architecture/BET3-PER-SLICE-TRACKING.md' },
+    { title: 'Bet 3 — T&T failsafe decision',         path: 'docs/architecture/BET3-TT-FAILSAFE-DECISION.md' },
+    { title: 'Wormhole ADR',                          path: 'docs/architecture/WORMHOLE-ADR.md' },
+    { title: 'Ops display: outcome vs review-status', path: 'docs/architecture/OPS-DISPLAY-OUTCOME-VS-REVIEWSTATUS.md' },
+  ],
+  worf: [
+    { title: 'Dev base-reset consult (dev/main reconcile)', path: '.claude/roles/dax/inbox/CONSULT-DEV-RECONCILE-FROM-WORF.md' },
+    { title: 'CI workflow',                           path: '.github/workflows/ci.yml' },
+    { title: 'Promote workflow (operator-gated merge)', path: '.github/workflows/promote.yml' },
+    { title: 'Runbook — push & merge',                path: 'docs/runbooks/RUNBOOK-PUSH-AND-MERGE.md' },
+    { title: 'Runbook — Bashir gate',                 path: 'docs/runbooks/RUNBOOK-BASHIR-GATE.md' },
+    { title: 'Runbook — Claude auth',                 path: 'docs/runbooks/RUNBOOK-CLAUDE-AUTH.md' },
+    { title: 'Main-lock protocol — unlock',           path: 'scripts/unlock-main.sh' },
+    { title: 'Main-lock protocol — lock',             path: 'scripts/lock-main.sh' },
+  ],
+  leeta: [
+    { title: 'Landing-page — handoff',                path: '.claude/roles/leeta/HANDOFF-LANDING-PAGE.md' },
+  ],
+};
+
+function isValidRole(role) {
+  return Object.prototype.hasOwnProperty.call(CREW, role);
+}
+
+// Resolve a repo-relative path safely: must stay within REPO_ROOT and be a real file.
+function safeRepoFile(relPath) {
+  const abs = path.resolve(REPO_ROOT, relPath);
+  if (abs !== REPO_ROOT && !abs.startsWith(REPO_ROOT + path.sep)) return null;
+  try {
+    const st = fs.statSync(abs);
+    if (!st.isFile()) return null;
+    return { abs, mtime: st.mtime.toISOString() };
+  } catch (_) {
+    return null;
+  }
+}
+
+function readFirstExisting(relPaths) {
+  for (const rel of relPaths || []) {
+    const f = safeRepoFile(rel);
+    if (f) return { markdown: fs.readFileSync(f.abs, 'utf8'), updated: f.mtime, source: rel };
+  }
+  return null;
+}
+
+// Concatenate every existing source with a source comment + horizontal rule.
+function readConcat(relPaths) {
+  const parts = [];
+  let newest = null;
+  for (const rel of relPaths || []) {
+    const f = safeRepoFile(rel);
+    if (!f) continue;
+    parts.push(`<!-- source: ${rel} -->\n${fs.readFileSync(f.abs, 'utf8')}`);
+    if (!newest || f.mtime > newest) newest = f.mtime;
+  }
+  if (!parts.length) return null;
+  return { markdown: parts.join('\n\n---\n\n'), updated: newest };
+}
+
+function artifactKind(relPath) {
+  const ext = path.extname(relPath).toLowerCase();
+  if (ext === '.md' || ext === '.markdown') return 'md';
+  if (ext === '.html' || ext === '.htm') return 'html';
+  return 'code';
+}
+
+function listArtifacts(role) {
+  return (CREW_ARTIFACTS[role] || [])
+    .map(a => {
+      const f = safeRepoFile(a.path);
+      return f ? { title: a.title, path: a.path, kind: artifactKind(a.path), updated: f.mtime } : null;
+    })
+    .filter(Boolean);
+}
+
+// Membership guard for the content/raw routes: only serve declared artifacts.
+function isDeclaredArtifact(role, relPath) {
+  return (CREW_ARTIFACTS[role] || []).some(a => a.path === relPath);
+}
+
+function shellQuote(s) {
+  return `'${String(s).replace(/'/g, `'\\''`)}'`;
+}
+
+function readRoleConversations() {
+  try { return JSON.parse(fs.readFileSync(ROLE_CONVERSATIONS, 'utf8')); }
+  catch (_) { return {}; }
+}
+function writeRoleConversations(obj) {
+  // Atomic: write to a temp file then rename, so a crash mid-write can't leave a
+  // half-written JSON that wipes every role's resume pointer on next read.
+  try {
+    const tmp = ROLE_CONVERSATIONS + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(obj, null, 2) + '\n');
+    fs.renameSync(tmp, ROLE_CONVERSATIONS);
+  } catch (_) { /* non-fatal: resume just won't find a record */ }
+}
+
+function roleBootstrapPrompt(role) {
+  const meta = CREW[role];
+  const roleFile = role === 'rom' ? '.claude/CLAUDE.md' : `.claude/roles/${role}/ROLE.md`;
+  return `You are ${meta.name} (${meta.title}) on the Liberation of Bajor project. `
+       + `Read ${roleFile} and operate in that role for this conversation.`;
+}
+
+// Build the `claude` command for a new (pinned session id) or resumed conversation.
+function buildConversationCommand(role, sessionId, mode) {
+  if (mode === 'resume') return `claude --resume ${shellQuote(sessionId)}`;
+  const meta = CREW[role];
+  const name = `${meta.name} · ${new Date().toISOString().slice(0, 10)}`;
+  return `claude --session-id ${shellQuote(sessionId)} `
+       + `-n ${shellQuote(name)} `
+       + `--append-system-prompt ${shellQuote(roleBootstrapPrompt(role))}`;
+}
+
+// Best-effort: open Terminal.app running the command in REPO_ROOT. Never rejects.
+// Async (execFile, not execFileSync) so a cold Terminal launch or a pending
+// automation-permission prompt can't stall the dashboard's single event loop.
+// Set LOB_NO_LAUNCH=1 to skip the GUI launch (tests / headless) and just return
+// the command for the UI to display.
+function launchInTerminal(command) {
+  if (process.env.LOB_NO_LAUNCH === '1') return Promise.resolve({ launched: false, error: 'launch_disabled' });
+  return new Promise((resolve) => {
+    try {
+      const script = `#!/bin/bash\ncd ${shellQuote(REPO_ROOT)}\nexec ${command}\n`;
+      const scriptPath = path.join(os.tmpdir(), `lob-convo-${crypto.randomUUID()}.sh`);
+      fs.writeFileSync(scriptPath, script, { mode: 0o755 });
+      const osa = `tell application "Terminal" to do script "bash ${scriptPath}"\n`
+                + `tell application "Terminal" to activate`;
+      execFile('osascript', ['-e', osa], { timeout: 8000 }, (err) => {
+        resolve(err ? { launched: false, error: String((err && err.message) || err) } : { launched: true, error: null });
+      });
+    } catch (err) {
+      resolve({ launched: false, error: String((err && err.message) || err) });
+    }
+  });
+}
 
 // ── GitHub state cache (TTL-based) ──────────────────────────────────────────
 // Caches origin/main + origin/dev tips, CI status, and promote result.
@@ -754,8 +972,12 @@ function buildBridgeData() {
   const deferredIds = new Set();
   // Build mergedIds for terminal-ID set only (not used in pill derivation)
   const mergedIds = new Set();
+  // onMainIds: slices that actually reached main (gate-promoted), distinct from the
+  // legacy MERGED-to-dev event. Drives the Logbook lifecycle chain's "on main" stage.
+  const onMainIds = new Set();
   for (const ev of events) {
     if (ev.event === 'MERGED' || ev.event === 'SLICE_MERGED_TO_MAIN') mergedIds.add(String(ev.id));
+    if (ev.event === 'SLICE_MERGED_TO_MAIN') onMainIds.add(String(ev.id));
     if (ev.event === 'SLICE_SQUASHED_TO_DEV') squashedToDevIds.add(String(ev.id));
     if (ev.event === 'SLICE_DEFERRED') deferredIds.add(String(ev.id));
   }
@@ -778,7 +1000,9 @@ function buildBridgeData() {
       else if (verdict === 'APENDMENT_REQUIRED' || verdict === LEGACY_VERDICT_REQ) reviewStatus = 'apendment_required';
       else if (acceptedSet.has(entry.id))        reviewStatus = 'accepted';
       else                                       reviewStatus = 'waiting_for_review';
-      return { ...entry, outcome: finalOutcome, reviewStatus, sprint: getSprintForId(entry.id) };
+      const onMain = onMainIds.has(String(entry.id));
+      return { ...entry, outcome: finalOutcome, reviewStatus, sprint: getSprintForId(entry.id),
+               onMain, regressionPassed: onMain };
     });
 
   // Queue files (cached dir scan — avoids re-stat + re-parse of 348 files)
@@ -882,10 +1106,30 @@ function buildBridgeData() {
 }
 
 // ── Cost Center aggregation ──────────────────────────────────────────────────
+// Economics (Quark's Ledger): every crew role gets a tracker, with a per-purpose
+// token breakdown. Only `input` (tokens_in) and `output` (tokens_out) are captured
+// today; `context` (cache-reuse) and `thinking` (extended-thinking) tokens are NOT
+// recorded by the orchestrator yet, so they surface as null until the capture
+// pipeline is instrumented. See the Economics footnote in the dashboard.
 function buildCostsData() {
+  // Seed one zeroed row per crew role so the ledger shows everyone, with or without spend.
+  const ROLE_ORDER = ['sisko', 'ziyal', 'obrien', 'rom', 'nog', 'bashir', 'dax', 'worf', 'leeta'];
+  const rows = {};
+  for (const r of ROLE_ORDER) {
+    rows[r] = { role: r, model: null, count: 0,
+                input: 0, output: 0, context: null, thinking: null,
+                cost_usd: 0, _has_data: false };
+  }
+  function rowFor(role) {
+    if (!rows[role]) {
+      rows[role] = { role, model: null, count: 0, input: 0, output: 0,
+                     context: null, thinking: null, cost_usd: 0, _has_data: false };
+    }
+    return rows[role];
+  }
+
   // Rom — sum DONE events from register.jsonl (cached parse)
-  const romRow = { role: 'rom', model: 'claude-sonnet-4-6', count: 0,
-                   tokens_in: 0, tokens_out: 0, cost_usd: 0 };
+  const romRow = rowFor('rom'); romRow.model = 'claude-sonnet-4-6';
   const regParsed = getCachedFile(REGISTER, raw => {
     return raw.split('\n').filter(l => l.trim()).map(l => {
       try { return JSON.parse(l); } catch (_) { return null; }
@@ -895,15 +1139,15 @@ function buildCostsData() {
     for (const ev of regParsed) {
       if (ev.event !== 'DONE') continue;
       romRow.count++;
-      romRow.tokens_in  += ev.tokensIn  ?? 0;
-      romRow.tokens_out += ev.tokensOut ?? 0;
-      romRow.cost_usd   += ev.costUsd   ?? 0;
+      romRow.input  += ev.tokensIn  ?? 0;
+      romRow.output += ev.tokensOut ?? 0;
+      romRow.cost_usd += ev.costUsd ?? 0;
+      romRow._has_data = true;
     }
   }
 
   // Nog — sum rounds[] across all DONE.md files in queue/
-  const nogRow = { role: 'nog', model: 'claude-sonnet-4-6', count: 0,
-                   tokens_in: 0, tokens_out: 0, cost_usd: 0 };
+  const nogRow = rowFor('nog'); nogRow.model = 'claude-sonnet-4-6';
   try {
     const files = fs.readdirSync(QUEUE_DIR).filter(f => f.endsWith('-DONE.md'));
     for (const file of files) {
@@ -913,15 +1157,15 @@ function buildCostsData() {
       const rounds = parseRoundsArray(text);
       for (const r of rounds) {
         nogRow.count++;
-        nogRow.tokens_in  += r.tokensIn  ?? 0;
-        nogRow.tokens_out += r.tokensOut ?? 0;
-        nogRow.cost_usd   += r.costUsd   ?? 0;
+        nogRow.input  += r.tokensIn  ?? 0;
+        nogRow.output += r.tokensOut ?? 0;
+        nogRow.cost_usd += r.costUsd ?? 0;
+        nogRow._has_data = true;
       }
     }
   } catch (_) {}
 
-  // Sessions — group by role from sessions.jsonl
-  const sessionsByRole = {};
+  // Sessions — group by role from sessions.jsonl (the interactive roles)
   let updatedAt = new Date().toISOString();
   try {
     const raw = fs.readFileSync(SESSIONS, 'utf8');
@@ -929,47 +1173,32 @@ function buildCostsData() {
       if (!line.trim()) continue;
       let entry;
       try { entry = JSON.parse(line); } catch (_) { continue; }
-      const role = entry.role ?? 'unknown';
-      if (!sessionsByRole[role]) {
-        sessionsByRole[role] = {
-          role,
-          model: entry.model ?? 'claude-sonnet-4-6',
-          count: 0,
-          tokens_in: 0,
-          tokens_out: 0,
-          cost_usd: 0,
-          _has_cost: false,
-        };
-      }
-      const row = sessionsByRole[role];
+      const row = rowFor(entry.role ?? 'unknown');
+      if (entry.model && !row.model) row.model = entry.model;
       row.count++;
-      if (entry.tokens_in  != null) row.tokens_in  += entry.tokens_in;
-      if (entry.tokens_out != null) row.tokens_out += entry.tokens_out;
-      if (entry.cost_usd   != null) { row.cost_usd += entry.cost_usd; row._has_cost = true; }
+      if (entry.tokens_in  != null) { row.input  += entry.tokens_in;  row._has_data = true; }
+      if (entry.tokens_out != null) { row.output += entry.tokens_out; row._has_data = true; }
+      if (entry.cost_usd   != null) { row.cost_usd += entry.cost_usd;  row._has_data = true; }
       if (entry.ts && entry.ts > updatedAt) updatedAt = entry.ts;
     }
   } catch (_) {}
 
-  // Normalise session rows: null out aggregates when no values were present
-  const sessionRows = Object.values(sessionsByRole).map(row => {
-    const out = { role: row.role, model: row.model, count: row.count,
-                  tokens_in: null, tokens_out: null, cost_usd: null };
-    if (row._has_cost || row.tokens_in > 0) {
-      if (row.tokens_in  > 0) out.tokens_in  = row.tokens_in;
-      if (row.tokens_out > 0) out.tokens_out = row.tokens_out;
-      if (row._has_cost)      out.cost_usd   = row.cost_usd;
-    }
-    return out;
+  // Finalise: roles with no captured spend show null tokens/cost (an em-dash in the UI),
+  // not a misleading zero. `tokens_in`/`tokens_out` kept as aliases for back-compat.
+  const by_role = Object.values(rows).map(row => {
+    const has = row._has_data;
+    const input  = has ? row.input  : null;
+    const output = has ? row.output : null;
+    return {
+      role: row.role, model: row.model, count: row.count,
+      input, output, context: null, thinking: null,
+      total: has ? (row.input + row.output) : null,
+      tokens_in: input, tokens_out: output,
+      cost_usd: has ? row.cost_usd : null,
+    };
   });
 
-  const by_role = [romRow, nogRow, ...sessionRows];
-
-  // Total: sum only non-null cost entries
-  let total_cost_usd = romRow.cost_usd + nogRow.cost_usd;
-  for (const row of sessionRows) {
-    if (row.cost_usd != null) total_cost_usd += row.cost_usd;
-  }
-
+  const total_cost_usd = by_role.reduce((s, r) => s + (r.cost_usd ?? 0), 0);
   return { by_role, total_cost_usd, updated_at: updatedAt };
 }
 
@@ -1774,6 +2003,178 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: String(err) }));
     }
+    return;
+  }
+
+  // ── Last regression report (Bashir → O'Brien feedback loop) ────────────────
+  // Serves regression/LAST-RUN.md: what passed/regressed in the latest run.
+  // status: 'pass' | 'fail' | 'none', parsed from the report heading.
+  if (pathname === '/api/regression/report' && req.method === 'GET') {
+    try {
+      const reportPath = path.join(REPO_ROOT, 'regression', 'LAST-RUN.md');
+      if (!fs.existsSync(reportPath)) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ markdown: null, updated: null, status: 'none' }));
+        return;
+      }
+      const markdown = fs.readFileSync(reportPath, 'utf8');
+      const updated = fs.statSync(reportPath).mtime.toISOString();
+      const status = /🔴|—\s*FAIL/.test(markdown.split('\n')[0]) ? 'fail'
+                   : /🟢|—\s*PASS/.test(markdown.split('\n')[0]) ? 'pass' : 'none';
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ markdown, updated, status }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: String(err) }));
+    }
+    return;
+  }
+
+  // ── Crew dossier: role description / memory / artifacts (slice: crew-dossier-tabs)
+  const crewDossierMatch = pathname.match(/^\/api\/crew\/([a-z]+)\/dossier$/);
+  if (crewDossierMatch && req.method === 'GET') {
+    const role = crewDossierMatch[1];
+    if (!isValidRole(role)) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'unknown_role' }));
+      return;
+    }
+    try {
+      const src = ROLE_SOURCES[role] || {};
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        role:      readFirstExisting(src.role),
+        memory:    readConcat(src.memory),
+        artifacts: listArtifacts(role),
+        meta:      { name: CREW[role].name, title: CREW[role].title, num: CREW[role].num },
+      }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: String(err) }));
+    }
+    return;
+  }
+
+  // ── Crew artifact content (JSON, rendered inside the dossier overlay) ───────
+  if (pathname === '/api/crew/artifact' && req.method === 'GET') {
+    try {
+      const u = new URL(req.url, `http://${req.headers.host}`);
+      const role = u.searchParams.get('role') || '';
+      const rel  = u.searchParams.get('path') || '';
+      if (!isValidRole(role) || !isDeclaredArtifact(role, rel)) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'unknown_artifact' }));
+        return;
+      }
+      const f = safeRepoFile(rel);
+      if (!f) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'artifact_missing' }));
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        kind: artifactKind(rel), content: fs.readFileSync(f.abs, 'utf8'), path: rel, updated: f.mtime,
+      }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: String(err) }));
+    }
+    return;
+  }
+
+  // ── Crew artifact raw (opens HTML mockups / source in a new browser tab) ────
+  if (pathname === '/api/crew/artifact/raw' && req.method === 'GET') {
+    try {
+      const u = new URL(req.url, `http://${req.headers.host}`);
+      const role = u.searchParams.get('role') || '';
+      const rel  = u.searchParams.get('path') || '';
+      if (!isValidRole(role) || !isDeclaredArtifact(role, rel)) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('unknown artifact');
+        return;
+      }
+      const f = safeRepoFile(rel);
+      if (!f) { res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('artifact missing'); return; }
+      const isHtml = artifactKind(rel) === 'html';
+      const headers = {
+        'Content-Type': isHtml ? 'text/html; charset=utf-8' : 'text/plain; charset=utf-8',
+        'X-Content-Type-Options': 'nosniff',
+      };
+      // Crew-authored HTML mockups render, but in an opaque-origin sandbox with no
+      // scripts — so a poisoned artifact can't reach the dashboard's (unauthenticated)
+      // privileged endpoints from this same origin.
+      if (isHtml) headers['Content-Security-Policy'] = 'sandbox';
+      res.writeHead(200, headers);
+      res.end(fs.readFileSync(f.abs));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.end(String(err));
+    }
+    return;
+  }
+
+  // ── Crew conversation launch: new (pinned session id) / resume last ─────────
+  const crewConvoMatch = pathname.match(/^\/api\/crew\/([a-z]+)\/conversation$/);
+  if (crewConvoMatch && req.method === 'POST') {
+    const role = crewConvoMatch[1];
+    if (!isValidRole(role)) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'unknown_role' }));
+      return;
+    }
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', async () => {
+      try {
+        const { mode } = JSON.parse(body || '{}');
+        const convos = readRoleConversations();
+        const prev = convos[role] || null;
+
+        let effectiveMode = mode === 'resume' ? 'resume' : 'new';
+        let sessionId;
+        let resumedExisting = false;
+
+        if (effectiveMode === 'resume' && prev && prev.session_id) {
+          sessionId = prev.session_id;
+          resumedExisting = true;
+        } else {
+          // 'new', or 'resume' with no history on record → start a fresh session.
+          effectiveMode = 'new';
+          sessionId = crypto.randomUUID();
+        }
+
+        const command = buildConversationCommand(role, sessionId, effectiveMode);
+        const launch  = await launchInTerminal(command);
+
+        if (!resumedExisting) {
+          // Keep the prior session id under `previous` so a "New conversation" click
+          // doesn't permanently orphan the last resumable session from the dashboard.
+          convos[role] = {
+            session_id: sessionId,
+            name: CREW[role].name,
+            started: new Date().toISOString(),
+            previous: (prev && prev.session_id) || null,
+          };
+          writeRoleConversations(convos);
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          ok: true, role,
+          mode: effectiveMode,
+          requested_mode: mode === 'resume' ? 'resume' : 'new',
+          had_previous: !!(prev && prev.session_id),
+          session_id: sessionId,
+          command,
+          launched: launch.launched,
+          launch_error: launch.error,
+        }));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
     return;
   }
 
