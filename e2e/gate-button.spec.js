@@ -115,3 +115,32 @@ test('clicking RUN GATE on a run that fails: the dashboard visibly flips to a fl
   await expect(btn).toBeEnabled();
   expect(dispatchCount).toBe(1); // exactly one run — the failure never silently re-fired
 });
+
+// The operator must SEE the regression suite run green before main moves. The Promote
+// row renders the gate's phases (regression → e2e → fast-forward) with status + duration,
+// so "regression ✓ 2s" is visible before "e2e ⟳" — not one opaque "gate running" blob.
+const RUNNING_WITH_PHASES = JSON.parse(JSON.stringify(AHEAD_BRANCH_STATE));
+RUNNING_WITH_PHASES.github.promote_run = {
+  status: 'in_progress', run_id: 88, url: 'https://example.test/run/88', head_sha7: 'bbbbbbb',
+  updated_at: '2026-06-13T12:30:00.000Z',
+  phases: [
+    { key: 'regression', label: 'regression', status: 'passed', duration_s: 2 },
+    { key: 'e2e', label: 'e2e', status: 'running', duration_s: null },
+    { key: 'ff', label: 'fast-forward', status: 'pending', duration_s: null },
+  ],
+};
+
+test('the Promote row shows the gate phases live — regression passes (with duration) before e2e and the merge', async ({ page }) => {
+  await page.route('**/api/branch-state', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(RUNNING_WITH_PHASES) }));
+  await page.goto('/');
+
+  const promote = page.locator('#ci-strip-promote-text');
+  // Regression is shown PASSED with its real duration — proof it ran, before e2e/merge.
+  const regression = promote.locator('.gate-phase-passed', { hasText: 'regression' });
+  await expect(regression).toBeVisible();
+  await expect(regression).toContainText('2s');
+  // e2e is shown running; the fast-forward has not happened yet.
+  await expect(promote.locator('.gate-phase-running', { hasText: 'e2e' })).toBeVisible();
+  await expect(promote.locator('.gate-phase-pending', { hasText: 'fast-forward' })).toBeVisible();
+});

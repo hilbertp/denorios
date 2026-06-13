@@ -386,12 +386,62 @@ function _getGhCi() {
   return result;
 }
 
+// The three gate phases promote.yml runs, in order, before main moves. Matched by
+// step name so renaming a step's prose doesn't silently drop a phase (the match is
+// the contract; j-promote-gate-phases locks it).
+const PROMOTE_PHASES = [
+  { key: 'regression', label: 'regression',   match: /regression gate/i },
+  { key: 'e2e',        label: 'e2e',           match: /e2e|playwright|click-paths/i },
+  { key: 'ff',         label: 'fast-forward',  match: /fast-forward main/i },
+];
+
+// Steps that prepare the run rather than BE a gate phase. Excluded from matching so
+// e.g. "Install dependencies (browser e2e gate)" (1s) is never mistaken for the actual
+// "Run browser e2e gate" step (~34s) — that mismatch made e2e look instant.
+const PROMOTE_NON_PHASE = /^(install|set up|setup|post |complete |checkout|run actions)/i;
+
+// Pure: fold a promote run's raw job steps into the 3 gate phases with status +
+// duration, so the dashboard can show "regression ✓ 2s → e2e ⟳ → fast-forward ⏳".
+// Exported for unit testing (no network).
+function mapPromotePhases(steps) {
+  if (!Array.isArray(steps)) return null;
+  return PROMOTE_PHASES.map(p => {
+    const s = steps.find(st => {
+      const name = st && st.name || '';
+      return p.match.test(name) && !PROMOTE_NON_PHASE.test(name);
+    });
+    let status = 'pending';
+    let duration_s = null;
+    if (s) {
+      if (s.status === 'in_progress' || s.status === 'queued') status = (s.status === 'in_progress') ? 'running' : 'pending';
+      else if (s.conclusion === 'success') status = 'passed';
+      else if (s.conclusion === 'failure' || s.conclusion === 'cancelled' || s.conclusion === 'timed_out') status = 'failed';
+      else if (s.conclusion === 'skipped') status = 'skipped';
+      const st = s.startedAt ? Date.parse(s.startedAt) : NaN;
+      const en = s.completedAt ? Date.parse(s.completedAt) : NaN;
+      if (!isNaN(st) && !isNaN(en) && en >= st) duration_s = Math.round((en - st) / 1000);
+    }
+    return { key: p.key, label: p.label, status, duration_s };
+  });
+}
+
+// Fetch a promote run's step-level progress (one extra gh call, shares the 60s cache).
+function _getPromotePhases(runId) {
+  if (runId == null) return null;
+  try {
+    const out = execFileSync('gh', ['run', 'view', String(runId), '--json', 'jobs'],
+      { cwd: REPO_ROOT, encoding: 'utf8', timeout: 15000 }).trim();
+    const steps = (JSON.parse(out).jobs || []).flatMap(j => j.steps || []);
+    return mapPromotePhases(steps);
+  } catch (_) { return null; }
+}
+
 function _getGhPromote() {
   const now = Date.now();
   if (_ghPromoteCache.fetchedAt > 0 && now - _ghPromoteCache.fetchedAt < GH_TTL_MS) {
     return _ghPromoteCache.value;
   }
-  let result = { status: 'idle', run_id: null, url: null, head_sha7: null, updated_at: null };
+  let result = { status: 'idle', run_id: null, url: null, head_sha7: null, updated_at: null, phases: null };
   try {
     const out = execFileSync('gh',
       ['run', 'list', '--workflow=promote.yml', '--limit', '1',
@@ -415,6 +465,9 @@ function _getGhPromote() {
         url: run.url ?? null,
         head_sha7: run.headSha ? run.headSha.slice(0, 7) : null,
         updated_at: new Date(now).toISOString(),
+        // Per-phase gate progress (regression → e2e → fast-forward) so the operator
+        // SEES the regression suite run green before main moves.
+        phases: _getPromotePhases(run.databaseId),
       };
     }
   } catch (_) { /* gh not installed or not authenticated — non-fatal, degrade to idle */ }
@@ -2644,4 +2697,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, STALE_DONE_DAYS, deriveHistoryOutcome, createRevertCommit, resolveSquashSha };
+module.exports = { buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, STALE_DONE_DAYS, deriveHistoryOutcome, createRevertCommit, resolveSquashSha, mapPromotePhases };

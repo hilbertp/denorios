@@ -2346,6 +2346,25 @@
     font-weight: 600;
   }
 
+  /* Gate phases — regression → e2e → fast-forward, shown live in the Promote row */
+  .gate-phases-row { margin-top: 5px; }
+  .gate-phases { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+  .gate-phase {
+    font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 99px;
+    border: 1px solid var(--border-strong); white-space: nowrap;
+  }
+  .gate-phase-arrow { color: #9ca3af; font-size: 11px; }
+  .gate-phase-passed  { color: #166534; background: #dcfce7; border-color: #bbf7d0; }
+  .gate-phase-running { color: #92400e; background: #fef3c7; border-color: #fde68a; }
+  .gate-phase-failed  { color: #b91c1c; background: #fee2e2; border-color: #fecaca; }
+  .gate-phase-pending { color: #6b7280; background: var(--bg-hover); border-color: var(--border); }
+  .gate-phase-skipped { color: #9ca3af; background: var(--bg-hover); border-color: var(--border); }
+  body.lcars-mode .gate-phase-passed  { background:#0f2417 !important; color:#5fd17a !important; border-color:#1f5b35 !important; }
+  body.lcars-mode .gate-phase-running { background:#2a1f08 !important; color:#ffb74d !important; border-color:#6b4e16 !important; }
+  body.lcars-mode .gate-phase-failed  { background:#2a1010 !important; color:#ff8a8a !important; border-color:#6b1f1f !important; }
+  body.lcars-mode .gate-phase-pending,
+  body.lcars-mode .gate-phase-skipped { background:#1a1a28 !important; color:#9ca3af !important; border-color:#33334d !important; }
+
   /* Run-change flash: a fresh verdict briefly highlights the row */
   @keyframes ciRowFlash {
     0%   { background: rgba(34, 197, 94, 0.20); }
@@ -7599,6 +7618,18 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
   let _ciLastSeenSig = null;
   let _ciFlashUntil = 0;
 
+  // The gate's phases (regression → e2e → fast-forward) with status + duration, so
+  // the operator SEES the regression suite run green before main moves.
+  function gatePhasesHtml(phases) {
+    if (!Array.isArray(phases) || !phases.length) return '';
+    const glyph = { passed: '✓', running: '↻', failed: '✗', skipped: '–', pending: '○' };
+    const parts = phases.map(p => {
+      const dur = p.duration_s != null ? ` ${p.duration_s}s` : '';
+      return `<span class="gate-phase gate-phase-${p.status}">${glyph[p.status] || '○'} ${p.label}${dur}</span>`;
+    });
+    return `<span class="gate-phases">${parts.join('<span class="gate-phase-arrow">→</span>')}</span>`;
+  }
+
   function renderCiStrip(gh) {
     const strip       = document.getElementById('ci-strip');
     const regGlyph    = document.getElementById('ci-strip-regression-glyph');
@@ -7681,8 +7712,10 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
       promGlyph.innerHTML = '↻';
       const sha7 = pr && pr.head_sha7 ? ` <span class="ci-strip-sha">${pr.head_sha7}</span>` : '';
       const el = _gateElapsedLabel();
+      const phasesLine = gatePhasesHtml(pr && pr.phases);
       promText.innerHTML  = `<span>gate running — full suite on a clean runner</span>${sha7}` +
-        ` <span class="ci-strip-meta">&middot; ${el ? el + ' elapsed &middot; ' : ''}green = main fast-forwards, red = main untouched</span>`;
+        ` <span class="ci-strip-meta">&middot; ${el ? el + ' elapsed &middot; ' : ''}main moves only when every phase passes</span>` +
+        (phasesLine ? `<div class="gate-phases-row">${phasesLine}</div>` : '');
       if (promLink && prUrl) {
         promLink.href = prUrl;
         promLink.textContent = '↗ view';
@@ -7693,21 +7726,25 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
       promGlyph.className = 'ci-strip-glyph err';
       promGlyph.innerHTML = '✗';
       const sha7 = pr && pr.head_sha7 ? ` <span class="ci-strip-sha">${pr.head_sha7}</span>` : '';
-      promText.innerHTML  = `<span>gate failed</span>${sha7}`;
+      const phasesLine = gatePhasesHtml(pr && pr.phases);
+      promText.innerHTML  = `<span>gate failed</span>${sha7}` +
+        (phasesLine ? `<div class="gate-phases-row">${phasesLine}</div>` : '');
       if (promLink && prUrl) {
         promLink.href = prUrl;
         promLink.textContent = '↗ open in CI';
         promLink.style.display = '';
       }
     } else if (prStatus === 'success') {
-      // Existing "main fast-forwarded" display
+      // Existing "main fast-forwarded" display + the gate phases that earned it.
       promGlyph.className = 'ci-strip-glyph ok';
       promGlyph.innerHTML = '✓';
+      const phasesLine = gatePhasesHtml(pr && pr.phases);
+      const phasesSuffix = phasesLine ? `<div class="gate-phases-row">${phasesLine}</div>` : '';
       if (promote && promote.sha) {
         const age = promote.age_s != null ? formatAgeShort(promote.age_s) : '';
-        promText.innerHTML = `<span>main fast-forwarded →</span> <span class="ci-strip-sha">${promote.sha}</span>${age ? ` <span class="ci-strip-meta">· ${age}</span>` : ''}`;
+        promText.innerHTML = `<span>main fast-forwarded →</span> <span class="ci-strip-sha">${promote.sha}</span>${age ? ` <span class="ci-strip-meta">· ${age}</span>` : ''}` + phasesSuffix;
       } else {
-        promText.innerHTML = '<span>main fast-forwarded</span>';
+        promText.innerHTML = '<span>main fast-forwarded</span>' + phasesSuffix;
       }
       if (promLink && prUrl) {
         promLink.href = prUrl;
