@@ -48,7 +48,7 @@ console.log('\nvalidateIntakeMeta — intake validation (slice 198)');
 
 // Test A: fresh slice with only 4 fields → missing priority + created
 test('A: fresh slice missing priority+created → rejected with both fields', () => {
-  const meta = { id: '999', title: 'My Slice', from: 'kira', to: 'rom' };
+  const meta = { id: '999', title: 'My Slice', from: 'obrien', to: 'rom' };
   const { ok, missingFields } = validateIntakeMeta(meta);
   assert.strictEqual(ok, false, 'should be invalid');
   assert.deepStrictEqual(missingFields.sort(), ['created', 'priority']);
@@ -103,7 +103,7 @@ test('F: fresh slice with blank priority → rejected with [\'priority\']', () =
   const meta = {
     id: '999',
     title: 'My Slice',
-    from: 'kira',
+    from: 'obrien',
     to: 'rom',
     priority: '',
     created: '2026-04-24T08:54:59.687Z',
@@ -138,21 +138,21 @@ test('references non-null string → accepted with 4 fields', () => {
 });
 
 test('references "null" string → treated as fresh slice, requires 6 fields', () => {
-  const meta = { id: '999', title: 'My Slice', from: 'kira', to: 'rom', references: 'null' };
+  const meta = { id: '999', title: 'My Slice', from: 'obrien', to: 'rom', references: 'null' };
   const { ok, missingFields } = validateIntakeMeta(meta);
   assert.strictEqual(ok, false);
   assert.deepStrictEqual(missingFields.sort(), ['created', 'priority']);
 });
 
 test('empty rounds array → treated as fresh slice, requires 6 fields', () => {
-  const meta = { id: '999', title: 'My Slice', from: 'kira', to: 'rom', rounds: [] };
+  const meta = { id: '999', title: 'My Slice', from: 'obrien', to: 'rom', rounds: [] };
   const { ok, missingFields } = validateIntakeMeta(meta);
   assert.strictEqual(ok, false);
   assert.deepStrictEqual(missingFields.sort(), ['created', 'priority']);
 });
 
 test('round: 1 → treated as fresh slice, requires 6 fields', () => {
-  const meta = { id: '999', title: 'My Slice', from: 'kira', to: 'rom', round: '1' };
+  const meta = { id: '999', title: 'My Slice', from: 'obrien', to: 'rom', round: '1' };
   const { ok, missingFields } = validateIntakeMeta(meta);
   assert.strictEqual(ok, false);
   assert.deepStrictEqual(missingFields.sort(), ['created', 'priority']);
@@ -168,7 +168,7 @@ test('fresh slice with all 6 fields → accepted', () => {
   const meta = {
     id: '999',
     title: 'My Slice',
-    from: 'kira',
+    from: 'obrien',
     to: 'rom',
     priority: 'high',
     created: '2026-04-24T08:54:59.687Z',

@@ -162,15 +162,15 @@ test('D — sliceMeta.root_commission_id resolves after verify failure (no TDZ)'
     'root_commission_id must resolve without TDZ error');
 });
 
-test('E — appendKiraEvent payload would receive valid root_id from outer sliceMeta', () => {
-  // Verify the actual orchestrator source has the appendKiraEvent call
+test('E — appendOperationalEvent payload would receive valid root_id from outer sliceMeta', () => {
+  // Verify the actual orchestrator source has the appendOperationalEvent call
   // with sliceMeta.root_commission_id in the verify-failure block
   const verifyBlock = orchestratorSource.match(/if \(!verify\.ok\)[\s\S]*?return;\s*\}/);
   assert.ok(verifyBlock, 'verify-failure block not found');
-  assert.ok(verifyBlock[0].includes('appendKiraEvent'),
-    'appendKiraEvent must be called in verify-failure block');
+  assert.ok(verifyBlock[0].includes('appendOperationalEvent'),
+    'appendOperationalEvent must be called in verify-failure block');
   assert.ok(verifyBlock[0].includes('sliceMeta.root_commission_id'),
-    'appendKiraEvent must use sliceMeta.root_commission_id for root_id');
+    'appendOperationalEvent must use sliceMeta.root_commission_id for root_id');
 });
 
 test('F — no let/var sliceMeta redeclarations in execFile callback', () => {
