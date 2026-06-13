@@ -158,6 +158,13 @@ test('a stale success (already-promoted sha) does NOT read as merged while dev i
   await expect(promote).not.toContainText('main fast-forwarded'); // NOT a stale merge claim
   await expect(promote.locator('.gate-phase')).toHaveCount(0);    // no stale green phases shown as current
 
+  // The REGRESSION row must NOT show a green pass tick while held — the gate has not
+  // run regression for this promotion, even though a per-push ci.yml run is green.
+  const regression = page.locator('#ci-strip-regression-text');
+  await expect(regression).toContainText('not run in the gate yet');
+  await expect(regression).not.toContainText('passing');
+  await expect(page.locator('#ci-strip-regression-glyph')).not.toHaveText('✓');
+
   // And the button is live to actually gate the new commits.
   const btn = page.locator('#promote-gate-btn');
   await expect(btn).toContainText('RUN GATE');

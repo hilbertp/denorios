@@ -7714,6 +7714,14 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
         regGlyph.innerHTML = '↻';
         regText.innerHTML = '<span>queued in the gate&hellip;</span> <span class="ci-strip-meta">· starting on a clean runner</span>';
       }
+    } else if (_ghAhead(gh) > 0) {
+      // Held — dev is ahead and ungated. The gate has NOT run regression for this
+      // promotion, so show no green pass tick: the row mirrors the held promote
+      // state instead of a per-push ✓ that reads as "already good".
+      regGlyph.className = 'ci-strip-glyph pending';
+      regGlyph.innerHTML = '○';
+      regText.innerHTML = '<span class="ci-strip-meta">not run in the gate yet — press RUN GATE</span>';
+      regLink.style.display = 'none';
     } else if (!ci || !ci.state || ci.state === 'unknown') {
       regGlyph.className = 'ci-strip-glyph pending';
       regGlyph.innerHTML = '○'; // ◌-ish: open circle for "no signal"
@@ -7729,7 +7737,7 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
     } else if (ci.state === 'passing') {
       regGlyph.className = 'ci-strip-glyph ok';
       regGlyph.innerHTML = '✓'; // ✓
-      regText.innerHTML  = `<span>passing</span>${ci.run_number ? ` <span class="ci-strip-meta">· run #${ci.run_number}</span>` : ''}${ciAge ? ` <span class="ci-strip-meta">· ${ciAge} ago</span>` : ''}${staleNote}`;
+      regText.innerHTML  = `<span>passing</span>${ci.run_number ? ` <span class="ci-strip-meta">· run #${ci.run_number}</span>` : ''}${ciAge ? ` <span class="ci-strip-meta">· ${ciAge}</span>` : ''}${staleNote}`;
       regLink.href = ci.url || '#';
       regLink.style.display = ci.url ? '' : 'none';
       regLink.textContent = '↗ view';
@@ -7737,7 +7745,7 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
       regGlyph.className = 'ci-strip-glyph err';
       regGlyph.innerHTML = '✗'; // ✗
       const detail = ci.failed_suite ? `<span class="ci-strip-meta">· ${ci.failed_suite}</span>` : '';
-      regText.innerHTML  = `<span>failing</span>${ci.run_number ? ` <span class="ci-strip-meta">· run #${ci.run_number}</span>` : ''}${ciAge ? ` <span class="ci-strip-meta">· ${ciAge} ago</span>` : ''} ${detail}${staleNote}`;
+      regText.innerHTML  = `<span>failing</span>${ci.run_number ? ` <span class="ci-strip-meta">· run #${ci.run_number}</span>` : ''}${ciAge ? ` <span class="ci-strip-meta">· ${ciAge}</span>` : ''} ${detail}${staleNote}`;
       regLink.href = ci.url || '#';
       regLink.style.display = ci.url ? '' : 'none';
       regLink.textContent = '↗ open in CI';
