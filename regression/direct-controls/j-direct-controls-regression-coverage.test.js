@@ -61,7 +61,7 @@ module.exports = {
 
   const src = fs.readFileSync(SERVER_SRC, 'utf8')
     .replace(
-      /const REPO_ROOT\s*=\s*path\.resolve\(__dirname,\s*'\.\.'\);/,
+      /const REPO_ROOT\s*=[\s\S]*?path\.resolve\(__dirname,\s*'\.\.'\);/,
       `const REPO_ROOT = ${JSON.stringify(root)};`
     )
     .replace(
