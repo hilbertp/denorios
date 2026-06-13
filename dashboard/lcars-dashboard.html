@@ -2347,6 +2347,25 @@
   }
 
   /* Gate phases — regression → e2e → fast-forward, shown live in the Promote row */
+  /* Gate-failure handoff prompt (copy-to-O'Brien code block) */
+  .gate-failure-prompt {
+    background: var(--bg-subtle, #f3f4f6);
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 6px;
+    padding: 12px 14px;
+    margin: 0 0 14px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #374151;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 240px;
+    overflow-y: auto;
+    user-select: all;
+  }
+  body.lcars-mode .gate-failure-prompt { background:#10131c !important; color:#cbd5e1 !important; border-color:#2a3142 !important; }
+
   .gate-phases-row { margin-top: 5px; }
   .gate-phases { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
   .gate-phase {
@@ -7417,9 +7436,18 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
     return !!(devTip && pr.head_sha7 && pr.head_sha7 !== devTip);
   }
 
+  // A current-tip run with any FAILED phase has effectively failed, even if the run's
+  // overall status is still 'in_progress' (GitHub is finalizing the skipped steps).
+  // Treat it as failed so the timer stops instead of ticking GATE RUNNING for ~a minute.
+  function _gatePhaseFailed(gh) {
+    const pr = gh && gh.promote_run ? gh.promote_run : null;
+    return !!(pr && !_promoteRunStale(gh) && Array.isArray(pr.phases) && pr.phases.some(p => p && p.status === 'failed'));
+  }
+
   function _gateIsRunning(gh) {
     const pr = gh && gh.promote_run ? gh.promote_run : null; // null-guard: old cached payloads
     const st = pr && pr.status ? pr.status : null;
+    if (_gatePhaseFailed(gh)) { _promoteOptimisticUntil = 0; _gateClientStartedAt = 0; return false; }
     if (st === 'pending' || st === 'in_progress') {
       _promoteOptimisticUntil = 0;
       if (!_gateClientStartedAt) _gateClientStartedAt = Date.now();
@@ -7438,6 +7466,83 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
   function _gateElapsedLabel() {
     if (!_gateClientStartedAt) return '';
     return `${Math.max(0, Math.floor((Date.now() - _gateClientStartedAt) / 1000))}s`;
+  }
+
+  // ── Gate-failure handoff popup ──────────────────────────────────────────────
+  // A red gate stops the merge but the journey dead-ends here: there is no automated
+  // Bashir→O'Brien trigger to commission a fix. So we close the loop by hand — when the
+  // gate fails, show the operator a ready-to-send prompt to paste to O'Brien, who
+  // commissions a repair slice for Rom. Shown once per failed run.
+  let _gateFailureShownFor = null;
+
+  function _gateFailingPhase(pr) {
+    const f = (pr && Array.isArray(pr.phases) ? pr.phases : []).find(p => p && p.status === 'failed');
+    return f ? f.label : 'regression';
+  }
+
+  function gateFailurePrompt(pr) {
+    const sha = (pr && pr.head_sha7) ? pr.head_sha7 : 'dev';
+    const phase = _gateFailingPhase(pr);
+    const url = pr && pr.url ? pr.url : null;
+    return `The promote gate failed on dev@${sha} at the ${phase} step — the gate held main, so nothing was merged.\n\n`
+      + `Please investigate the failure${url ? ` (GitHub Actions run: ${url})` : ''} and commission a fix slice for Rom to repair it, `
+      + `so the regression gate goes green and dev can be promoted to main again. Report back when the fix has landed on dev.`;
+  }
+
+  function closeGateFailurePopup() {
+    const o = document.getElementById('gate-failure-overlay');
+    if (o) o.remove();
+  }
+
+  async function copyGateFailurePrompt() {
+    const el = document.getElementById('gate-failure-prompt');
+    const btn = document.getElementById('gate-failure-copy');
+    if (!el) return;
+    try {
+      await navigator.clipboard.writeText(el.textContent);
+      if (btn) btn.textContent = 'Copied ✓';
+    } catch (_) {
+      // Clipboard blocked — select the text so the operator can copy manually.
+      try {
+        const r = document.createRange(); r.selectNodeContents(el);
+        const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+      } catch (_) {}
+      if (btn) btn.textContent = 'Press ⌘C to copy';
+    }
+  }
+
+  function showGateFailurePopup(pr) {
+    closeGateFailurePopup();
+    const phase = _gateFailingPhase(pr);
+    const title = phase === 'e2e' ? 'Browser e2e suite failed'
+                : phase === 'fast-forward' ? 'Promotion failed'
+                : 'Regression suite failed';
+    const overlay = document.createElement('div');
+    overlay.className = 'rollback-overlay';
+    overlay.id = 'gate-failure-overlay';
+    overlay.onclick = (e) => { if (e.target === overlay) closeGateFailurePopup(); };
+    overlay.innerHTML = `<div class="rollback-card" role="dialog" aria-modal="true" aria-label="Gate failed — ask O'Brien to fix">
+      <h3>${_rbEsc(title)}</h3>
+      <p class="rb-sub">The gate stopped before merging — <strong>main was not touched</strong>. There's no automated fix trigger yet, so ask O'Brien to commission a repair slice. Copy this prompt and send it to O'Brien:</p>
+      <pre class="gate-failure-prompt" id="gate-failure-prompt">${_rbEsc(gateFailurePrompt(pr))}</pre>
+      <div class="rollback-actions">
+        <button class="rb-btn rb-btn-cancel" onclick="closeGateFailurePopup()">Dismiss</button>
+        <button class="rb-btn rb-btn-go" id="gate-failure-copy" onclick="copyGateFailurePrompt()">Copy prompt for O'Brien</button>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+  }
+
+  // Pop the handoff once when the current-tip gate enters a failed state.
+  function maybeShowGateFailurePopup(gh) {
+    const pr = gh && gh.promote_run ? gh.promote_run : null;
+    if (!pr || _promoteRunStale(gh)) return;
+    const failed = pr.status === 'failure' || _gatePhaseFailed(gh);
+    if (!failed) return;
+    const key = `${pr.run_id != null ? pr.run_id : ''}:${pr.head_sha7 || ''}`;
+    if (_gateFailureShownFor === key) return; // already shown for this run
+    _gateFailureShownFor = key;
+    showGateFailurePopup(pr);
   }
 
   const PROMOTE_BTN_TITLE = 'Re-runs the full regression suite on a clean GitHub runner against origin/dev; ' +
@@ -7693,7 +7798,7 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
     // Reflect the gate's regression step while RUNNING *and* once it has terminally
     // FAILED for the current dev tip — else a just-failed gate's regression row wrongly
     // reverts to "not run in the gate yet".
-    const _gateCurrentFail = _gPr && _gPr.status === 'failure' && !_promoteRunStale(gh);
+    const _gateCurrentFail = _gatePhaseFailed(gh) || (_gPr && _gPr.status === 'failure' && !_promoteRunStale(gh));
     const _gateReg = (_gateIsRunning(gh) || _gateCurrentFail)
       ? ((_gPhases || []).find(p => p.key === 'regression') || { status: 'pending', duration_s: null })
       : null;
@@ -7763,7 +7868,9 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
     // Treat a stale terminal run (success/failure for an already-promoted sha) as
     // "no current run", so the row shows "held — press RUN GATE" for the ungated
     // dev commits instead of a misleading "main fast-forwarded ✓" with old phases.
-    const prStatus = _promoteRunStale(gh) ? 'idle' : (pr && pr.status ? pr.status : null);
+    // A failed phase ⇒ render as failure now (don't wait for the overall status to flip).
+    const prStatus = _gatePhaseFailed(gh) ? 'failure'
+      : (_promoteRunStale(gh) ? 'idle' : (pr && pr.status ? pr.status : null));
     const prUrl = pr && pr.url ? pr.url : null;
     // A stale run's phases + sha belong to a PAST promotion. Never show them as the
     // current gate — that painted the old all-green ✓✓✓ under "gate running" in the
@@ -7864,6 +7971,9 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
 
     // Strip header state (red on regression failing or gate failure)
     strip.setAttribute('data-state', (ci && ci.state === 'failing') || promoteFail ? 'fail' : 'idle');
+
+    // When the gate fails, hand the operator the prompt to send O'Brien (closes the loop).
+    maybeShowGateFailurePopup(gh);
   }
 
   function formatAgeShort(seconds) {

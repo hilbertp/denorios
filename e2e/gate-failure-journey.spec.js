@@ -92,4 +92,42 @@ test('full gate-FAILURE clicktest: held → run gate → regression FAILS → ga
   await expect(promote).not.toContainText('fast-forwarded');
   await expect(btn).toContainText('RUN GATE');
   await expect(btn).toBeEnabled();
+
+  // The journey no longer dead-ends: a popup hands the operator the exact prompt to
+  // send O'Brien, who commissions a repair slice for Rom (no automated trigger yet).
+  const popup = page.locator('#gate-failure-overlay');
+  await expect(popup).toBeVisible();
+  await expect(popup).toContainText('Regression suite failed');
+  await expect(popup.locator('#gate-failure-prompt')).toContainText('commission a fix slice for Rom');
+  await expect(popup.locator('#gate-failure-prompt')).toContainText(DEV); // the failed commit
+  await expect(popup.locator('#gate-failure-copy')).toBeVisible();
+});
+
+test('a failed regression PHASE stops the ticking timer immediately and pops the O\'Brien handoff', async ({ page }) => {
+  // The exact bug: promote_run.status is still 'in_progress' (GitHub finalizing) but the
+  // regression PHASE has already failed — the timer must not keep ticking GATE RUNNING.
+  const state = branchState({ mainSha: MAIN0, ahead: 1, promoteStatus: 'in_progress', promoteSha: DEV, ph: phases('failed', 'skipped', 'skipped', 2) });
+  await page.route('**/api/branch-state', r => r.fulfill({ json: state }));
+  await page.goto('/');
+
+  await expect(page.locator('#promote-gate-btn')).not.toContainText('GATE RUNNING'); // no ticking
+  await expect(page.locator('#ci-strip-promote-text')).toContainText('gate failed');
+  await expect(page.locator('#ci-strip-regression-text')).toContainText('failed in the gate');
+  await expect(page.locator('#gate-failure-overlay')).toBeVisible();
+  await expect(page.locator('#gate-failure-prompt')).toContainText('commission a fix slice for Rom');
+});
+
+test('the O\'Brien prompt is copyable from the failure popup', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  const state = branchState({ mainSha: MAIN0, ahead: 1, promoteStatus: 'failure', promoteSha: DEV, ph: phases('failed', 'skipped', 'skipped', 2) });
+  await page.route('**/api/branch-state', r => r.fulfill({ json: state }));
+  await page.goto('/');
+
+  const copy = page.locator('#gate-failure-copy');
+  await expect(copy).toBeVisible();
+  await copy.click();
+  await expect(copy).toContainText('Copied');
+  const clip = await page.evaluate(() => navigator.clipboard.readText());
+  expect(clip).toContain('commission a fix slice for Rom');
+  expect(clip).toContain(DEV);
 });
