@@ -188,6 +188,32 @@ test('clicking RUN GATE past a stale success shows GATE RUNNING (optimism is not
   await expect(promote.locator('.gate-phase-passed')).toHaveCount(0); // no stale ✓✓✓
 });
 
+// During a gate run, the REGRESSION row must reflect the GATE's regression step
+// (it starts: queued → running → passed), NOT the already-green per-push ci.yml run —
+// otherwise it reads as "pre-passed / never started" (Philipp's screenshot).
+const GATE_REG_RUNNING = JSON.parse(JSON.stringify(AHEAD_BRANCH_STATE)); // dev=bbbbbbb
+GATE_REG_RUNNING.github.ci = { state: 'passing', run_number: 44, url: 'https://example.test/ci/44', head_sha: 'bbbbbbb', updated_at: '2026-06-13T12:00:00.000Z' };
+GATE_REG_RUNNING.github.promote_run = {
+  status: 'in_progress', run_id: 91, url: 'https://example.test/run/91', head_sha7: 'bbbbbbb',
+  updated_at: '2026-06-13T12:30:00.000Z',
+  phases: [
+    { key: 'regression', label: 'regression', status: 'running', duration_s: null },
+    { key: 'e2e', label: 'e2e', status: 'pending', duration_s: null },
+    { key: 'fast-forward', label: 'fast-forward', status: 'pending', duration_s: null },
+  ],
+};
+
+test('during a gate run the REGRESSION row shows the gate step running — not the pre-passed per-push ✓', async ({ page }) => {
+  await page.route('**/api/branch-state', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(GATE_REG_RUNNING) }));
+  await page.goto('/');
+
+  const regression = page.locator('#ci-strip-regression-text');
+  await expect(regression).toContainText('in the gate');        // it's the gate's regression, running
+  await expect(regression).not.toContainText('run #44');         // NOT the stale per-push green ✓
+  await expect(regression).not.toContainText('passing');
+});
+
 test('the Promote row shows the gate phases live — regression passes (with duration) before e2e and the merge', async ({ page }) => {
   await page.route('**/api/branch-state', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(RUNNING_WITH_PHASES) }));

@@ -7685,7 +7685,36 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
     if (regRow) regRow.classList.toggle('ci-strip-row-flash', Date.now() < _ciFlashUntil);
 
     // ── Regression row ──
-    if (!ci || !ci.state || ci.state === 'unknown') {
+    // During a promote gate, this row must reflect the GATE'S regression step
+    // (queued → running → passed), not the already-green per-push ci.yml run —
+    // otherwise the gate's regression reads as "pre-passed / never started".
+    const _gPr = gh && gh.promote_run ? gh.promote_run : null;
+    const _gPhases = _promoteRunStale(gh) ? null : (_gPr && _gPr.phases ? _gPr.phases : null);
+    const _gateReg = _gateIsRunning(gh)
+      ? ((_gPhases || []).find(p => p.key === 'regression') || { status: 'pending', duration_s: null })
+      : null;
+    if (_gateReg) {
+      regLink.href = (_gPr && _gPr.url) || '#';
+      regLink.style.display = (_gPr && _gPr.url) ? '' : 'none';
+      regLink.textContent = '↗ view';
+      if (_gateReg.status === 'passed') {
+        regGlyph.className = 'ci-strip-glyph ok';
+        regGlyph.innerHTML = '✓';
+        regText.innerHTML = `<span>passed in the gate</span>${_gateReg.duration_s != null ? ` <span class="ci-strip-meta">· ${_gateReg.duration_s}s</span>` : ''} <span class="ci-strip-meta">· e2e next</span>`;
+      } else if (_gateReg.status === 'failed') {
+        regGlyph.className = 'ci-strip-glyph err';
+        regGlyph.innerHTML = '✗';
+        regText.innerHTML = '<span>failed in the gate — main held</span>';
+      } else if (_gateReg.status === 'running') {
+        regGlyph.className = 'ci-strip-glyph running';
+        regGlyph.innerHTML = '↻';
+        regText.innerHTML = '<span>running in the gate&hellip;</span> <span class="ci-strip-meta">· full suite on a clean runner</span>';
+      } else {
+        regGlyph.className = 'ci-strip-glyph running';
+        regGlyph.innerHTML = '↻';
+        regText.innerHTML = '<span>queued in the gate&hellip;</span> <span class="ci-strip-meta">· starting on a clean runner</span>';
+      }
+    } else if (!ci || !ci.state || ci.state === 'unknown') {
       regGlyph.className = 'ci-strip-glyph pending';
       regGlyph.innerHTML = '○'; // ◌-ish: open circle for "no signal"
       regText.innerHTML = '<span class="ci-strip-meta">no recent CI run</span>';
