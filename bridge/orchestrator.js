@@ -6374,6 +6374,15 @@ function _gateTestsUpdated(devTipSha, ctx) {
       try { fs.writeFileSync(REGRESSION_STDOUT_LOG, stdout || '', 'utf-8'); } catch (_) {}
       try { fs.writeFileSync(REGRESSION_STDERR_LOG, stderr || '', 'utf-8'); } catch (_) {}
 
+      // Feed Bashir's findings back to O'Brien: turn the log we just wrote into a
+      // readable report (regression/LAST-RUN.md) and, on failure, route a handoff to
+      // O'Brien's inbox so a fix slice gets authored. Best-effort, fire-and-forget —
+      // wrapped so it can never affect the gate's pass/fail outcome below.
+      try {
+        execFile('node', [path.join(PROJECT_DIR, 'scripts', 'regression-report.js'), '--from-log'],
+          { cwd: PROJECT_DIR, timeout: 30000 }, () => {});
+      } catch (_) {}
+
       // Handle timeout (execFile sets err.killed=true, err.signal='SIGTERM' on timeout)
       if (err && err.killed) {
         timedOut = true;

@@ -49,3 +49,7 @@ bridge/.main-unlocked
 # runtime debris from test/regression-*.test.js (retired-gate tests) — a committed hang.test.js would freeze CI + the promote gate
 regression/_test_timeout_suite/
 regression/_test_pass_suite/
+
+# Bashir's generated regression report + the auto-routed O'Brien handoff (regenerated every gate run)
+regression/LAST-RUN.md
+.claude/roles/obrien/inbox/REGRESSION-FAILURE.md

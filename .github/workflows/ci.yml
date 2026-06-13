@@ -27,4 +27,27 @@ jobs:
           node-version: '24'
 
       - name: Run Bashir's regression suite
-        run: node --test 'regression/**/*.test.js'
+        run: |
+          set -o pipefail
+          mkdir -p bridge/state
+          node --test 'regression/**/*.test.js' 2>&1 | tee bridge/state/regression-stdout.log
+
+      # Always turn the run into a readable report (what regressed), even when the
+      # gate above is red — this is Bashir's feedback to the engineering team.
+      - name: Regression report
+        if: always()
+        run: |
+          node scripts/regression-report.js --from-log || true
+          {
+            echo "## Bashir's Regression Report";
+            echo "";
+            cat regression/LAST-RUN.md;
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload regression report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-report
+          path: regression/LAST-RUN.md
+          if-no-files-found: ignore
