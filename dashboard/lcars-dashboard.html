@@ -2888,6 +2888,75 @@
   }
   .return-to-stage-btn:hover { background: #fef3c7; }
 
+  /* ── ROLL BACK (revert-forward through the gate) ─────── */
+  .rollback-btn {
+    background: none;
+    border: 1px solid #b45309;
+    font-size: 12px;
+    font-weight: 500;
+    color: #b45309;
+    cursor: pointer;
+    padding: 3px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+    font-family: system-ui, -apple-system, sans-serif;
+    flex-shrink: 0;
+    transition: background 0.15s;
+  }
+  .rollback-btn:hover { background: #fff7ed; }
+  .rollback-btn:disabled { opacity: 0.55; cursor: default; }
+
+  .rollback-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1200;
+  }
+  .rollback-card {
+    background: var(--surface, #ffffff);
+    color: var(--text, #0f172a);
+    width: min(520px, 92vw);
+    border-radius: 12px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+    padding: 22px 24px;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+  .rollback-card h3 { margin: 0 0 6px; font-size: 16px; }
+  .rollback-card .rb-sub { margin: 0 0 14px; font-size: 13px; color: #6b7280; line-height: 1.45; }
+  .rollback-moves {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 14px;
+    font-size: 12.5px;
+    max-height: 220px;
+    overflow: auto;
+  }
+  .rollback-moves .rb-line { display: flex; gap: 8px; padding: 3px 0; align-items: baseline; }
+  .rollback-moves .rb-sha {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: #6b7280; flex-shrink: 0; min-width: 56px;
+  }
+  .rollback-moves .rb-revert { color: #b45309; font-weight: 600; }
+  .rollback-gotcha {
+    background: #fffbeb; border: 1px solid #fde68a; color: #92400e;
+    border-radius: 8px; padding: 9px 11px; font-size: 12px; line-height: 1.45; margin-bottom: 16px;
+  }
+  .rollback-actions { display: flex; justify-content: flex-end; gap: 10px; }
+  .rb-btn {
+    font-size: 13px; font-weight: 600; padding: 7px 16px; border-radius: 7px;
+    cursor: pointer; font-family: system-ui, -apple-system, sans-serif; border: 1px solid transparent;
+  }
+  .rb-btn-cancel { background: none; border-color: #d1d5db; color: #374151; }
+  .rb-btn-cancel:hover { background: #f3f4f6; }
+  .rb-btn-go { background: #b45309; color: #fff; }
+  .rb-btn-go:hover { background: #92400e; }
+  .rb-btn-go:disabled { opacity: 0.6; cursor: default; }
+  .rollback-error { color: #dc2626; font-size: 12.5px; margin: 0 0 12px; line-height: 1.45; }
+
   /* ── HISTORY TABLE HEADER ────────────────────────────── */
   .history-table-header {
     display: flex;
@@ -4948,6 +5017,12 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
         ? `<button class="return-to-stage-btn" onclick="returnToStage('${eid}', this)">\u21a9 Return to stage</button>`
         : '';
 
+      // Roll back: offered only for slices that actually reached main and carry a
+      // squashed dev commit to revert (ADR-ROLLBACK-MODEL \u2014 revert-forward).
+      const rollbackBtn = (c.onMain && c.squash_sha)
+        ? `<button class="rollback-btn" onclick="openRollbackConfirm('${eid}')" title="Undo this slice by reverting it on dev and re-running the gate. main stays fast-forward-only \u2014 nothing is force-pushed.">\u21ba Roll back</button>`
+        : '';
+
       return `<div class="history-row" data-history-id="${eid}">
         <div class="history-row-main">
           <span class="col-chevron history-chevron" id="history-chevron-${eid}" onclick="toggleHistoryExpand('${eid}')">${chevron}</span>
@@ -4963,6 +5038,7 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
           <span class="history-expand-desc" ${isFail ? 'style="color:#dc2626"' : ''}>${escHtml(expandDesc)}</span>
           <button class="history-details-btn" onclick="openHistoryDetail('${eid}')">Details \u203a</button>
           ${returnBtn}
+          ${rollbackBtn}
         </div>
       </div>`;
     }).join('');
@@ -5059,6 +5135,148 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
         btnEl.disabled = false;
         setTimeout(() => { btnEl.textContent = '\u21a9 Return to stage'; }, 2000);
       }
+    }
+  }
+
+  // ── Roll back (revert-forward through the gate) ──────────────────────────
+  // ADR-ROLLBACK-MODEL: a rollback creates a git revert commit on dev and fires
+  // promote.yml — mechanically it IS a promote dispatch, so it reuses the same
+  // optimistic gate-running window + CI-strip polling as RUN GATE & MERGE.
+  let _rollbackInFlight = false;
+
+  function _rbEsc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function closeRollbackOverlay() {
+    const el = document.getElementById('rollback-overlay');
+    if (el) el.remove();
+  }
+
+  function renderRollbackOverlay(id, row, opts) {
+    closeRollbackOverlay();
+    const overlay = document.createElement('div');
+    overlay.className = 'rollback-overlay';
+    overlay.id = 'rollback-overlay';
+    overlay.onclick = (e) => { if (e.target === overlay) closeRollbackOverlay(); };
+
+    const title = _rbEsc(row.title || ('slice ' + id));
+    let movesHtml = '';
+    let gotchaHtml = '';
+    let errHtml = '';
+    let confirmDisabled = '';
+    let confirmLabel = 'Roll back &amp; run gate';
+
+    if (opts.state === 'loading') {
+      movesHtml = '<div class="rollback-moves"><div class="rb-line">computing what will move to main…</div></div>';
+      confirmDisabled = 'disabled';
+    } else if (opts.state === 'error') {
+      errHtml = `<p class="rollback-error">Can’t roll back #${_rbEsc(id)} — ${_rbEsc(opts.error)}</p>`;
+      confirmDisabled = 'disabled';
+    } else {
+      const p = opts.preview;
+      const pendingLines = (p.pending_commits || []).map(c =>
+        `<div class="rb-line"><span class="rb-sha">${_rbEsc(c.sha)}</span><span>${_rbEsc(c.subject || (c.slice_id ? 'slice ' + c.slice_id : ''))}</span></div>`
+      ).join('');
+      movesHtml = `<div class="rollback-moves">
+        <div class="rb-line"><span class="rb-sha">new</span><span class="rb-revert">↺ revert of slice #${_rbEsc(id)} (undoes ${_rbEsc(p.squash_sha)})</span></div>
+        ${pendingLines}
+      </div>`;
+      const pendingCount = (p.pending_commits || []).length;
+      if (!p.dev_level_with_main && pendingCount > 0) {
+        gotchaHtml = `<div class="rollback-gotcha"><strong>Heads up:</strong> dev is ${pendingCount} un-promoted commit${pendingCount === 1 ? '' : 's'} ahead of main. A rollback fast-forwards main past <em>those too</em> — not just the revert. The list above is exactly what reaches main.</div>`;
+      }
+    }
+
+    overlay.innerHTML = `<div class="rollback-card" role="dialog" aria-modal="true" aria-label="Confirm rollback">
+      <h3>Roll back slice #${_rbEsc(id)}</h3>
+      <p class="rb-sub">${title}</p>
+      <p class="rb-sub">Adds a <strong>git revert</strong> commit on dev, then re-runs the regression gate. main stays fast-forward-only — nothing is reset or force-pushed, and the gate must pass before main moves.</p>
+      ${errHtml}
+      <div style="font-size:12px;color:#6b7280;margin-bottom:6px;">What will fast-forward onto main:</div>
+      ${movesHtml}
+      ${gotchaHtml}
+      <div class="rollback-actions">
+        <button class="rb-btn rb-btn-cancel" onclick="closeRollbackOverlay()">Cancel</button>
+        <button class="rb-btn rb-btn-go" id="rollback-confirm-btn" onclick="confirmRollback('${_rbEsc(id)}')" ${confirmDisabled}>${confirmLabel}</button>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+  }
+
+  async function openRollbackConfirm(id) {
+    const row = (cachedHistoryAllRows || []).find(c => String(c.id) === String(id));
+    if (!row) return;
+    renderRollbackOverlay(id, row, { state: 'loading' });
+    try {
+      const res = await fetch(`/api/rollback/preview?slice_id=${encodeURIComponent(id)}`);
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) renderRollbackOverlay(id, row, { state: 'ready', preview: data });
+      else renderRollbackOverlay(id, row, { state: 'error', error: data.error || 'preview failed' });
+    } catch (_) {
+      renderRollbackOverlay(id, row, { state: 'error', error: 'network error' });
+    }
+  }
+
+  async function confirmRollback(id) {
+    if (_rollbackInFlight) return;
+    _rollbackInFlight = true;
+    const btn = document.getElementById('rollback-confirm-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Dispatching…'; }
+    try {
+      const res = await fetch('/api/rollback/dispatch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slice_id: String(id) }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        closeRollbackOverlay();
+        // Optimistic gate-running — reuse the promote machinery (a rollback IS a
+        // promote dispatch). The forced branch-state polls pick up the real run.
+        _promoteOptimisticUntil = Date.now() + 30000;
+        _gateClientStartedAt = Date.now();
+        if (_lastBranchState && _lastBranchState.github) {
+          renderCiStrip(_lastBranchState.github);
+          renderTopoMini(_lastBranchState);
+        }
+        const toast = document.createElement('div');
+        toast.className = 'return-toast';
+        toast.textContent = `Rolling back #${id} — revert ${data.revert_sha} on dev, gate running`;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
+        setTimeout(fetchBranchState, 1000);
+        setTimeout(fetchBranchState, 4000);
+      } else {
+        const code = data.error || ('http_' + res.status);
+        let msg;
+        if (code === 'gate_already_running') {
+          msg = 'A gate is already running — wait for it to finish, then roll back. You can’t promote and roll back at once.';
+        } else if (code === 'conflict') {
+          const blamed = data.blame && data.blame.slice_id ? `slice #${data.blame.slice_id}` : 'a later slice';
+          msg = `Can’t auto-roll-back — ${blamed} changed the same code, so the revert conflicts. This needs a human forward-fix, not an automatic revert.`;
+        } else if (code === 'not_on_main') {
+          msg = 'This slice isn’t on main yet — there’s nothing on main to roll back.';
+        } else if (code === 'not_on_dev') {
+          msg = 'The slice’s commit isn’t on dev — can’t build a revert against it.';
+        } else if (code === 'dirty_worktree') {
+          msg = 'The repo has uncommitted changes — the revert was refused to avoid clobbering them.';
+        } else if (code === 'unknown_slice') {
+          msg = 'No squashed dev commit is recorded for this slice — can’t resolve what to revert.';
+        } else if (code === 'dispatch_failed') {
+          msg = `The revert is on dev (${data.revert_sha || ''}) but the gate didn’t start. Press RUN GATE & MERGE to promote it.`;
+        } else {
+          msg = 'Rollback failed (' + code + ').';
+        }
+        const row = (cachedHistoryAllRows || []).find(c => String(c.id) === String(id)) || { id, title: '' };
+        renderRollbackOverlay(id, row, { state: 'error', error: msg });
+      }
+    } catch (_) {
+      const row = (cachedHistoryAllRows || []).find(c => String(c.id) === String(id)) || { id, title: '' };
+      renderRollbackOverlay(id, row, { state: 'error', error: 'network error' });
+    } finally {
+      _rollbackInFlight = false;
     }
   }
 

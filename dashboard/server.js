@@ -429,6 +429,142 @@ function getGitHubState() {
   return { ...tips, ci, promote_run };
 }
 
+// ── Rollback (revert-forward through the gate) ──────────────────────────────
+// ADR-ROLLBACK-MODEL: rollback is NOT a reset/force-push of main. It is a
+// `git revert` commit on dev, promoted through the EXISTING gate (promote.yml).
+// main stays fast-forward-only; the regression suite re-runs against the
+// reverted state before it reaches main. These helpers create the revert
+// commit; the /api/rollback/dispatch endpoint then fires promote.yml exactly
+// like /api/promote/dispatch (same 409 mutex, same CI strip).
+
+// Thin git runner. _runGitIn(cwd, ...) runs in an explicit dir; _runGit(...)
+// defaults to REPO_ROOT (same isolation as getGitHubState's calls). Returns
+// trimmed stdout.
+function _runGitIn(cwd, args, timeout = 15000) {
+  return execFileSync('git', args, {
+    cwd, encoding: 'utf8', timeout,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
+}
+function _runGit(args, timeout = 15000) {
+  return _runGitIn(REPO_ROOT, args, timeout);
+}
+
+// Resolve a slice id to the dev commit it squashed to, from the register's
+// authoritative SLICE_SQUASHED_TO_DEV event (latest wins). Returns the full
+// sha string, or null if the slice never squashed to dev.
+function resolveSquashSha(sliceId) {
+  const events = readRegister();
+  let sha = null;
+  for (const ev of events) {
+    if (ev.event === 'SLICE_SQUASHED_TO_DEV' && String(ev.id) === String(sliceId)) {
+      sha = ev.squash_sha || ev.dev_tip_sha || sha;
+    }
+  }
+  return sha;
+}
+
+// Given a revert that conflicts, name the later slice/commit most likely to
+// blame: the newest commit in <squashSha>..origin/dev that touched a conflicted
+// file. Best-effort — used only for the operator-facing "needs a forward-fix"
+// message, never for control flow.
+function _blameConflict(squashSha, conflictFiles) {
+  if (!conflictFiles || conflictFiles.length === 0) return null;
+  try {
+    const out = _runGit(['log', `${squashSha}..origin/dev`, '--max-count=1',
+      '--format=%H %s', '--', ...conflictFiles]);
+    if (!out) return null;
+    const sp = out.indexOf(' ');
+    const sha = sp === -1 ? out : out.slice(0, sp);
+    const subject = sp === -1 ? '' : out.slice(sp + 1);
+    const m = subject.match(/slice[/\s]+(\d+)/i);
+    return { sha: sha.slice(0, 7), subject, slice_id: m ? m[1] : null };
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * createRevertCommit({ squashSha, sliceId })
+ *
+ * Creates a clean `git revert` commit of `squashSha` on dev and pushes it to
+ * origin/dev. Returns a tagged result; NEVER throws for the expected refusal
+ * cases (caller maps them to HTTP codes):
+ *
+ *   { ok: true, revert_sha }                       — revert committed + pushed
+ *   { ok: false, code: 'unknown_sha' }             — no commit to revert
+ *   { ok: false, code: 'not_on_dev' }              — sha not reachable from origin/dev
+ *   { ok: false, code: 'not_on_main' }             — slice isn't promoted; nothing on main to undo
+ *   { ok: false, code: 'conflict', conflict_files, blame } — later slice touched the same code
+ *   { ok: false, code: 'git_error', detail }       — unexpected git failure
+ *
+ * The revert is built in an ISOLATED, throwaway git worktree checked out at
+ * origin/dev — the live REPO_ROOT working tree (perpetually dirty with
+ * register/state churn) is never touched. Clean-only by design: on conflict we
+ * discard the worktree and degrade to a human-authored forward-fix (ADR Q3).
+ * We never auto-resolve or force.
+ */
+function createRevertCommit({ squashSha, sliceId, push = true }) {
+  if (!squashSha) return { ok: false, code: 'unknown_sha' };
+  let wt = null;
+  try {
+    _runGit(['fetch', 'origin', 'main', 'dev', '--quiet'], 20000);
+
+    // The commit must exist and be reachable from origin/dev (you cannot revert
+    // what isn't on the branch you'd push to).
+    try {
+      _runGit(['merge-base', '--is-ancestor', squashSha, 'origin/dev']);
+    } catch (_) {
+      // Distinguish "no such commit" from "commit exists but off-branch".
+      try { _runGit(['cat-file', '-e', `${squashSha}^{commit}`]); }
+      catch (_2) { return { ok: false, code: 'unknown_sha' }; }
+      return { ok: false, code: 'not_on_dev' };
+    }
+
+    // Rollback only undoes things that actually reached main. A slice still
+    // only on dev isn't "rolled back" — it's simply not promoted yet.
+    try {
+      _runGit(['merge-base', '--is-ancestor', squashSha, 'origin/main']);
+    } catch (_) {
+      return { ok: false, code: 'not_on_main' };
+    }
+
+    // Build the revert in a detached, throwaway worktree at origin/dev. Sharing
+    // REPO_ROOT's object DB, this never disturbs the live checkout (its branch,
+    // index, and uncommitted register/state churn are all untouched).
+    wt = path.join(os.tmpdir(), `lob-rollback-${squashSha.slice(0, 7)}-${process.pid}-${Date.now()}`);
+    _runGit(['worktree', 'add', '--quiet', '--detach', wt, 'origin/dev'], 20000);
+
+    try {
+      _runGitIn(wt, ['revert', '--no-edit', squashSha], 20000);
+    } catch (revErr) {
+      // Conflict (or any failed revert): a later slice touched the same code.
+      let conflictFiles = [];
+      try {
+        conflictFiles = _runGitIn(wt, ['diff', '--name-only', '--diff-filter=U'])
+          .split('\n').filter(Boolean);
+      } catch (_) { /* best-effort */ }
+      const blame = _blameConflict(squashSha, conflictFiles);
+      return { ok: false, code: 'conflict', conflict_files: conflictFiles, blame,
+               detail: String(revErr.message || revErr).slice(0, 200) };
+    }
+
+    const revertSha = _runGitIn(wt, ['rev-parse', 'HEAD']);
+    // Push the detached revert straight onto origin/dev (a fast-forward — its
+    // parent is the current origin/dev tip).
+    if (push) _runGitIn(wt, ['push', 'origin', 'HEAD:dev', '--quiet'], 20000);
+    return { ok: true, revert_sha: revertSha, slice_id: sliceId != null ? String(sliceId) : null };
+  } catch (err) {
+    return { ok: false, code: 'git_error', detail: String(err.message || err).slice(0, 200) };
+  } finally {
+    // Always reclaim the throwaway worktree.
+    if (wt) {
+      try { _runGit(['worktree', 'remove', '--force', wt]); }
+      catch (_) { try { fs.rmSync(wt, { recursive: true, force: true }); } catch (_2) {} }
+    }
+  }
+}
+
 // ── Mtime-based in-memory cache ─────────────────────────────────────────────
 // Eliminates per-request re-parse of large files (register.jsonl is 27MB+).
 // Each cache entry stores { mtimeMs, value }. On read, stat the file; if mtime
@@ -980,10 +1116,19 @@ function buildBridgeData() {
   // onMainIds: slices that actually reached main (gate-promoted), distinct from the
   // legacy MERGED-to-dev event. Drives the Logbook lifecycle chain's "on main" stage.
   const onMainIds = new Set();
+  // squashShaById: slice id → the squashed dev commit sha (from the orchestrator's
+  // SLICE_SQUASHED_TO_DEV event). This is the authoritative slice→commit map the
+  // rollback feature reverts against — recent dev commits are prose, not slice/N
+  // subjects, so commit-subject parsing is not reliable. (ADR-ROLLBACK-MODEL.)
+  const squashShaById = {};
   for (const ev of events) {
     if (ev.event === 'MERGED' || ev.event === 'SLICE_MERGED_TO_MAIN') mergedIds.add(String(ev.id));
     if (ev.event === 'SLICE_MERGED_TO_MAIN') onMainIds.add(String(ev.id));
-    if (ev.event === 'SLICE_SQUASHED_TO_DEV') squashedToDevIds.add(String(ev.id));
+    if (ev.event === 'SLICE_SQUASHED_TO_DEV') {
+      squashedToDevIds.add(String(ev.id));
+      const sha = ev.squash_sha || ev.dev_tip_sha || null;
+      if (sha) squashShaById[String(ev.id)] = sha;
+    }
     if (ev.event === 'SLICE_DEFERRED') deferredIds.add(String(ev.id));
   }
   // Slices that were deferred but later squashed are not deferred any more
@@ -1007,7 +1152,8 @@ function buildBridgeData() {
       else                                       reviewStatus = 'waiting_for_review';
       const onMain = onMainIds.has(String(entry.id));
       return { ...entry, outcome: finalOutcome, reviewStatus, sprint: getSprintForId(entry.id),
-               onMain, regressionPassed: onMain };
+               onMain, regressionPassed: onMain,
+               squash_sha: squashShaById[String(entry.id)] || null };
     });
 
   // Queue files (cached dir scan — avoids re-stat + re-parse of 348 files)
@@ -2330,6 +2476,114 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ── Rollback preview — "what will move to main" (ADR-ROLLBACK-MODEL gotcha) ──
+  // GET /api/rollback/preview?slice_id=N (or ?sha=...). Read-only: creates
+  // nothing. Surfaces the revert plus the already-pending dev commits that a
+  // rollback would carry to main, so the operator sees Y and Z before clicking.
+  if (pathname === '/api/rollback/preview' && req.method === 'GET') {
+    const qs = new URL(req.url, `http://${req.headers.host}`).searchParams;
+    const sliceId = qs.get('slice_id');
+    const sha = qs.get('sha') || (sliceId ? resolveSquashSha(sliceId) : null);
+    if (!sha) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: 'unknown_slice' }));
+      return;
+    }
+    const gh = getGitHubState();
+    // Already-pending un-promoted dev commits (origin/main..origin/dev). A
+    // rollback fast-forwards main past these too — this is the one real gotcha.
+    const pending = Array.isArray(gh.dev_commits) ? gh.dev_commits : [];
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({
+      ok: true,
+      slice_id: sliceId != null ? String(sliceId) : null,
+      squash_sha: sha.slice(0, 7),
+      // The revert commit itself, plus every commit already ahead of main.
+      will_move: pending.length + 1,
+      pending_commits: pending.map(c => ({ sha: c.sha, slice_id: c.slice_id, subject: c.subject })),
+      // dev level with main ⇒ the clean "merge then immediately roll back" case.
+      dev_level_with_main: (gh.commits_ahead || 0) === 0,
+    }));
+    return;
+  }
+
+  // ── Rollback dispatch — operator-gated revert-forward through the gate ──────
+  // POST /api/rollback/dispatch { slice_id }. Creates a clean git revert commit
+  // on dev (clean-only; conflict degrades to a human forward-fix) then fires
+  // promote.yml exactly like /api/promote/dispatch — mechanically a rollback IS
+  // a promote dispatch, so the same 409 mutex and CI strip apply.
+  if (pathname === '/api/rollback/dispatch' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      let payload = {};
+      try { payload = JSON.parse(body || '{}'); } catch (_) { /* tolerate empty */ }
+      const sliceId = payload.slice_id != null ? String(payload.slice_id) : null;
+
+      // Mutex: you cannot promote and roll back at once. A gate already in
+      // flight blocks the rollback (mirrors the promote 409).
+      const gh = getGitHubState();
+      const runStatus = gh.promote_run ? gh.promote_run.status : 'idle';
+      if (runStatus === 'pending' || runStatus === 'in_progress') {
+        res.writeHead(409, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'gate_already_running' }));
+        return;
+      }
+
+      const sha = payload.squash_sha || (sliceId ? resolveSquashSha(sliceId) : null);
+      if (!sha) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'unknown_slice' }));
+        return;
+      }
+
+      // Build the revert commit on dev (or refuse cleanly).
+      const r = createRevertCommit({ squashSha: sha, sliceId });
+      if (!r.ok) {
+        const codeToStatus = { unknown_sha: 404, not_on_dev: 409, not_on_main: 409,
+                               dirty_worktree: 409, conflict: 409, git_error: 502 };
+        if (r.code === 'conflict') {
+          // Route the forward-fix the honest way: record it for the operator.
+          // We do NOT auto-create a queue brief — that would auto-dispatch Rom,
+          // which is operator-gated. A human authors the forward-fix slice.
+          try {
+            writeRegisterEvent({ event: 'rollback-conflict', slice_id: sliceId,
+                                 squash_sha: sha.slice(0, 7),
+                                 conflict_files: r.conflict_files || [],
+                                 blamed_slice: r.blame ? r.blame.slice_id : null });
+          } catch (_) { /* best-effort audit */ }
+        }
+        res.writeHead(codeToStatus[r.code] || 500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: r.code, conflict_files: r.conflict_files,
+                                 blame: r.blame, detail: r.detail }));
+        return;
+      }
+
+      // Revert is committed + pushed to origin/dev. Now fire the gate exactly
+      // like a promotion — promote.yml re-tests the reverted state before main
+      // fast-forwards to it.
+      _bustGitHubCache();
+      try {
+        execFileSync('gh', ['workflow', 'run', 'promote.yml', '--ref', 'dev'],
+          { cwd: REPO_ROOT, encoding: 'utf8', timeout: 15000 });
+        try {
+          writeRegisterEvent({ event: 'rollback-dispatched', slice_id: sliceId,
+                               squash_sha: sha.slice(0, 7), revert_sha: r.revert_sha.slice(0, 7) });
+        } catch (_) { /* register write is best-effort */ }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, revert_sha: r.revert_sha.slice(0, 7) }));
+      } catch (err) {
+        // The revert is on dev but the gate didn't start. main is untouched;
+        // the operator can press RUN GATE to promote the revert later.
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'dispatch_failed', revert_pushed: true,
+                                 revert_sha: r.revert_sha.slice(0, 7),
+                                 detail: String(err.message || err).slice(0, 200) }));
+      }
+    });
+    return;
+  }
+
   // ── Register tail (slice 271) — last N register events for Investigate panel
   if (pathname === '/api/gate/register-tail' && req.method === 'GET') {
     const events = _readRegisterTail(REGISTER, 50, e => {
@@ -2390,4 +2644,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, STALE_DONE_DAYS, deriveHistoryOutcome };
+module.exports = { buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, STALE_DONE_DAYS, deriveHistoryOutcome, createRevertCommit, resolveSquashSha };
