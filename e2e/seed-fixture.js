@@ -75,6 +75,21 @@ function seedHistorySlice(id = '8001') {
   w(path.join(ROOT, 'bridge', 'register.jsonl'), events.map(e => JSON.stringify(e)).join('\n') + '\n');
 }
 
+// A merged slice that is ROLLED-BACK-ABLE: onMain (SLICE_MERGED_TO_MAIN) AND carrying a
+// squash commit (SLICE_SQUASHED_TO_DEV → squash_sha) — both are required for the History
+// row's "Roll back" button to render (dashboard: c.onMain && c.squash_sha).
+function seedRolledBackableSlice(id = '8200') {
+  const events = [
+    { ts: '2026-06-13T10:00:00.000Z', event: 'COMMISSIONED', id, title: 'Rolled-backable slice', goal: 'Prove the History-row Roll back button.' },
+    { ts: '2026-06-13T10:30:00.000Z', event: 'DONE', id, durationMs: 5000, tokensIn: 10000, tokensOut: 20000, costUsd: 0.5 },
+    { ts: '2026-06-13T10:35:00.000Z', event: 'NOG_DECISION', id, verdict: 'ACCEPTED' },
+    { ts: '2026-06-13T10:38:00.000Z', event: 'SLICE_SQUASHED_TO_DEV', id, squash_sha: 'sq45678' },
+    { ts: '2026-06-13T10:40:00.000Z', event: 'SLICE_MERGED_TO_MAIN', id },
+  ];
+  w(path.join(ROOT, 'bridge', 'register.jsonl'), events.map(e => JSON.stringify(e)).join('\n') + '\n');
+  bumpHeartbeat();
+}
+
 // Cost data for Quark's Ledger: a Rom DONE event with real token/cost numbers
 // (the ledger always lists every role zeroed; this gives Rom a non-zero row + a total).
 function seedCostEvents() {
@@ -167,3 +182,4 @@ module.exports.seedRegressionReport = seedRegressionReport;
 module.exports.seedHistorySlice = seedHistorySlice;
 module.exports.seedCostEvents = seedCostEvents;
 module.exports.seedQueuedPair = seedQueuedPair;
+module.exports.seedRolledBackableSlice = seedRolledBackableSlice;
