@@ -2,7 +2,7 @@
 id: "091"
 title: "Wormhole cutover — POC to production"
 from: obrien
-to: kira
+to: obrien
 status: BLOCKED
 slice_id: "091"
 branch: "slice/091"
@@ -27,14 +27,14 @@ Investigated the prerequisites for the cutover. Checked for the existence of `wo
 
 Neither `wormhole/` nor `wormhole-poc/` directories exist anywhere in the repo or its git history. Brief 089 (Wormhole MCP server — core) is still in STAGED status at `bridge/staged/089-STAGED.md` and has never been executed.
 
-## Blockers / Questions for Kira
+## Blockers / Questions for O'Brien
 
 **BLOCKED: Slice 089 has not been executed.** This slice (091) depends on two artifacts from 089:
 
 1. **`wormhole/server.js`** — the production server that `claude_desktop_config.json` should point to. Does not exist.
 2. **`wormhole-poc/`** — the POC directory to be archived via `git mv`. Also does not exist in the repo (it exists on the host filesystem at `/Users/phillyvanilly/01 - The Liberation of Bajor/wormhole-poc/server.js` per the config, but was never committed to git).
 
-**Action needed:** Execute slice 089 first, then re-dispatch slice 091. Alternatively, if the POC was intentionally kept out of git, Kira should clarify whether `wormhole-poc/` should be committed first or if the archive step should be skipped.
+**Action needed:** Execute slice 089 first, then re-dispatch slice 091. Alternatively, if the POC was intentionally kept out of git, O'Brien should clarify whether `wormhole-poc/` should be committed first or if the archive step should be skipped.
 
 ## Files changed
 

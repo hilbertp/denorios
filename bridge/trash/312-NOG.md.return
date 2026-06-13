@@ -1,0 +1,41 @@
+---
+id: "312"
+round: 1
+verdict: REJECTED
+summary: "Two quality findings: magic number 90000 duplicated (lines 3958 + 4042) and function declaration in block at line 4061 — all five ACs satisfied, intent achieved, scope clean."
+reviewed_at: "2026-06-04T11:10:00.000Z"
+---
+
+## Findings
+
+**Finding 1 — Magic number duplication** (`dashboard/lcars-dashboard.html:4042`)
+
+`90000` appears at line 3958 (stale-badge guard, pre-existing) and again at line 4042 (new timer guard). Both encode the same staleness threshold. If the threshold changes, both lines must be updated in sync — a silent maintenance trap.
+
+**Fix:** Extract to a named constant in `updateBashirLane` (or the enclosing scope):
+```js
+const HEARTBEAT_STALE_MS = 90000;
+```
+Replace both occurrences.
+
+---
+
+**Finding 2 — Function declaration inside a block** (`dashboard/lcars-dashboard.html:4061`)
+
+`function formatBashirElapsed()` is declared inside the `else` block. In non-strict JavaScript, function declarations in blocks are implementation-defined (ESLint `no-inner-declarations`). The code works in V8/modern browsers, but this pattern is fragile and non-standard.
+
+**Fix:** Change to a block-scoped arrow function:
+```js
+const formatBashirElapsed = () => {
+  if (bashirStartTime == null) return '—';
+  const s = Math.floor((Date.now() - bashirStartTime) / 1000);
+  if (s < 0) return '0s';
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return m > 0 ? m + 'm ' + String(sec).padStart(2, '0') + 's' : sec + 's';
+};
+```
+
+---
+
+All five ACs are met. No scope violations. Rework the two quality findings and resubmit.

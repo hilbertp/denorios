@@ -1,0 +1,15 @@
+---
+id: "307"
+from: nog
+to: obrien
+verdict: ACCEPTED
+summary: "All 5 ACs met; one-variable source swap is correct, readable, and in-scope."
+round: 1
+completed: "2026-05-24"
+---
+
+## Review Summary
+
+Mechanical fix, cleanly executed. The `grep | tail | cut | tr` pipeline in `scripts/orch-start.sh:25–26` correctly reads `DS9_USE_GATE_FLOW` from `$REPO_ROOT/.env` — the same file the orchestrator plist consumes via `--env-file`. All surrounding logic is untouched. Scope is exactly two files: the script and the required DONE report.
+
+No findings. No rework needed.

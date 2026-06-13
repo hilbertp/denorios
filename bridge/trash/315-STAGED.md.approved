@@ -1,0 +1,53 @@
+---
+id: "315"
+title: "Move Bashir into Branch Topology as a live CI strip + retire his Post-Build lane (Ziyal redesign · step 2/3)"
+goal: "Make Branch Topology the single, live home of the dev→main story: add the CI status strip where Bashir now lives (as Test Author, with the real ci.yml regression + promote status), retire Bashir's old Post-Build lane so that panel is Nog-only, and fix the GitHub-truth read so the SHAs and CI status are actually live instead of the stale 439ab0a the panel shows today. This is the visible redesign — the thing the operator sees change."
+from: obrien
+to: rom
+priority: normal
+created: "2026-06-05T10:45:00.000Z"
+timeout_min: 45
+status: "STAGED"
+spec: "HANDOFF-OPS-REDESIGN-GITHUB-CI-FROM-ZIYAL.md"
+references: null
+---
+
+**Owner:** Garak/O'Brien (commissioner); Rom (executor)
+**Design source of truth:** `HANDOFF-OPS-REDESIGN-GITHUB-CI-FROM-ZIYAL.md` — §3a–3d (the CI strip + states), §3e (Post-Build after Bashir leaves), §5-C (kill the Bashir lane), §6 (Nog vs Bashir/CI legibility). It names every live element ID. Read it first.
+**Builds on:** slice 314 (step 1, already landed on `dev`/`main`) — the GitHub-truth payload + dead-control removal. This is **not** an amendment; it's a fresh slice off `dev` (which already contains 314).
+
+## Why
+314 surfaced the GitHub data and killed the dead merge button, but it's invisible: Bashir is still a co-equal lane under Nog in Post-Build Pipeline (implying he runs per-slice, which is false), the Branch Topology action slot is just a passive "auto-promotes on green" caption, and the panel is showing a **stale** SHA (`439ab0a` when origin is really `8e4b734`). This slice makes the redesign real and live.
+
+**Merge model context (important for the copy):** we are in the **auto-merge interim** — green CI on `dev` auto-promotes `main` (promote.yml is ON). Build the strip's promote row for *that* reality (✓ main fast-forwarded → sha). When Bashir later becomes the full dev→main gate, auto-merge turns off and the promote row's meaning changes — but that's a future slice; build for today.
+
+## Scope
+**`dashboard/lcars-dashboard.html`**:
+- **Add the CI status strip** in Branch Topology (the footer/action-slot region where step 1 left the "auto-promotes on green" caption — the strip supersedes that caption). Per Ziyal §3a–3c:
+  - Left: a `Bashir · Test Author` chip (identity color `--bashir`). Right: `GitHub Actions · ci.yml` as the runner.
+  - **Regression row:** `✓ passing` / `↻ running…` / `✗ N failing`, with run number + `↗ view` deep-link to the Actions run.
+  - **Promote row:** `✓ main fast-forwarded → <sha> · <age>` / `◌ blocked on green check` / `held — main not advanced`.
+  - **Red state:** strip header goes `--err`, the failing suite name surfaces, `↗ open in CI`. Reuse existing check glyphs (`↻`/`✓`/`✗`/`◌`) and `--ok`/`--err`/`--warn` — no new tokens.
+- **Mini-pill** (`#topo-mini-pill`): re-point from any local gate status to a compact CI badge — `CI ✓ green · promoted` / `CI ↻ running` / `CI ✗ failing`.
+- **Retire Bashir's Post-Build lane:** remove `#bashir-lane` and its `#bashir-idle-state` / `#bashir-running-state` / `#bashir-failed-state` / `#bashir-badge` / `#bashir-heartbeat-warn`, the `.postbuild-arrow` (`↓`) connector, and the `.bashir-*` lane CSS. Post-Build Pipeline becomes **Nog-only** (Nog's lane unchanged).
+- Remove the `updateBashirLane(...)` call from the Post-Build panel; its CI-shaped replacement is the new strip.
+
+**`dashboard/server.js`** (fold in the freshness fix — the strip's data source):
+- Make the GitHub-truth read **live**: `origin/main` / `origin/dev` tips, "commits ahead", `ci.yml` latest-run status (state + run # + URL), and promote result must reflect GitHub *now*, not a value cached at startup or read from a stale `branch-state` file. A `git fetch` (or `git ls-remote`) on a short TTL before serving the tips — whatever makes the panel stop showing `439ab0a` when origin is `8e4b734`.
+
+## Out of scope (this is step 3 — do NOT do it here)
+- Removing the dormant 3-step gate-ceremony cards (`#gate-steps`) and the standalone **Gate-Health panel** (`.gate-health-panel`, `/api/gate-health`) + copy cleanup. Those don't render in the auto-merge world anyway; they get deleted in step 3.
+
+## Acceptance Criteria
+| # | Criterion |
+|---|---|
+| 1 | Branch Topology shows the **live** `origin/main` SHA (e.g. `8e4b734`, matching `git ls-remote origin main`) — the stale `439ab0a` is gone. "N commits ahead" is real. |
+| 2 | A **CI strip** lives in Branch Topology with a `Bashir · Test Author` chip and `GitHub Actions · ci.yml`, a regression row (pass/running/fail + run # + `↗ view`), and a promote row (main fast-forwarded → sha / blocked / held). |
+| 3 | The strip reflects real CI: when `ci.yml` is green its regression row reads passing and the promote row shows main advanced; a failed run surfaces the failing suite + `↗ open in CI`. (Verify against an actual recent run in the DONE report.) |
+| 4 | Post-Build Pipeline is **Nog-only**: `#bashir-lane`, the `.postbuild-arrow`, `#bashir-heartbeat-warn`, and `updateBashirLane` are gone; Nog's lane is unchanged. |
+| 5 | The mini-pill (`#topo-mini-pill`) shows a compact CI badge, not a local gate status. |
+| 6 | No new tokens or raw hex; the strip reuses `--bashir` / `--ok` / `--err` / `--warn` and existing check glyphs. |
+| 7 | DONE report: before/after screenshots (or markup) of Branch Topology with the live SHA + CI strip, and Post-Build with Bashir removed; plus the server diff showing the freshness fix and a sample `/api` payload with live tips + CI status. |
+
+## Note for Nog
+Step 2 of Ziyal's 3-step Ops redesign — the visible one. Verify: (a) the SHA is **live** (no stale 439ab0a); (b) the CI strip reads real `ci.yml` + promote status, with Bashir framed as *author* and GitHub as *runner* (not "Bashir running locally"); (c) Bashir's old Post-Build lane is fully gone and that panel is Nog-only; (d) it reuses existing tokens/glyphs. The gate-ceremony cards and the Gate-Health panel are deliberately left for step 3 — don't fail it for those still existing.

@@ -2,7 +2,7 @@
 id: "105"
 title: "F-10 Ops Center — Nog active state in Post-Build Pipeline panel"
 from: obrien
-to: kira
+to: obrien
 status: DONE
 slice_id: "105"
 branch: "slice/105"

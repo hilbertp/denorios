@@ -3,7 +3,7 @@ id: "043"
 title: "Staged commissions panel in Leeta's frontend"
 summary: "Add a review panel to the live dashboard so Philipp can see staged commissions and click Commission, Amend, or Reject directly in the browser — without touching files."
 goal: "The staged commissions panel built in commission 042 is visible and interactive in Leeta's React frontend at dax-dashboard.lovable.app."
-from: kira
+from: obrien
 to: obrien
 priority: high
 created: "2026-04-10T00:00:00Z"
@@ -65,7 +65,7 @@ Each card:
 
 If `status === NEEDS_AMENDMENT`, replace buttons with:
 ```
-│ ⏳ Awaiting Kira's revision                       │
+│ ⏳ Awaiting O'Brien's revision                       │
 │ Your note: "{amendment_note}"                     │
 ```
 

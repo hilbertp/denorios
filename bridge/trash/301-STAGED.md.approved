@@ -1,0 +1,87 @@
+---
+id: "301"
+title: "F-OrchPath-1 — orchestrator plist PATH for claude -p resolution"
+goal: "Add PATH to scripts/dev.liberation.orchestrator.plist EnvironmentVariables dict so launchd-managed orchestrator can resolve claude (/usr/local/bin) and node (nvm path). Currently launchd's minimal PATH excludes /usr/local/bin; claude -p spawn returns ENOENT immediately. Bit slice 294's May 14 dispatch; will bite every future dispatch. Mechanical plist edit."
+from: obrien
+to: rom
+priority: normal
+created: "2026-05-14T13:23:21.691Z"
+timeout_min: 20
+status: STAGED
+---
+
+**Owner:** Worf (commissioner); Rom (executor)
+**Why:** The launchd-managed orchestrator inherits a minimal `PATH` from `launchd` that excludes `/usr/local/bin` (where `claude` is installed). Result: `claude -p` spawn returns `ENOENT, durationMs: 3` immediately. Slice 299 (May 9) worked because that orchestrator was nohup-launched from Philipp's shell which had a full PATH; after the May 13 launchctl reload, the daemon lost it. Bit slice 294's May 14 dispatch attempt; will bite every future dispatch the same way.
+
+---
+
+## Goal
+
+Add a `PATH` key to `scripts/dev.liberation.orchestrator.plist`'s `EnvironmentVariables` dict so the launchd-spawned orchestrator can resolve `claude`, `node` (via nvm), and standard system binaries.
+
+Mechanical plist edit. One key addition.
+
+---
+
+## Scope
+
+### Change
+
+`scripts/dev.liberation.orchestrator.plist` — modify the `EnvironmentVariables` dict to add:
+
+```xml
+<key>PATH</key>
+<string>/usr/local/bin:/Users/phillyvanilly/.nvm/versions/node/v24.11.1/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+```
+
+Result should be:
+
+```xml
+<key>EnvironmentVariables</key>
+<dict>
+    <key>HOME</key>
+    <string>/Users/phillyvanilly</string>
+    <key>PATH</key>
+    <string>/usr/local/bin:/Users/phillyvanilly/.nvm/versions/node/v24.11.1/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+</dict>
+```
+
+Use `plistlib` via `python3` for safe XML edit, or hand-edit if the indentation matches. Don't reorder existing keys; just add the PATH key alongside HOME.
+
+### Verify
+
+After the edit:
+1. `python3 -c "import plistlib; print(plistlib.load(open('scripts/dev.liberation.orchestrator.plist','rb'))['EnvironmentVariables']['PATH'])"` outputs the expected PATH string.
+2. `plutil -lint scripts/dev.liberation.orchestrator.plist` returns "OK".
+3. The plist's other keys (Label, ProgramArguments, WorkingDirectory, KeepAlive, etc.) are unchanged. Diff should show ONLY the PATH addition.
+
+---
+
+## Out of scope
+
+- Reloading the launchd agent (`launchctl unload && launchctl load`). Rom can't run launchctl from `claude -p`. Philipp or the orchestrator runbook handles activation. Note in the DONE report that activation is separately needed.
+- Refactoring the plist beyond the PATH addition.
+- Touching `scripts/orch-start.sh` or any other startup helper.
+
+---
+
+## Acceptance criteria
+
+| # | Criterion |
+|---|---|
+| 1 | `plutil -lint` returns "OK" on the modified plist. |
+| 2 | `EnvironmentVariables.PATH` contains `/usr/local/bin` and the nvm node bin dir. |
+| 3 | All other keys (Label, ProgramArguments, WorkingDirectory, KeepAlive, ThrottleInterval, StandardOutPath, StandardErrorPath, HOME) unchanged. |
+| 4 | DONE report notes that `launchctl unload && launchctl load` is required separately to activate. |
+| 5 | Backup of original plist exists at `scripts/dev.liberation.orchestrator.plist.bak-<ts>` (or equivalent). |
+
+---
+
+## Reference
+
+| Item | Path |
+|---|---|
+| Current plist | `scripts/dev.liberation.orchestrator.plist` |
+| orch-start wrapper (for context) | `scripts/orch-start.sh` |
+| Failure that motivated this slice | `bridge/register.jsonl` slice_id 294 event ERROR exit_code ENOENT 2026-05-14T04:46:28Z |
+| O'Brien diagnostic | `.claude/roles/worf/inbox/RESPONSE-PHASE-0-OPTION-1-DEAD-NEED-OPTION-2-FROM-OBRIEN.md` "Orchestrator durability" side concern |

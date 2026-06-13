@@ -1,0 +1,73 @@
+---
+id: "305"
+title: "F-OrchBanner-1 — orch-start banner reads gate-flow flag from .env"
+goal: "Fix scripts/orch-start.sh to read DS9_USE_GATE_FLOW from .env (the orchestrator's actual source via --env-file) instead of the shell env, so the printed merge-strategy banner matches the orchestrator's real mode. Currently always prints LEGACY even when .env has gate flow on. Also the first real gate-flow payload — smoke-tests squash-to-dev -> gate -> main."
+from: obrien
+to: rom
+priority: normal
+created: "2026-05-24T07:07:41.273Z"
+timeout_min: 20
+status: STAGED
+---
+
+**Owner:** Worf (commissioner); Rom (executor)
+**Why:** `scripts/orch-start.sh` prints the active merge strategy banner by reading `DS9_USE_GATE_FLOW` from the **shell environment** (`${DS9_USE_GATE_FLOW:-0}`). But the orchestrator process reads the flag from `.env` via the plist's `--env-file`. These are different sources: with `DS9_USE_GATE_FLOW=1` in `.env`, the orchestrator runs gate-flow (squash → dev) but orch-start still prints "LEGACY (direct to main)" because the shell var is unset. The banner must reflect the orchestrator's real mode. (Also serves as the first real gate-flow payload — smoke-testing squash-to-dev → gate → main.)
+
+---
+
+## Goal
+
+Make orch-start.sh's banner read `DS9_USE_GATE_FLOW` from `.env` (the orchestrator's actual source) so the printed strategy matches reality.
+
+---
+
+## Scope
+
+### Change
+
+In `scripts/orch-start.sh`, replace the shell-env read:
+
+```bash
+GATE_FLOW="${DS9_USE_GATE_FLOW:-0}"
+```
+
+with a read from `.env` (the same file the plist passes via `--env-file`):
+
+```bash
+GATE_FLOW="$(grep -E '^DS9_USE_GATE_FLOW=' "$REPO_ROOT/.env" 2>/dev/null | tail -1 | cut -d= -f2 | tr -d '[:space:]')"
+GATE_FLOW="${GATE_FLOW:-0}"
+```
+
+`REPO_ROOT` is already computed earlier in the script (it's used for the `.env` existence check). Place this AFTER `REPO_ROOT` is set. Keep the existing if/else that prints "GATE FLOW (squash → dev, Bashir → main)" vs "LEGACY (direct to main)" unchanged — only the source of `GATE_FLOW` changes.
+
+### Verify (Rom DONE report should show)
+
+1. With `.env` containing `DS9_USE_GATE_FLOW=1`: running orch-start prints "Active merge strategy: GATE FLOW (squash → dev, Bashir → main)".
+2. With the line absent or `=0`: prints "LEGACY (direct to main)".
+   (Rom can test by temporarily toggling a copy of .env, NOT by editing the real .env — read-only verification, or reason about the grep output.)
+
+---
+
+## Out of scope
+
+- Editing `.env` itself (do NOT touch the real .env; it holds the live token + flag).
+- Changing the orchestrator's flag-reading logic (it correctly reads via --env-file).
+- Any other line of orch-start.sh beyond the GATE_FLOW source.
+
+---
+
+## Acceptance criteria
+
+| # | Criterion |
+|---|---|
+| 1 | `scripts/orch-start.sh` reads `DS9_USE_GATE_FLOW` from `$REPO_ROOT/.env`, not the shell env. |
+| 2 | Banner prints "GATE FLOW (squash → dev, Bashir → main)" when `.env` has `DS9_USE_GATE_FLOW=1`. |
+| 3 | Banner prints "LEGACY (direct to main)" when the flag is `0` or absent. |
+| 4 | No other behavior in orch-start.sh changes; `.env` is not modified. |
+| 5 | DONE report shows the diff + both banner outcomes (flag on / off). |
+
+---
+
+## Note for Nog
+
+Mechanical diagnostic fix, one variable's source. Accept on the criteria above. This slice is also the gate-flow smoke-test payload — its real significance is proving squash-to-dev → gate → main works end-to-end.

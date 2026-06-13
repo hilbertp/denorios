@@ -1,0 +1,35 @@
+---
+id: "294"
+title: "Slice 294 — crash"
+from: orchestrator
+to: chiefobrien
+status: ERROR
+slice_id: "294"
+completed: "2026-05-14T04:46:28.348Z"
+reason: "crash"
+exit_code: ENOENT
+---
+
+## Failure reason
+
+**crash**
+
+The process exited with a non-zero status (exit code ENOENT).
+
+## Invocation details
+
+- Exit code: ENOENT
+- Signal: n/a
+- Reason: crash
+
+## stderr
+
+```
+(empty)
+```
+
+## stdout
+
+```
+(empty)
+```

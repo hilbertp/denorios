@@ -2,7 +2,7 @@
 id: "110"
 title: "Watcher cleanup — rename BRIEF file suffix to ARCHIVED"
 from: obrien
-to: kira
+to: obrien
 status: DONE
 slice_id: "110"
 branch: "slice/110"

@@ -2,7 +2,7 @@
 id: "088"
 title: "Amendment 1 — fix failed criteria for brief 087"
 from: obrien
-to: kira
+to: obrien
 status: DONE
 brief_id: "088"
 branch: "slice/087-fix-history-gap"

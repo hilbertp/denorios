@@ -2,7 +2,7 @@
 id: "098"
 title: "F-03 Ops Center — Active Build panel redesign"
 from: obrien
-to: kira
+to: obrien
 status: DONE
 brief_id: "098"
 branch: "slice/096-layout-restructure"

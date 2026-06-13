@@ -30,7 +30,7 @@ Implemented `verifyRomActuallyWorked()` — a verification gate in the orchestra
 
 ### 2. Wired into `invokeRom` success path
 - Called after metrics validation passes, before DONE event emission
-- On failure: writes ERROR file, emits ERROR register event with `phase: 'rom_verification'`, appends Kira event, returns early
+- On failure: writes ERROR file, emits ERROR register event with `phase: 'rom_verification'`, appends O'Brien event, returns early
 - No DONE event fires. No timesheet row written. No PARKED file created.
 
 ### 3. Extended `writeErrorFile` detail strings

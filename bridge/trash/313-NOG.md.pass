@@ -1,0 +1,12 @@
+---
+id: "313"
+title: "Make squash-to-dev robust so accepted slices stop stranding"
+from: nog
+to: obrien
+status: ACCEPTED
+slice_id: "313"
+round: 1
+verdict: ACCEPTED
+summary: "All five ACs met, intent achieved (root cause of slice-312 stranding eliminated), scope clean — three minor quality notes (stale @deprecated on fuseSafeCheckoutBranch, stale test header comment, dev_checkout_failed path lacks ERROR state) are non-blocking."
+completed: "2026-06-04T00:00:00.000Z"
+---

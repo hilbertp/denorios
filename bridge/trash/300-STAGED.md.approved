@@ -1,0 +1,75 @@
+---
+id: "300"
+title: "F-GateTelemetry-1 — add 'slice-archived' to gate-telemetry VALID_EVENTS"
+goal: "Add 'slice-archived' to the VALID_EVENTS Set in bridge/state/gate-telemetry.js so gate-telemetry.emit('slice-archived', {...}) succeeds. Required by Dax 2026-05-14 verification-only Worf-direct close protocol; first instance (slice 294) used raw register append because gate-telemetry didn't accept the event yet. Mechanical edit."
+from: obrien
+to: rom
+priority: normal
+created: "2026-05-14T13:23:21.580Z"
+timeout_min: 20
+status: STAGED
+---
+
+**Owner:** Worf (commissioner); Rom (executor)
+**Why:** Dax's 2026-05-14 verification-only Worf-direct close protocol (`roles/worf/inbox/RESPONSE-VERIFICATION-SLICE-GAP-FROM-DAX.md`, §Protocol step 3) emits a `slice-archived` event via `gate-telemetry.emit`. The helper's `VALID_EVENTS` catalogue doesn't currently accept it, forcing raw register.jsonl appends for the protocol. This slice closes that gap so future verification-only closes route through the canonical helper.
+
+---
+
+## Goal
+
+Add `'slice-archived'` to the `VALID_EVENTS` Set in `bridge/state/gate-telemetry.js` so `gate-telemetry.emit('slice-archived', {...})` succeeds instead of throwing `unknown event` error.
+
+Mechanical edit. One line in a Set.
+
+---
+
+## Scope
+
+### Change
+
+`bridge/state/gate-telemetry.js` — add to `VALID_EVENTS`:
+
+```js
+  // Verification-only Worf-direct close marker (per Dax 2026-05-14 protocol)
+  'slice-archived',
+```
+
+Insert after the `'NOG_TELEMETRY'` line (or wherever fits the existing convention of grouped + commented event additions).
+
+### Verify
+
+After the edit:
+1. `node -e "require('./bridge/state/gate-telemetry').emit('slice-archived', { slice_id: 'test', sha: 'abc' });"` exits 0 (no throw).
+2. Any existing gate-telemetry tests still pass: `node --test bridge/test/gate-telemetry*.test.js` (if such file exists; if not, no test impact).
+3. Final line of register.jsonl shows the test event landed.
+
+---
+
+## Out of scope
+
+- Authoring tests for the verification-only class beyond what's already in the existing gate-telemetry suite.
+- Migrating any prior raw-append `slice-archived` events in register.jsonl (they stay as historical record).
+- Touching anything outside `bridge/state/gate-telemetry.js`.
+
+---
+
+## Acceptance criteria
+
+| # | Criterion |
+|---|---|
+| 1 | `bridge/state/gate-telemetry.js` `VALID_EVENTS` Set contains the string `'slice-archived'`. |
+| 2 | `node -e "require('./bridge/state/gate-telemetry').emit('slice-archived', {})"` exits 0. |
+| 3 | Any pre-existing gate-telemetry tests pass. |
+| 4 | No other files modified. |
+| 5 | DONE report shows the diff + a one-line confirm of AC #2. |
+
+---
+
+## Reference
+
+| Item | Path |
+|---|---|
+| Dax protocol | `roles/worf/inbox/RESPONSE-VERIFICATION-SLICE-GAP-FROM-DAX.md` |
+| Slice 294 close (first verification-only instance, used raw append for this event) | `bridge/register.jsonl` (slice_id 294, event slice-archived) |
+| Tracking list | `docs/obrien/VERIFICATION-ONLY-SLICES.md` |
+| gate-telemetry source | `bridge/state/gate-telemetry.js` |

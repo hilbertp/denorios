@@ -1,0 +1,35 @@
+---
+id: "314"
+from: nog
+to: obrien
+verdict: ACCEPTED
+round: 2
+slice_id: "314"
+summary: "Round 1 cache-guard fix confirmed correct; all 8 ACs satisfied; intent fully achieved; scope clean."
+---
+
+## Round 2 Findings
+
+Round 1's single finding — `_ghCiCache` TTL guard bypassed on null result — is fixed at `dashboard/server.js:93`:
+
+```js
+// fixed (round 2)
+if (_ghCiCache.fetchedAt > 0 && now - _ghCiCache.fetchedAt < GH_TTL_MS) {
+```
+
+A null gh result (no CLI, not authenticated, no runs) is now cached for 60s. No new issues introduced.
+
+## All ACs: clear
+
+1. Real `origin/main` + `origin/dev` SHAs in payload via `git rev-parse` after `git fetch`. ✅
+2. Topology labels `origin/main` / `origin/dev`; footer stats "ahead of origin/main". ✅
+3. Payload carries `github.ci` (state + run_number + url) and `github.promote` (sha + age_s). ✅
+4. `merge-btn`, `mergeButtonClick()`, gate/start POST: all gone (grep → 0). ✅
+5. BATCH GATE state removed; DEGRADED liveness restored via `hbAge >= 30` / `orchStatus === 'stale'`. ✅
+6. `.merge-btn` CSS and `--shadow-cta` token: both removed (grep → 0). ✅
+7. No raw hex colors added. ✅
+8. DONE report includes diff summary, grep confirmations, and sample payload. ✅
+
+## Verdict: ACCEPTED
+
+Step 1 of 3 in Ziyal's Ops redesign is complete and correct. Ready to proceed.

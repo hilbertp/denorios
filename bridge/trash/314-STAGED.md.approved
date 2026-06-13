@@ -1,0 +1,57 @@
+---
+id: "314"
+title: "Ops reads GitHub truth + retire the dead local-merge controls (Ziyal redesign · step 1/3)"
+goal: "Make the Ops dashboard read the real GitHub dev→main state (origin tips, CI status, promote result) instead of the local branch-state file that silently drifts, and delete the operator's now-dead local-merge controls (the 'Merge to main' button and the header BATCH GATE state). This is the data + demolition foundation Ziyal's redesign needs before Bashir can move into Branch Topology (step 2)."
+from: obrien
+to: rom
+priority: normal
+created: "2026-06-04T14:30:00.000Z"
+timeout_min: 40
+status: "STAGED"
+spec: "HANDOFF-OPS-REDESIGN-GITHUB-CI-FROM-ZIYAL.md"
+---
+
+**Owner:** Garak/O'Brien (commissioner); Rom (executor)
+**Design source of truth:** `HANDOFF-OPS-REDESIGN-GITHUB-CI-FROM-ZIYAL.md` (Ziyal's IA pass) — §4 (panel-by-panel), kill list §5-A, and the header item. Read it before starting; it names every live element ID.
+
+## Why
+The merge gate moved off this machine onto GitHub Actions — promotion is automatic on a green check (see `docs/adr/ADR-GITHUB-CI-MERGE-MODEL.md`). The dashboard hasn't caught up: it still reads a **local** `branch-state` file (`bs.dev.commits_ahead_of_main`, `bs.gate.status`) that drifts from GitHub the instant anything pushes (it showed main at `31a237b` when prod was really `439ab0a`), and it still renders a **"Merge to main"** button and a header **BATCH GATE** state that describe a local gate that no longer exists. Reading local state to describe a GitHub-owned process is the core bug.
+
+This slice is **step 1 of 3** in Ziyal's redesign. It does the unglamorous foundation: get GitHub truth into the payload the UI already polls, and remove the dead controls. It deliberately does **not** build the new CI status strip or move Bashir — that's step 2, and it depends on the data this slice surfaces.
+
+## Goal
+The Branch Topology graph and "commits ahead" reflect the real `origin/main` / `origin/dev` tips; the payload also carries CI run status and promote result; and the obsolete local-merge controls are gone.
+
+## Scope
+**`dashboard/server.js`** — surface GitHub truth into the Ops payload the dashboard already polls (Ziyal §4: "mirror the GitHub tips into the same payload so the UI keeps polling one endpoint"):
+- real `origin/main` and `origin/dev` tips (short SHA) via a server-side read (`git ls-remote origin` / `git rev-parse origin/main origin/dev`);
+- real "commits ahead" = `origin/dev` ahead of `origin/main`;
+- CI status for `ci.yml` on dev: latest run state (running / passing / failing), run number, and the run URL;
+- promote result: whether `main` fast-forwarded, the promoted SHA, and its age.
+- Keep network/`gh` calls cheap and cached (short TTL) so polling doesn't hammer GitHub.
+
+**`dashboard/lcars-dashboard.html`**:
+- Re-point the branch graph (`renderTopoSvg` / `#topo-svg-wrap`) and footer stats (`#topo-foot-stats`) to the GitHub tips; **label** the tips `origin/main` / `origin/dev` (not bare `main`/`dev`).
+- **Remove** the "Merge to main" button in `#topo-foot-action` (`renderTopoFooter`, ~line 6493), its `mergeButtonClick()` handler, and any `/api/...merge...` POST it calls. In its place, a passive caption `auto-promotes on green` (the full CI strip is step 2).
+- **Remove** the header BATCH GATE state: the `bsGateRunning` / `isBatchGate` branch in `updateOpsHealth` (~lines 5172–5193). Header pill returns to pure orchestrator liveness (ONLINE / DEGRADED / OFFLINE) from `/api/health`. Keep `.degraded` styling for the heartbeat DEGRADED state.
+- **Remove** the `.merge-btn` CSS (~lines 2064 & 2942) and the `--shadow-cta` token (it exists only for this dead button).
+
+## Out of scope (these are steps 2 and 3 — do NOT do them here)
+- The CI status **strip** UI in Branch Topology and **moving Bashir** there, plus removing Bashir's Post-Build lane (Ziyal §3a-3c, §5-C) — **step 2**.
+- The 3-step gate ceremony cards (`#gate-steps`) and the Gate-Health panel (`/api/gate-health`) removal (Ziyal §5-B) — **step 3**.
+- Changing how promotion works — GitHub owns it.
+
+## Acceptance Criteria
+| # | Criterion |
+|---|---|
+| 1 | The Ops payload includes real `origin/main` and `origin/dev` short-SHAs matching `git ls-remote origin` — not the local `branch-state` tips. |
+| 2 | Branch Topology graph + "N commits ahead" reflect `origin/dev` vs `origin/main` (GitHub), and the tips are labelled `origin/main` / `origin/dev`. |
+| 3 | The payload carries `ci.yml` latest-run status on dev (state + run number + URL) and the promote result (promoted SHA + age), verifiable in the `/api` response. (Displaying them as a full strip is step 2; this slice only has to *surface* them, plus the passive `auto-promotes on green` caption where the button was.) |
+| 4 | The "Merge to main" button is gone — markup, `mergeButtonClick()` handler, and any merge POST. No dead handler left behind. |
+| 5 | The header no longer shows BATCH GATE; it shows only liveness (ONLINE / DEGRADED / OFFLINE). The `bsGateRunning` override is removed; `.degraded` heartbeat state still works. |
+| 6 | `.merge-btn` CSS and `--shadow-cta` token are removed; a grep in the DONE report confirms nothing else references them. |
+| 7 | No raw hex colors added; existing token styling preserved. |
+| 8 | DONE report shows the diff and a before/after: the panel reading the real `origin/main` SHA, the button gone, the header with no BATCH GATE, and a sample `/api` payload showing the GitHub tips + CI/promote fields. |
+
+## Note for Nog
+Step 1 of Ziyal's 3-step Ops redesign — a data-source swap plus dead-control removal. Verify: (a) the panel reads real `origin` tips, not local `branch-state`; (b) the merge button + handler + CSS + `--shadow-cta` are fully gone; (c) the header BATCH GATE state is gone but DEGRADED liveness still works; (d) CI + promote data is present in the payload. The visual CI strip and the Bashir move are deliberately NOT in this slice — don't fail it for their absence.

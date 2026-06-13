@@ -1,0 +1,43 @@
+---
+id: "309"
+verdict: ACCEPTED
+round: 1
+reviewer: nog
+reviewed: "2026-05-24T08:22:00.000Z"
+summary: "All 5 ACs met; fix placement correct; one test-isolation note, non-blocking."
+---
+
+## Review Summary
+
+**Verdict: ACCEPTED**
+
+### Part 1 — Code Review
+
+Fix is a single `writeJsonAtomic` call at `orchestrator.js:6186`, placed after Bashir is spawned (line 6133) and before the heartbeat `setInterval` (line 6188). Uses the existing helper already in scope. Wrapped in try/catch so a write failure cannot crash the spawn path. Code is minimal, correct, and matches the brief's prescribed form exactly.
+
+**Quality note (non-blocking):** `test/gate-heartbeat-reset-on-spawn.test.js:69-72` — `simulateSpawnReset()` duplicates the fix rather than exercising `startGate` directly. If the orchestrator.js change were reverted, all 6 tests would still pass. This is a regression-detection gap. It is acceptable given `startGate`'s spawn/mutex/state complexity makes direct unit testing impractical; the production diff is confirmed correct.
+
+**Linting:** PASS.
+
+### Part 2 — Acceptance Criteria
+
+| # | Criterion | Status |
+|---|---|---|
+| 1 | `startGate` writes `{ts: now}` to `BASHIR_HEARTBEAT_PATH` before poll starts | ✓ `orchestrator.js:6184-6186` |
+| 2 | Stale pre-existing file does NOT cause immediate `heartbeat_stale` abort | ✓ (follows from AC1; covered by test 3) |
+| 3 | Test covers: stale leftover + spawn → heartbeat fresh, first poll no abort | ✓ tests 2 and 3 |
+| 4 | Existing gate tests still pass | ✓ 6 suites listed in DONE report |
+| 5 | Diff confined to `bridge/orchestrator.js` + test file | ✓ (plus queue artifact 309-DONE.md) |
+
+### Part 3 — Intent Verification
+
+Goal: prevent stale leftover `bashir-heartbeat.json` from insta-aborting Bashir at gate spawn. The fix writes a fresh ts immediately after `execFile` and before `setInterval`, so the first poll tick (+30s) reads a stamp that is ≤30s old — well below the 90s stale threshold. Bashir now has the full 90s window to take over writing heartbeats. Intent fully achieved.
+
+### Part 4 — Scope Discipline
+
+Three files changed:
+- `bridge/orchestrator.js` — the specified target. In scope.
+- `test/gate-heartbeat-reset-on-spawn.test.js` — the specified test file. In scope.
+- `bridge/queue/309-DONE.md` — required queue artifact (protocol). In scope.
+
+No out-of-scope changes.

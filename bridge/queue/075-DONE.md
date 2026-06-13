@@ -37,8 +37,8 @@ Completed the brief→Slice rename in the template file and documentation. The c
 - **Result:** Zero "brief" display labels in `dashboard/lcars-dashboard.html`. All CSS classes and HTML elements already use "slice" terminology.
 
 ### Task 6: Doc reference updates
-- **Done:** `KIRA.md` — updated template path reference (lines 38, 65)
-- **BLOCKED:** `.claude/CLAUDE.md` and `.claude/roles/kira/ROLE.md` — edits to `.claude/` files were denied by the permission system. These two files still reference `bridge/templates/brief.md` and need manual update.
+- **Done:** `OBRIEN.md` — updated template path reference (lines 38, 65)
+- **BLOCKED:** `.claude/CLAUDE.md` and `.claude/roles/obrien/ROLE.md` — edits to `.claude/` files were denied by the permission system. These two files still reference `bridge/templates/brief.md` and need manual update.
 
 ### Task 7: Verification
 - Watcher started successfully — banner shows "slice" terminology, no errors
@@ -57,7 +57,7 @@ These are filename/state-machine patterns that match actual queue filenames and 
 ## Remaining items (PARTIAL reason)
 
 1. `.claude/CLAUDE.md` line 26: still says `| Brief template | bridge/templates/brief.md |` — needs manual edit
-2. `.claude/roles/kira/ROLE.md` line 52: still says `bridge/templates/brief.md` — needs manual edit
+2. `.claude/roles/obrien/ROLE.md` line 52: still says `bridge/templates/brief.md` — needs manual edit
 3. Full end-to-end pipeline test was not performed (active processing prevented clean test)
 
 ## Verification checklist

@@ -2,7 +2,7 @@
 id: "106"
 title: "F-02 Amendment — system health pill: two services, real data"
 from: obrien
-to: kira
+to: obrien
 status: DONE
 brief_id: "106"
 branch: "slice/106-health-pill-amendment"

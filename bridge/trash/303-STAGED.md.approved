@@ -1,0 +1,61 @@
+---
+id: "303"
+title: "Fix non-gate Bashir template anchor path"
+goal: "Correct stale roles/bashir/ROLE.md reference in bashir-non-gate-prompt.md to .claude/roles/bashir/ROLE.md so first non-gate Bashir dispatch resolves its anchor"
+from: obrien
+to: rom
+priority: high
+created: "2026-05-21T12:22:06.317Z"
+timeout_min: 20
+status: STAGED
+---
+
+## Re-stage notice — attempt 2 (2026-05-21)
+
+This is attempt 2 of slice 303. Prior attempt(s) archived to `bridge/trash/303-*-attempt-1/`.
+Branches preserved as `slice/303-attempt-1` for reference.
+
+See the rounds: array in frontmatter for the per-round telemetry across all attempts.
+See history sections below this notice for full Rom DONE reports and Nog verdicts from prior rounds.
+
+## Goal
+
+Correct the stale role-anchor path in the **non-gate** Bashir prompt template so the first non-gate Bashir dispatch can resolve its `ROLE.md`. Phase 0 (slice 294) moved `roles/bashir/` to `.claude/roles/bashir/` and removed the old path from main, but `bridge/templates/bashir-non-gate-prompt.md` still instructs Bashir to read `roles/bashir/ROLE.md` -- a path that no longer exists. The gate template (`bashir-prompt.md`) was already corrected; only the non-gate template is stale. (Prior attempt 1 crashed at dispatch on a claude -p 401 auth error, not on the work itself; auth is now refreshed.)
+
+## Context
+
+Read these first:
+- `bridge/templates/bashir-non-gate-prompt.md` -- line 3 currently reads: Read `roles/bashir/ROLE.md` ... (stale)
+- `bridge/templates/bashir-prompt.md` -- line 3 reads: Read `.claude/roles/bashir/ROLE.md` ... (correct reference to mirror)
+
+Pre-condition: `.claude/roles/bashir/ROLE.md` exists on main; `roles/bashir/` does NOT (removed by slice 294). Confirm with `git ls-tree -r --name-only HEAD -- roles/bashir/` (empty) before editing.
+
+## Scope
+
+- Edit `bridge/templates/bashir-non-gate-prompt.md`: change the bare `roles/bashir/` anchor reference to `.claude/roles/bashir/ROLE.md`.
+- Grep the whole template for any other bare `roles/bashir/` occurrences (without the `.claude/` prefix) and fix every one.
+
+## Out of scope
+
+- The gate template `bashir-prompt.md` (already correct -- do not touch).
+- Any orchestrator code, any other role's templates, any `.claude/roles/**` content.
+
+## Acceptance criteria
+
+- `grep -n "roles/bashir" bridge/templates/bashir-non-gate-prompt.md` returns ONLY paths prefixed with `.claude/` (no bare `roles/bashir/`).
+- The template is otherwise byte-identical to before except the path correction.
+
+## Quality + goal check
+
+A `claude -p` non-gate Bashir invocation, handed this template as its prompt preamble, resolves its anchor file at the corrected path and does not fail on a missing `roles/bashir/ROLE.md`.
+
+## Tasks
+
+1. Confirm pre-condition (old path gone, new path present).
+2. Fix the line-3 anchor path.
+3. Grep for and fix any residual bare `roles/bashir/` references.
+4. Commit (template-only change).
+
+## Constraints
+
+- Doc/template only -- zero code changes. Single-file edit.

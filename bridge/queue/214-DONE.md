@@ -37,7 +37,7 @@ This fix would have prevented that crash. The orchestrator now completes the err
 - **AC1** ✅ Inner `const sliceMeta` deleted from orchestrator.js line 2113.
 - **AC2** ✅ No new `let sliceMeta` or `const sliceMeta` in execFile callback. Outer line-1834 declaration is the only one in `invokeRom` scope.
 - **AC3** ✅ All `sliceMeta.*` references in the callback body resolve to outer scope. Full test suite passes (29 files, 0 failures).
-- **AC4** ✅ Regression test exists with 6 assertions: static analysis confirms no shadow, verify-failure block references `sliceMeta.root_commission_id`, `rom_no_commits` path completes without ReferenceError, `appendKiraEvent` receives valid `root_id`.
+- **AC4** ✅ Regression test exists with 6 assertions: static analysis confirms no shadow, verify-failure block references `sliceMeta.root_commission_id`, `rom_no_commits` path completes without ReferenceError, `appendO'BrienEvent` receives valid `root_id`.
 - **AC5** ✅ Full test suite passes — 29 test files, all green.
 - **AC6** ✅ Diff is 1 LOC deletion in orchestrator.js (excluding tests).
 - **AC7** ✅ Only `bridge/orchestrator.js` and the new test file changed.

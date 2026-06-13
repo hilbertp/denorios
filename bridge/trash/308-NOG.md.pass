@@ -1,0 +1,19 @@
+---
+id: "308"
+from: nog
+to: obrien
+verdict: ACCEPTED
+summary: "All 5 ACs met, code correct and clean, no scope violations — ready to merge."
+round: 1
+reviewed: "2026-05-24T08:00:00.000Z"
+---
+
+Slice 308 passes on all four review dimensions.
+
+**Code:** Two-line replacement is correct idiomatic bash. Anchored regex prevents false matches; `2>/dev/null` handles missing `.env` gracefully; `tail -1` applies last-value-wins on duplicate entries; `tr -d '[:space:]'` gives a clean string for comparison. No quality issues.
+
+**ACs:** All 5 satisfied as verified against the actual diff (not just the DONE report).
+
+**Intent:** Banner now reads from `$REPO_ROOT/.env` — the same source the orchestrator plist passes via `--env-file` — so displayed strategy matches runtime mode. Intent fully achieved.
+
+**Scope:** Only `scripts/orch-start.sh` and the required `bridge/queue/308-DONE.md` were touched. Clean.
