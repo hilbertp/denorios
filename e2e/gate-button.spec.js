@@ -178,6 +178,14 @@ test('clicking RUN GATE past a stale success shows GATE RUNNING (optimism is not
   await btn.click();
   // The fix: the stale success must not snap the button back — GATE RUNNING holds.
   await expect(btn).toContainText('GATE RUNNING', { timeout: 7000 });
+
+  // And — the bug Philipp caught — while running past a stale success, the row must
+  // NOT paint the OLD run's all-green phases as the current gate. No passed pills;
+  // it waits for the real run to report.
+  const promote = page.locator('#ci-strip-promote-text');
+  await expect(promote).toContainText('gate running');
+  await expect(promote).toContainText('waiting for the phases');
+  await expect(promote.locator('.gate-phase-passed')).toHaveCount(0); // no stale ✓✓✓
 });
 
 test('the Promote row shows the gate phases live — regression passes (with duration) before e2e and the merge', async ({ page }) => {

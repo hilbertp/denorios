@@ -7724,6 +7724,12 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
     // dev commits instead of a misleading "main fast-forwarded ✓" with old phases.
     const prStatus = _promoteRunStale(gh) ? 'idle' : (pr && pr.status ? pr.status : null);
     const prUrl = pr && pr.url ? pr.url : null;
+    // A stale run's phases + sha belong to a PAST promotion. Never show them as the
+    // current gate — that painted the old all-green ✓✓✓ under "gate running" in the
+    // gap before the new run reported. currentPhases is null until the run that is
+    // actually for the dev tip starts reporting.
+    const prStale = _promoteRunStale(gh);
+    const currentPhases = prStale ? null : (pr && pr.phases ? pr.phases : null);
     let promoteFail = false;
     if (promLink) promLink.style.display = 'none';
 
@@ -7731,12 +7737,16 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
       // pending / in_progress (or optimistic just-dispatched window)
       promGlyph.className = 'ci-strip-glyph running';
       promGlyph.innerHTML = '↻';
-      const sha7 = pr && pr.head_sha7 ? ` <span class="ci-strip-sha">${pr.head_sha7}</span>` : '';
+      // Show the sha actually being gated (the dev tip), never a stale run's sha.
+      const sha7Val = prStale ? devTip7 : (pr && pr.head_sha7 ? pr.head_sha7 : null);
+      const sha7 = sha7Val ? ` <span class="ci-strip-sha">${sha7Val}</span>` : '';
       const el = _gateElapsedLabel();
-      const phasesLine = gatePhasesHtml(pr && pr.phases);
+      const phasesLine = gatePhasesHtml(currentPhases);
       promText.innerHTML  = `<span>gate running — full suite on a clean runner</span>${sha7}` +
         ` <span class="ci-strip-meta">&middot; ${el ? el + ' elapsed &middot; ' : ''}main moves only when every phase passes</span>` +
-        (phasesLine ? `<div class="gate-phases-row">${phasesLine}</div>` : '');
+        (phasesLine
+          ? `<div class="gate-phases-row">${phasesLine}</div>`
+          : `<div class="gate-phases-row"><span class="ci-strip-meta">starting on a clean runner — waiting for the phases to report&hellip;</span></div>`);
       if (promLink && prUrl) {
         promLink.href = prUrl;
         promLink.textContent = '↗ view';
@@ -7747,7 +7757,7 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
       promGlyph.className = 'ci-strip-glyph err';
       promGlyph.innerHTML = '✗';
       const sha7 = pr && pr.head_sha7 ? ` <span class="ci-strip-sha">${pr.head_sha7}</span>` : '';
-      const phasesLine = gatePhasesHtml(pr && pr.phases);
+      const phasesLine = gatePhasesHtml(currentPhases);
       promText.innerHTML  = `<span>gate failed</span>${sha7}` +
         (phasesLine ? `<div class="gate-phases-row">${phasesLine}</div>` : '');
       if (promLink && prUrl) {
@@ -7759,7 +7769,7 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
       // Existing "main fast-forwarded" display + the gate phases that earned it.
       promGlyph.className = 'ci-strip-glyph ok';
       promGlyph.innerHTML = '✓';
-      const phasesLine = gatePhasesHtml(pr && pr.phases);
+      const phasesLine = gatePhasesHtml(currentPhases);
       const phasesSuffix = phasesLine ? `<div class="gate-phases-row">${phasesLine}</div>` : '';
       if (promote && promote.sha) {
         const age = promote.age_s != null ? formatAgeShort(promote.age_s) : '';
