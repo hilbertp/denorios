@@ -130,6 +130,56 @@ RUNNING_WITH_PHASES.github.promote_run = {
   ],
 };
 
+// REGRESSION GUARD for the "it skipped directly to merge" bug: a promote_run that
+// SUCCEEDED for an already-promoted sha is STALE once dev moves ahead. It must NOT
+// read as "main fast-forwarded ✓" with green phases — that hid that the new commits
+// were ungated and made a fresh click snap back to the old success. Dev ahead + a
+// stale success must show "held — press RUN GATE" and keep the button live.
+const STALE_SUCCESS = JSON.parse(JSON.stringify(AHEAD_BRANCH_STATE)); // main=aaaaaaa, dev=bbbbbbb, ahead 2
+STALE_SUCCESS.github.promote_run = {
+  status: 'success', run_id: 70, url: 'https://example.test/run/70',
+  head_sha7: 'aaaaaaa', // the OLD sha (already on main) — NOT the current dev tip bbbbbbb
+  updated_at: '2026-06-13T12:00:00.000Z',
+  phases: [
+    { key: 'regression', label: 'regression', status: 'passed', duration_s: 2 },
+    { key: 'e2e', label: 'e2e', status: 'passed', duration_s: 34 },
+    { key: 'ff', label: 'fast-forward', status: 'passed', duration_s: 1 },
+  ],
+};
+
+test('a stale success (already-promoted sha) does NOT read as merged while dev is ahead — it shows held/ungated', async ({ page }) => {
+  await page.route('**/api/branch-state', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(STALE_SUCCESS) }));
+  await page.goto('/');
+
+  const promote = page.locator('#ci-strip-promote-text');
+  await expect(promote).toContainText('held');                  // the new commits are ungated
+  await expect(promote).toContainText('RUN GATE');
+  await expect(promote).not.toContainText('main fast-forwarded'); // NOT a stale merge claim
+  await expect(promote.locator('.gate-phase')).toHaveCount(0);    // no stale green phases shown as current
+
+  // And the button is live to actually gate the new commits.
+  const btn = page.locator('#promote-gate-btn');
+  await expect(btn).toContainText('RUN GATE');
+  await expect(btn).toBeEnabled();
+});
+
+test('clicking RUN GATE past a stale success shows GATE RUNNING (optimism is not cancelled by the old ✓)', async ({ page }) => {
+  await page.route('**/api/branch-state', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(STALE_SUCCESS) }));
+  await page.route('**/api/promote/dispatch', async route => {
+    await new Promise(r => setTimeout(r, 400));
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
+  });
+  await page.goto('/');
+
+  const btn = page.locator('#promote-gate-btn');
+  await expect(btn).toBeEnabled();
+  await btn.click();
+  // The fix: the stale success must not snap the button back — GATE RUNNING holds.
+  await expect(btn).toContainText('GATE RUNNING', { timeout: 7000 });
+});
+
 test('the Promote row shows the gate phases live — regression passes (with duration) before e2e and the merge', async ({ page }) => {
   await page.route('**/api/branch-state', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(RUNNING_WITH_PHASES) }));

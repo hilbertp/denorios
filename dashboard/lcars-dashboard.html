@@ -7406,6 +7406,17 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
   // e.g. page loaded mid-run); cleared on terminal states.
   let _gateClientStartedAt = 0;
 
+  // A terminal promote_run (success/failure) is authoritative ONLY for the current
+  // dev tip. One whose head_sha7 != origin_dev_sha is a PAST run (dev moved on since
+  // it ran) — it must not read as the current gate, or a stale "main fast-forwarded ✓"
+  // hides that the new commits are ungated and silently cancels a fresh dispatch.
+  function _promoteRunStale(gh) {
+    const pr = gh && gh.promote_run ? gh.promote_run : null;
+    if (!pr || (pr.status !== 'success' && pr.status !== 'failure')) return false;
+    const devTip = gh && gh.origin_dev_sha ? gh.origin_dev_sha : null;
+    return !!(devTip && pr.head_sha7 && pr.head_sha7 !== devTip);
+  }
+
   function _gateIsRunning(gh) {
     const pr = gh && gh.promote_run ? gh.promote_run : null; // null-guard: old cached payloads
     const st = pr && pr.status ? pr.status : null;
@@ -7414,8 +7425,13 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
       if (!_gateClientStartedAt) _gateClientStartedAt = Date.now();
       return true;
     }
-    if (st === 'success' || st === 'failure') { _promoteOptimisticUntil = 0; _gateClientStartedAt = 0; return false; }
-    // idle / missing — honor the optimistic window after a successful dispatch
+    // A CURRENT-tip terminal result is authoritative — clear any optimism. A STALE
+    // one (for an already-promoted sha) is not; let the optimistic window stand so a
+    // just-clicked gate shows GATE RUNNING instead of snapping back to the old ✓.
+    if ((st === 'success' || st === 'failure') && !_promoteRunStale(gh)) {
+      _promoteOptimisticUntil = 0; _gateClientStartedAt = 0; return false;
+    }
+    // stale terminal, idle, or missing — honor the optimistic window after a dispatch
     return Date.now() < _promoteOptimisticUntil;
   }
 
@@ -7582,7 +7598,9 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
       const ci = gh.ci || null;
       // ── Slice 316: gate state takes priority in the mini pill ──
       const pr = gh.promote_run || null; // null-guard: old cached payloads
-      const prStatus = pr && pr.status ? pr.status : null;
+      // Stale terminal run (already-promoted sha) reads as idle so an ahead dev shows
+      // "N ahead" (ungated), not "GATE ✗ failed" / a promoted ✓ from a past run.
+      const prStatus = _promoteRunStale(gh) ? 'idle' : (pr && pr.status ? pr.status : null);
       const ghAhead = _ghAhead(gh);
       if (_gateIsRunning(gh)) {
         pillEl.innerHTML = '<span class="ci-mini-pill warn">GATE ↻ running</span>';
@@ -7701,7 +7719,10 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
     // TTL-cached payload) may not carry promote_run yet — fall back to the
     // legacy auto-merge display in that case.
     const pr = gh && gh.promote_run ? gh.promote_run : null;
-    const prStatus = pr && pr.status ? pr.status : null;
+    // Treat a stale terminal run (success/failure for an already-promoted sha) as
+    // "no current run", so the row shows "held — press RUN GATE" for the ungated
+    // dev commits instead of a misleading "main fast-forwarded ✓" with old phases.
+    const prStatus = _promoteRunStale(gh) ? 'idle' : (pr && pr.status ? pr.status : null);
     const prUrl = pr && pr.url ? pr.url : null;
     let promoteFail = false;
     if (promLink) promLink.style.display = 'none';
