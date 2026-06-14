@@ -29,6 +29,7 @@ const Module = require('node:module');
 
 const SERVER_SRC = path.resolve(__dirname, '..', '..', 'dashboard', 'server.js');
 const DASHBOARD_SRC = path.resolve(__dirname, '..', '..', 'dashboard', 'lcars-dashboard.html');
+const PROMOTE_YML = path.resolve(__dirname, '..', '..', '.github', 'workflows', 'promote.yml');
 
 const FIXTURE_COVERAGE = [
   '# Regression Catalogue — Coverage',
@@ -191,12 +192,12 @@ test('J-direct-controls-ops-ui slice-99809-ac-2 — the shipped dashboard explai
   assert.match(html, /Nothing merges automatically/,
     'button tooltip must state nothing is automatic');
 
-  // The Gate Sequence caption replaces the old CI-strip rows: it explains, in plain
-  // language, that per-push regression is feedback-only, that any failed step stops
-  // the gate and leaves main untouched, and that all-green promotes to main.
-  assert.match(html, /Regression runs automatically on every push to dev \(feedback only\)/,
-    'gate-sequence caption must explain per-push regression is feedback-only');
-  assert.match(html, /any step fails → <strong>STOP<\/strong>, main untouched/,
+  // The Gate Sequence caption replaces the old CI-strip rows: it leads with updating
+  // the tests, then explains that a failed step stops the gate (main untouched) and
+  // all-green promotes to main.
+  assert.match(html, /Step 1 — update the regression &amp; e2e tests/,
+    'gate-sequence caption must lead with updating the tests');
+  assert.match(html, /step fails → <strong>STOP<\/strong>, main untouched/,
     'gate-sequence caption must explain a failed step stops and leaves main untouched');
   assert.match(html, /all pass → promoted to origin\/main/,
     'gate-sequence caption must explain all-green promotes to main');
@@ -204,6 +205,33 @@ test('J-direct-controls-ops-ui slice-99809-ac-2 — the shipped dashboard explai
   // The Merge Pressure helper (header-level info) names the metric honestly.
   assert.match(html, /it is <strong>not<\/strong> a regression probability/,
     'merge-pressure helper must state it is not a regression probability');
+});
+
+// The crucial process rule: "update tests" is step 1 of the gate — the suites test
+// intended behaviour, so the tests must be updated BEFORE the suite runs or it fails
+// by design. This is enforced at three surfaces: the gate-sequence step, the
+// pre-dispatch checkpoint, and the promote.yml workflow.
+test('J-direct-controls-ops-ui slice-99811-ac-1 — "update tests" is the explicit first step of the gate, before the regression suite runs', () => {
+  const html = fs.readFileSync(DASHBOARD_SRC, 'utf8');
+
+  // Gate sequence renders an "Update tests" step ahead of the GitHub phases.
+  assert.match(html, /<span class="gflow-label">Update tests<\/span>/,
+    'gate sequence must render an "Update tests" step');
+
+  // RUN GATE opens a checkpoint (not a direct dispatch) requiring the operator to
+  // confirm the tests were updated before the suite runs.
+  assert.match(html, /onclick="confirmUpdateTests\(\)"/,
+    'RUN GATE must open the update-tests checkpoint, not dispatch directly');
+  assert.match(html, /function confirmUpdateTests\(\)/, 'the checkpoint function must exist');
+  assert.match(html, /Tests are updated — run gate/, 'the checkpoint must require explicit confirmation');
+
+  // promote.yml runs an "Update tests" step strictly before the regression suite.
+  const yml = fs.readFileSync(PROMOTE_YML, 'utf8');
+  const updateIdx = yml.indexOf('Update tests — what changed in this promotion');
+  const gateIdx   = yml.search(/node --test 'regression/);
+  assert.ok(updateIdx !== -1, 'promote.yml has an "Update tests" step');
+  assert.ok(gateIdx !== -1, 'promote.yml runs the regression suite');
+  assert.ok(updateIdx < gateIdx, 'the "Update tests" step precedes the regression suite');
 });
 
 test('J-direct-controls-ops-ui slice-99810-ac-1 — branch-state enrichment: server exposes run recency, commit subjects/ages, and churn split for the topology panel', () => {

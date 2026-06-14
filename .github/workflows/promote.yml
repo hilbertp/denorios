@@ -38,6 +38,23 @@ jobs:
         with:
           node-version: '24'
 
+      # Step 1 of the gate is UPDATE TESTS. The suites below test intended behaviour,
+      # so if any commit in this promotion changed behaviour on purpose, the regression
+      # & e2e tests must already have been updated to match — otherwise the suites fail
+      # by design (a stale test, not a real regression). This step surfaces exactly what
+      # changed so a stale-test failure is unambiguous. It never pushes and has no escape
+      # hatch, so it cannot move main.
+      - name: Update tests — what changed in this promotion
+        run: |
+          echo "::group::Update tests — files changed between origin/main and the dev commit being promoted"
+          git fetch origin main --depth=1 || true
+          git diff --stat origin/main...HEAD || true
+          echo ""
+          echo "Reminder: regression/ + e2e/ test INTENDED behaviour. If any of the commits above"
+          echo "changed behaviour on purpose, the tests must already be updated to match — update"
+          echo "them BEFORE running the gate, not after the suites below catch a stale test."
+          echo "::endgroup::"
+
       - name: Run regression gate (fast node:test suite)
         run: |
           set -euo pipefail

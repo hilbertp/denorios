@@ -3605,6 +3605,9 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
 .gflow-step.gflow-failed { border-color:#fecaca; background:#fef2f2; color:#991b1b; }
 .gflow-step.gflow-failed .gflow-num { background:#f87171; color:#450a0a; }
 .gflow-step.gflow-skipped { opacity:.45; }
+/* "Update tests" precondition step (step 1) — a to-do until the gate is dispatched */
+.gflow-step.gflow-step-todo { border-color:#fcd34d; background:#fffbeb; color:#92400e; }
+.gflow-step.gflow-step-todo .gflow-num { background:#fcd34d; color:#7c2d12; }
 .gate-flow-caption { margin-top:10px; font-size:11.5px; line-height:1.5; color:#6b7280; }
 .gflow-cap-fail { color:#991b1b; }
 .gflow-cap-ok { color:#065f46; }
@@ -7907,11 +7910,47 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     html += '<button type="button" class="promote-gate-btn" id="promote-gate-btn"' +
       ' aria-label="Run regression gate and promote dev to main"' +
       ` title="${_promoteEsc(PROMOTE_BTN_TITLE)}"` +
-      ' onclick="dispatchPromoteGate()"' + (enabled ? '' : ' disabled') + '>' +
+      ' onclick="confirmUpdateTests()"' + (enabled ? '' : ' disabled') + '>' +
       label +
       '</button>';
     html += '</span>';
     actionEl.innerHTML = html;
+  }
+
+  // Step 1 of the gate is "Update tests" — the operator must confirm the regression
+  // & e2e suites were updated for the dev changes BEFORE the (expensive, clean-runner)
+  // suite runs, because the suites test intended behaviour and stale tests fail by
+  // design. RUN GATE opens this checkpoint instead of dispatching directly.
+  function _repoBaseUrl() {
+    const gh = _lastBranchState ? _lastBranchState.github : null;
+    const u = gh && ((gh.ci && gh.ci.url) || (gh.promote_run && gh.promote_run.url));
+    if (u && u.indexOf('/actions/') !== -1) return u.split('/actions/')[0];
+    return 'https://github.com/hilbertp/liberation-of-bajor';
+  }
+  function closeUpdateTestsOverlay() {
+    const o = document.getElementById('update-tests-overlay');
+    if (o) o.remove();
+  }
+  function confirmUpdateTests() {
+    const gh = _lastBranchState ? _lastBranchState.github : null;
+    const ahead = _ghAhead(gh);
+    const compareUrl = _repoBaseUrl() + '/compare/main...dev';
+    const overlay = document.createElement('div');
+    overlay.className = 'rollback-overlay';
+    overlay.id = 'update-tests-overlay';
+    overlay.onclick = (e) => { if (e.target === overlay) closeUpdateTestsOverlay(); };
+    overlay.innerHTML = `<div class="rollback-card" role="dialog" aria-modal="true" aria-label="Step 1 — update tests before running the gate">
+      <h3>Step 1 — Update tests</h3>
+      <p class="rb-sub">dev is <strong>${ahead} commit${ahead === 1 ? '' : 's'}</strong> ahead of main. The gate runs the regression &amp; browser e2e suites on a clean runner — both test <strong>intended</strong> behaviour.</p>
+      <p class="rb-sub">If any of these commits changed behaviour <em>on purpose</em>, the regression &amp; e2e tests must already be updated to match. Otherwise the gate <strong>fails by design</strong> on stale tests — that is not a real regression, it is a test you still need to update.</p>
+      <div class="rb-final-warn" style="background:#fffbeb;border-color:#fde68a;color:#92400e">Update the tests <strong>before</strong> running the suite — not after the gate catches them.</div>
+      <div class="rollback-actions">
+        <a class="rb-btn rb-btn-cancel" href="${compareUrl}" target="_blank" rel="noopener">Review what changed ↗</a>
+        <button class="rb-btn rb-btn-cancel" onclick="closeUpdateTestsOverlay()">Cancel</button>
+        <button class="rb-btn rb-btn-go" onclick="closeUpdateTestsOverlay(); dispatchPromoteGate();">Tests are updated — run gate</button>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
   }
 
   async function dispatchPromoteGate() {
@@ -8097,12 +8136,23 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     (phases || []).forEach(p => { byKey[p.key] = p; });
 
     const arrow = '<span class="gflow-arrow">→</span>';
+
+    // Step 1 is "Update tests" — a PRECONDITION done before the suite runs, not a
+    // GitHub phase. The suites test intended behaviour, so the tests must already
+    // match the dev changes or the gate fails by design. Shown ✓ once the gate is
+    // in flight (the operator confirmed it at dispatch); a "to-do" pencil when idle.
+    const utDone = running || success || failed;
+    const updateTestsHtml = `<span class="gflow-step ${utDone ? 'gflow-passed' : 'gflow-step-todo'} gflow-step-pre" title="Before the suite runs: update the regression & e2e tests to match the behaviour you changed on dev.">`
+      + `<span class="gflow-num">1</span>`
+      + `<span class="gflow-glyph">${utDone ? '✓' : '✎'}</span>`
+      + `<span class="gflow-label">Update tests</span></span>`;
+
     const stepHtml = STEPS.map((s, i) => {
       const ph = byKey[s.key];
       const status = ph ? ph.status : 'idle';
       const dur = ph && ph.duration_s != null ? `<span class="gflow-dur">· ${ph.duration_s}s</span>` : '';
       return `<span class="gflow-step gflow-${status}">`
-        + `<span class="gflow-num">${i + 1}</span>`
+        + `<span class="gflow-num">${i + 2}</span>`
         + `<span class="gflow-glyph">${glyph[status] || '○'}</span>`
         + `<span class="gflow-label">${s.label}</span>${dur}</span>`;
     }).join(arrow);
@@ -8112,7 +8162,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     const trigger = `<span class="gflow-trigger gflow-trigger-${trigState}">RUN GATE${elapsed ? ' · ' + elapsed : ''}</span>`;
     const target  = `<span class="gflow-target${failed ? ' gflow-target-held' : ''}">origin/main</span>`;
 
-    host.innerHTML = trigger + arrow + stepHtml + arrow + target;
+    host.innerHTML = trigger + arrow + updateTestsHtml + arrow + stepHtml + arrow + target;
 
     // Per-push CI (ci.yml) — the automatic check that runs on every push, distinct
     // from the operator gate above. Folded in here so it isn't a redundant panel.
@@ -8145,7 +8195,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       } else if (success) {
         cap.innerHTML = '<strong class="gflow-cap-ok">All steps passed — fast-forwarded to origin/main.</strong>';
       } else if (ahead > 0) {
-        cap.innerHTML = 'Regression runs automatically on every push to dev (feedback only). Press <strong>RUN GATE</strong> to re-test on a clean runner — any step fails → <strong>STOP</strong>, main untouched &amp; flagged; all pass → promoted to origin/main.';
+        cap.innerHTML = '<strong>Step 1 — update the regression &amp; e2e tests</strong> to match the behaviour you changed on dev, then press <strong>RUN GATE</strong>. The suites test <em>intended</em> behaviour, so stale tests fail by design. Any later step fails → <strong>STOP</strong>, main untouched &amp; flagged; all pass → promoted to origin/main.';
       } else {
         cap.innerHTML = 'Nothing staged to promote — dev is level with origin/main.';
       }
