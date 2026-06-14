@@ -3622,6 +3622,14 @@ body.lcars-mode .gate-flow-foot { border-color:#33334d; color:#b6a4e0; }
   background:#fef2f2; color:#991b1b; border-radius:8px; font-size:12px; line-height:1.5; }
 .rb-btn-danger { background:#dc2626 !important; border-color:#dc2626 !important; color:#fff !important; }
 .rb-btn-danger:hover { background:#b91c1c !important; }
+/* Report modal honesty banners (stale local report vs live CI) */
+.report-stale-warn { margin-bottom:12px; padding:11px 13px; border:1px solid #fecaca; background:#fef2f2;
+  color:#991b1b; border-radius:8px; font-size:12.5px; line-height:1.55; }
+.report-stale-note { margin-bottom:12px; padding:10px 13px; border:1px solid #fde68a; background:#fffbeb;
+  color:#92400e; border-radius:8px; font-size:12px; line-height:1.5; }
+.report-stale-warn a, .report-stale-note a { color:inherit; font-weight:700; }
+.report-stale-warn code, .report-stale-note code { background:rgba(0,0,0,.06); padding:1px 4px; border-radius:4px; }
+.gflow-ci a { color:inherit; text-decoration:underline; }
 
 /* Merge Pressure pill — 4 bands: low/green, rising/yellow, moderate/orange, high/red */
 .rr-pill.mp-low      { background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; }
@@ -5863,10 +5871,26 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
           + `</div>`;
       }
 
+      // Honesty banner: LAST-RUN.md is a LOCAL file (scripts/regression-report.js)
+      // and is NOT updated by the GitHub gate/ci.yml runs — so it can disagree with
+      // the live state. Flag the conflict loudly and link the live run.
+      const ci = (bs && bs.github && bs.github.ci) ? bs.github.ci : null;
+      const ciRun = ci && ci.run_number ? `#${ci.run_number}` : '';
+      const ciUrl = ci && ci.url ? ci.url : null;
+      let banner = '';
+      if (data.status === 'pass' && ci && ci.state === 'failing') {
+        banner = `<div class="report-stale-warn">⚠ <strong>This saved report says PASS, but the latest CI run ${escHtml(ciRun)} is FAILING.</strong> `
+          + `<code>regression/LAST-RUN.md</code> is written by a local script and is not updated by GitHub runs, so it can lag the live gate/CI. `
+          + (ciUrl ? `<a href="${escHtml(ciUrl)}" target="_blank" rel="noopener">Open the live run ↗</a>` : '') + `</div>`;
+      } else if (ci && ci.updated_at && data.updated && Date.parse(ci.updated_at) > Date.parse(data.updated) + 60000) {
+        banner = `<div class="report-stale-note">Heads up: this is the last <em>local</em> report (${new Date(data.updated).toLocaleString()}). A newer CI run ${escHtml(ciRun)} (${escHtml(ci.state || 'unknown')}) has run on GitHub since — this file doesn't update from GitHub. `
+          + (ciUrl ? `<a href="${escHtml(ciUrl)}" target="_blank" rel="noopener">Open the latest run ↗</a>` : '') + `</div>`;
+      }
+
       const md = (typeof renderMd === 'function')
         ? renderMd(data.markdown)
         : (typeof marked !== 'undefined' ? marked.parse(data.markdown) : `<pre>${escHtml(data.markdown)}</pre>`);
-      body.innerHTML = summary + promptBlock + md;
+      body.innerHTML = banner + summary + promptBlock + md;
     } catch (err) {
       body.innerHTML = `<span class="null-val">Could not load report: ${escHtml(String(err))}</span>`;
     }
@@ -8085,17 +8109,20 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     const ciEl = document.getElementById('gflow-ci');
     if (ciEl) {
       const ci = gh && gh.ci ? gh.ci : null;
+      const runLbl = ci && ci.run_number
+        ? (ci.url ? ` · <a href="${ci.url}" target="_blank" rel="noopener">run #${ci.run_number}</a>` : ` · run #${ci.run_number}`)
+        : '';
       let dot = '#9ca3af', txt = 'no recent run';
       if (ci && ci.state === 'passing') {
         const age = ci.updated_at ? formatAgeShort(Math.round((Date.now() - Date.parse(ci.updated_at)) / 1000)) : '';
         dot = '#16a34a';
-        txt = `passing${ci.run_number ? ` · run #${ci.run_number}` : ''}${age ? ` · ${age}` : ''}`;
+        txt = `passing${runLbl}${age ? ` · ${age}` : ''}`;
       } else if (ci && ci.state === 'failing') {
         dot = '#dc2626';
-        txt = `failing${ci.run_number ? ` · run #${ci.run_number}` : ''}`;
+        txt = `failing${runLbl}`;
       } else if (ci && ci.state === 'running') {
         dot = '#d97706';
-        txt = `running…${ci.run_number ? ` · run #${ci.run_number}` : ''}`;
+        txt = `running…${runLbl}`;
       }
       ciEl.innerHTML = `<span class="gflow-ci-dot" style="background:${dot}"></span>Continuous CI (ci.yml): ${txt}`;
     }
