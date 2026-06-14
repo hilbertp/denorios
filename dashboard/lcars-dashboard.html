@@ -7325,6 +7325,22 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     const tag = fmtCommitNum(number);
     return (tag ? tag + ' · ' : '') + (sha7 || '');
   }
+  // Resolve a commit's running number from its (short) hash, using the live state.
+  function commitNumBySha(sha7) {
+    const bs = _lastBranchState;
+    const s = String(sha7 || '').slice(0, 7);
+    if (!bs || !s) return null;
+    const list = (bs.dev && bs.dev.commits) ? bs.dev.commits : [];
+    const hit = list.find(c => (c.sha || '').slice(0, 7) === s || (c.full_sha || '').slice(0, 7) === s);
+    if (hit && hit.number != null) return hit.number;
+    const lm = bs.last_merge;
+    if (lm && ((lm.sha || '').slice(0, 7) === s || (lm.full_sha || '').slice(0, 7) === s)) return lm.number;
+    return null;
+  }
+  // "#017 · 00c0790" given just a hash.
+  function commitTagBySha(sha7) {
+    return commitLabel(commitNumBySha(sha7), String(sha7 || '').slice(0, 7));
+  }
 
   function renderTopoSvg(bs) {
     const wrap = document.getElementById('topo-svg-wrap');
@@ -7577,11 +7593,19 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
 
   function gateFailurePrompt(pr) {
     const sha = (pr && pr.head_sha7) ? pr.head_sha7 : 'dev';
+    const tag = commitTagBySha(sha);
     const phase = _gateFailingPhase(pr);
-    const url = pr && pr.url ? pr.url : null;
-    return `The promote gate failed on dev@${sha} at the ${phase} step — the gate held main, so nothing was merged.\n\n`
-      + `Please investigate the failure${url ? ` (GitHub Actions run: ${url})` : ''} and commission a fix slice for Rom to repair it, `
-      + `so the regression gate goes green and dev can be promoted to main again. Report back when the fix has landed on dev.`;
+    const url = pr && pr.url ? pr.url : '<see CI run>';
+    return `Regression failed during Run Gate & Merge.\n\n`
+      + `Main was not changed.\n\n`
+      + `Please investigate the failing ${phase} suite, identify the cause, and propose the smallest safe fix. `
+      + `Do not merge to main until the regression suite passes cleanly.\n\n`
+      + `Context:\n`
+      + `- Source branch: dev\n`
+      + `- Target branch: main\n`
+      + `- Tested commit: ${tag}\n`
+      + `- Failed step: ${phase}\n`
+      + `- CI run / report: ${url}`;
   }
 
   function closeGateFailurePopup() {
@@ -7622,10 +7646,58 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       <pre class="gate-failure-prompt" id="gate-failure-prompt">${_rbEsc(gateFailurePrompt(pr))}</pre>
       <div class="rollback-actions">
         <button class="rb-btn rb-btn-cancel" onclick="closeGateFailurePopup()">Dismiss</button>
+        <button class="rb-btn rb-btn-cancel" onclick="closeGateFailurePopup(); viewRegressionReport();">View report</button>
         <button class="rb-btn rb-btn-go" id="gate-failure-copy" onclick="copyGateFailurePrompt()">Copy prompt for O'Brien</button>
       </div>
     </div>`;
     document.body.appendChild(overlay);
+  }
+
+  // ── Merge-success confirmation ──────────────────────────────────────────────
+  // Mirror of the failure popup: when a gate the operator just ran goes green and
+  // main fast-forwards, confirm it clearly with the tested commit (#num · hash).
+  let _mergeSuccessShownFor = null;
+  let _prevPromoteStatus = null;
+
+  function closeMergeSuccessPopup() {
+    const o = document.getElementById('merge-success-overlay');
+    if (o) o.remove();
+  }
+
+  function showMergeSuccessPopup(pr, promote) {
+    closeMergeSuccessPopup();
+    const sha7 = (promote && promote.sha) ? promote.sha : (pr && pr.head_sha7 ? pr.head_sha7 : '');
+    const tag = commitTagBySha(sha7);
+    const when = new Date().toLocaleString();
+    const overlay = document.createElement('div');
+    overlay.className = 'rollback-overlay';
+    overlay.id = 'merge-success-overlay';
+    overlay.onclick = (e) => { if (e.target === overlay) closeMergeSuccessPopup(); };
+    overlay.innerHTML = `<div class="rollback-card" role="dialog" aria-modal="true" aria-label="Merge complete">
+      <h3 style="color:#047857">&#10003; Merge complete</h3>
+      <p class="rb-sub"><strong>Regression passed.</strong> origin/main now points to tested dev commit <strong>${_rbEsc(tag)}</strong>.</p>
+      <p class="rb-sub" style="color:#9ca3af">${_rbEsc(when)}</p>
+      <div class="rollback-actions">
+        <button class="rb-btn rb-btn-go" onclick="closeMergeSuccessPopup()">Done</button>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+  }
+
+  // Fire once, only on a running→success transition observed this session
+  // (so it confirms a gate the operator just ran — never pops on a fresh page load).
+  function maybeShowMergeSuccess(gh) {
+    const pr = gh && gh.promote_run ? gh.promote_run : null;
+    const status = (pr && !_promoteRunStale(gh)) ? pr.status : null;
+    if (_prevPromoteStatus && (_prevPromoteStatus === 'in_progress' || _prevPromoteStatus === 'pending')
+        && status === 'success') {
+      const key = `${pr.run_id != null ? pr.run_id : ''}:${pr.head_sha7 || ''}`;
+      if (_mergeSuccessShownFor !== key) {
+        _mergeSuccessShownFor = key;
+        showMergeSuccessPopup(pr, gh ? gh.promote : null);
+      }
+    }
+    if (status) _prevPromoteStatus = status;
   }
 
   // Pop the handoff once when the current-tip gate enters a failed state.
@@ -8129,6 +8201,8 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
 
     // When the gate fails, hand the operator the prompt to send O'Brien (closes the loop).
     maybeShowGateFailurePopup(gh);
+    // When a just-run gate goes green and main moves, confirm the merge clearly.
+    maybeShowMergeSuccess(gh);
   }
 
   function formatAgeShort(seconds) {
