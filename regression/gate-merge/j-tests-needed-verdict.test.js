@@ -102,6 +102,27 @@ test('J-tests-needed slice-99821-ac-13 — trailers parse scoped overrides and r
   assert.equal(t.rejected.length, 1);
 });
 
+test('J-tests-needed slice-99821-ac-15 — COVERAGE.lock guard count dropped, no Coverage-Removed trailer → RED FLAG', () => {
+  const r = decide({ behaviourFiles: [], checks: [], trailers: noTrailers(), coverage: { baseCount: 123, headCount: 120 } });
+  assert.equal(r.decision, 'red_flag');
+  assert.equal(r.coverageShrink, true);
+  assert.equal(r.coverageShrinkUndeclared, true);
+});
+
+test('J-tests-needed slice-99821-ac-16 — coverage dropped + matching Coverage-Removed trailer → OVERRIDDEN', () => {
+  const t = noTrailers(); t.coverageRemoved = [{ source: 'dashboard/server.js', reason: 'endpoint deleted on purpose' }];
+  const r = decide({ behaviourFiles: [], checks: [], trailers: t, coverage: { baseCount: 123, headCount: 120 } });
+  assert.equal(r.decision, 'overridden');
+  assert.equal(r.coverageShrinkUndeclared, false);
+  assert.equal(r.coverageRemovals.length, 1);
+});
+
+test('J-tests-needed slice-99821-ac-17 — coverage count UNCHANGED → no shrink signal, stays CLEAR', () => {
+  const r = decide({ behaviourFiles: [], checks: [], trailers: noTrailers(), coverage: { baseCount: 123, headCount: 123 } });
+  assert.equal(r.decision, 'clear');
+  assert.equal(r.coverageShrink, false);
+});
+
 test('J-tests-needed slice-99821-ac-14 — transition mapping + glob matching', () => {
   assert.equal(transitionFor('loosened'), 'strict→weak');
   assert.equal(transitionFor('removed'), 'removed');

@@ -72,6 +72,8 @@ function printHuman(r) {
   show('⚠ Removed (undeclared)', r.removedUndeclared, c => `${c.tag} [${c.file}]`);
   show('⚠ Skipped (undeclared)', r.skippedUndeclared, c => `${c.tag} [${c.file}]`);
   show('⚠ New behaviour, no test', r.newBehaviourNoTest, b => b.path);
+  if (r.coverageShrinkUndeclared) console.log(`  ⚠ Coverage shrank: ${r.coverageGuardCountBase} → ${r.coverageGuardCount} guards with no Coverage-Removed trailer`);
+  show('Coverage removed (declared)', r.coverageRemovals, c => `${c.source} — ${c.reason}`);
   show('Rejected trailers', r.rejectedTrailers, t => `${t.kind}: ${t.why}`);
   show('Overridden (declared)', r.overridden, o => `${o.tag} ${o.transition} — ${o.reason}`);
   show('Needs review (uncorroborated)', r.unguardedSourceChanges, b => b.path);

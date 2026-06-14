@@ -1,0 +1,658 @@
+{
+  "generator": "scripts/build-coverage-map.js",
+  "guardCount": 159,
+  "bySource": {
+    ".github/workflows/promote.yml": [
+      {
+        "tag": "slice-316-ac-1",
+        "file": "regression/gate-merge/j-gate-fail-retry.test.js"
+      },
+      {
+        "tag": "slice-316-ac-1",
+        "file": "regression/gate-merge/j-merge-button-pass.test.js"
+      },
+      {
+        "tag": "slice-316-ac-10",
+        "file": "regression/gate-merge/j-merge-button-pass.test.js"
+      },
+      {
+        "tag": "slice-316-ac-11",
+        "file": "regression/gate-merge/j-merge-button-pass.test.js"
+      },
+      {
+        "tag": "slice-316-ac-12",
+        "file": "regression/gate-merge/j-merge-button-pass.test.js"
+      },
+      {
+        "tag": "slice-316-ac-2",
+        "file": "regression/gate-merge/j-gate-fail-retry.test.js"
+      },
+      {
+        "tag": "slice-316-ac-2",
+        "file": "regression/gate-merge/j-merge-button-pass.test.js"
+      },
+      {
+        "tag": "slice-316-ac-3",
+        "file": "regression/gate-merge/j-gate-fail-retry.test.js"
+      },
+      {
+        "tag": "slice-316-ac-3",
+        "file": "regression/gate-merge/j-merge-button-pass.test.js"
+      },
+      {
+        "tag": "slice-316-ac-4",
+        "file": "regression/gate-merge/j-gate-fail-retry.test.js"
+      },
+      {
+        "tag": "slice-316-ac-4",
+        "file": "regression/gate-merge/j-merge-button-pass.test.js"
+      },
+      {
+        "tag": "slice-316-ac-5",
+        "file": "regression/gate-merge/j-gate-fail-retry.test.js"
+      },
+      {
+        "tag": "slice-316-ac-5",
+        "file": "regression/gate-merge/j-merge-button-pass.test.js"
+      },
+      {
+        "tag": "slice-316-ac-6",
+        "file": "regression/gate-merge/j-gate-fail-retry.test.js"
+      },
+      {
+        "tag": "slice-316-ac-6",
+        "file": "regression/gate-merge/j-merge-button-pass.test.js"
+      },
+      {
+        "tag": "slice-316-ac-7",
+        "file": "regression/gate-merge/j-gate-fail-retry.test.js"
+      },
+      {
+        "tag": "slice-316-ac-7",
+        "file": "regression/gate-merge/j-merge-button-pass.test.js"
+      },
+      {
+        "tag": "slice-316-ac-8",
+        "file": "regression/gate-merge/j-gate-fail-retry.test.js"
+      },
+      {
+        "tag": "slice-316-ac-8",
+        "file": "regression/gate-merge/j-merge-button-pass.test.js"
+      },
+      {
+        "tag": "slice-316-ac-9",
+        "file": "regression/gate-merge/j-gate-fail-retry.test.js"
+      },
+      {
+        "tag": "slice-316-ac-9",
+        "file": "regression/gate-merge/j-merge-button-pass.test.js"
+      },
+      {
+        "tag": "slice-99808-ac-1",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99808-ac-2",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99808-ac-3",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99808-ac-4",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99809-ac-1",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99809-ac-2",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99810-ac-1",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99810-ac-2",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99811-ac-1",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99811-ac-2",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      }
+    ],
+    "dashboard/lcars-dashboard.html": [
+      {
+        "tag": "slice-99808-ac-1",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99808-ac-2",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99808-ac-3",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99808-ac-4",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99809-ac-1",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99809-ac-2",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99810-ac-1",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99810-ac-2",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99811-ac-1",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99811-ac-2",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      }
+    ],
+    "dashboard/server.js": [
+      {
+        "tag": "slice-042-ac-1",
+        "file": "regression/authoring-staging/j-stage-and-watch-slice-cli.test.js"
+      },
+      {
+        "tag": "slice-042-ac-10",
+        "file": "regression/authoring-staging/j-stage-and-watch-slice-cli.test.js"
+      },
+      {
+        "tag": "slice-042-ac-11",
+        "file": "regression/authoring-staging/j-stage-and-watch-slice-cli.test.js"
+      },
+      {
+        "tag": "slice-042-ac-12",
+        "file": "regression/authoring-staging/j-stage-and-watch-slice-cli.test.js"
+      },
+      {
+        "tag": "slice-042-ac-13",
+        "file": "regression/authoring-staging/j-stage-and-watch-slice-cli.test.js"
+      },
+      {
+        "tag": "slice-042-ac-2",
+        "file": "regression/authoring-staging/j-stage-and-watch-slice-cli.test.js"
+      },
+      {
+        "tag": "slice-042-ac-3",
+        "file": "regression/authoring-staging/j-stage-and-watch-slice-cli.test.js"
+      },
+      {
+        "tag": "slice-042-ac-4",
+        "file": "regression/authoring-staging/j-stage-and-watch-slice-cli.test.js"
+      },
+      {
+        "tag": "slice-042-ac-5",
+        "file": "regression/authoring-staging/j-stage-and-watch-slice-cli.test.js"
+      },
+      {
+        "tag": "slice-042-ac-7",
+        "file": "regression/authoring-staging/j-stage-and-watch-slice-cli.test.js"
+      },
+      {
+        "tag": "slice-100-ac-3",
+        "file": "regression/authoring-staging/j-queue-detail-controls-server.test.js"
+      },
+      {
+        "tag": "slice-316-ac-1",
+        "file": "regression/gate-merge/j-merge-button-pass.test.js"
+      },
+      {
+        "tag": "slice-316-ac-10",
+        "file": "regression/gate-merge/j-merge-button-pass.test.js"
+      },
+      {
+        "tag": "slice-316-ac-11",
+        "file": "regression/gate-merge/j-merge-button-pass.test.js"
+      },
+      {
+        "tag": "slice-316-ac-12",
+        "file": "regression/gate-merge/j-merge-button-pass.test.js"
+      },
+      {
+        "tag": "slice-316-ac-2",
+        "file": "regression/gate-merge/j-merge-button-pass.test.js"
+      },
+      {
+        "tag": "slice-316-ac-3",
+        "file": "regression/gate-merge/j-merge-button-pass.test.js"
+      },
+      {
+        "tag": "slice-316-ac-4",
+        "file": "regression/gate-merge/j-merge-button-pass.test.js"
+      },
+      {
+        "tag": "slice-316-ac-5",
+        "file": "regression/gate-merge/j-merge-button-pass.test.js"
+      },
+      {
+        "tag": "slice-316-ac-6",
+        "file": "regression/gate-merge/j-merge-button-pass.test.js"
+      },
+      {
+        "tag": "slice-316-ac-7",
+        "file": "regression/gate-merge/j-merge-button-pass.test.js"
+      },
+      {
+        "tag": "slice-316-ac-8",
+        "file": "regression/gate-merge/j-merge-button-pass.test.js"
+      },
+      {
+        "tag": "slice-316-ac-9",
+        "file": "regression/gate-merge/j-merge-button-pass.test.js"
+      },
+      {
+        "tag": "slice-901-ac-1",
+        "file": "regression/observability/j-inspect-slice-history.test.js"
+      },
+      {
+        "tag": "slice-901-ac-2",
+        "file": "regression/observability/j-inspect-slice-history.test.js"
+      },
+      {
+        "tag": "slice-901-ac-8",
+        "file": "regression/observability/j-inspect-slice-history.test.js"
+      },
+      {
+        "tag": "slice-902-ac-4",
+        "file": "regression/observability/j-inspect-slice-history.test.js"
+      },
+      {
+        "tag": "slice-902-ac-5",
+        "file": "regression/observability/j-inspect-slice-history.test.js"
+      },
+      {
+        "tag": "slice-903-ac-8",
+        "file": "regression/observability/j-inspect-slice-history.test.js"
+      },
+      {
+        "tag": "slice-907-ac-6",
+        "file": "regression/observability/j-inspect-slice-history.test.js"
+      },
+      {
+        "tag": "slice-99111-ac-2",
+        "file": "regression/authoring-staging/j-queue-detail-controls-server.test.js"
+      },
+      {
+        "tag": "slice-99112-ac-3",
+        "file": "regression/authoring-staging/j-queue-detail-controls-server.test.js"
+      },
+      {
+        "tag": "slice-99113-ac-3",
+        "file": "regression/authoring-staging/j-queue-detail-controls-server.test.js"
+      },
+      {
+        "tag": "slice-99114-ac-4",
+        "file": "regression/authoring-staging/j-queue-detail-controls-server.test.js"
+      },
+      {
+        "tag": "slice-99115-ac-5",
+        "file": "regression/authoring-staging/j-queue-detail-controls-server.test.js"
+      },
+      {
+        "tag": "slice-99201-ac-1",
+        "file": "regression/authoring-staging/j-approve-and-reorder-server.test.js"
+      },
+      {
+        "tag": "slice-99201-ac-2",
+        "file": "regression/authoring-staging/j-approve-and-reorder-server.test.js"
+      },
+      {
+        "tag": "slice-99201-ac-6",
+        "file": "regression/authoring-staging/j-approve-and-reorder-server.test.js"
+      },
+      {
+        "tag": "slice-99202-ac-3",
+        "file": "regression/authoring-staging/j-approve-and-reorder-server.test.js"
+      },
+      {
+        "tag": "slice-99202-ac-4",
+        "file": "regression/authoring-staging/j-approve-and-reorder-server.test.js"
+      },
+      {
+        "tag": "slice-99202-ac-5",
+        "file": "regression/authoring-staging/j-approve-and-reorder-server.test.js"
+      },
+      {
+        "tag": "slice-99203-ac-7",
+        "file": "regression/authoring-staging/j-approve-and-reorder-server.test.js"
+      },
+      {
+        "tag": "slice-99777-ac-1",
+        "file": "regression/observability/j-watch-slice-live-log.test.js"
+      },
+      {
+        "tag": "slice-99777-ac-2",
+        "file": "regression/observability/j-watch-slice-live-log.test.js"
+      },
+      {
+        "tag": "slice-99777-ac-3",
+        "file": "regression/observability/j-watch-slice-live-log.test.js"
+      },
+      {
+        "tag": "slice-99777-ac-4",
+        "file": "regression/observability/j-watch-slice-live-log.test.js"
+      },
+      {
+        "tag": "slice-99777-ac-6",
+        "file": "regression/observability/j-watch-slice-live-log.test.js"
+      },
+      {
+        "tag": "slice-99777-ac-9",
+        "file": "regression/observability/j-watch-slice-live-log.test.js"
+      },
+      {
+        "tag": "slice-99800-ac-1",
+        "file": "regression/direct-controls/j-direct-controls-ops-ui.test.js"
+      },
+      {
+        "tag": "slice-99800-ac-2",
+        "file": "regression/direct-controls/j-direct-controls-ops-ui.test.js"
+      },
+      {
+        "tag": "slice-99800-ac-3",
+        "file": "regression/direct-controls/j-direct-controls-ops-ui.test.js"
+      },
+      {
+        "tag": "slice-99800-ac-4",
+        "file": "regression/direct-controls/j-direct-controls-ops-ui.test.js"
+      },
+      {
+        "tag": "slice-99801-ac-1",
+        "file": "regression/direct-controls/j-direct-controls-ops-ui.test.js"
+      },
+      {
+        "tag": "slice-99801-ac-2",
+        "file": "regression/direct-controls/j-direct-controls-ops-ui.test.js"
+      },
+      {
+        "tag": "slice-99801-ac-3",
+        "file": "regression/direct-controls/j-direct-controls-ops-ui.test.js"
+      },
+      {
+        "tag": "slice-99801-ac-4",
+        "file": "regression/direct-controls/j-direct-controls-ops-ui.test.js"
+      },
+      {
+        "tag": "slice-99802-ac-1",
+        "file": "regression/direct-controls/j-direct-controls-ops-ui.test.js"
+      },
+      {
+        "tag": "slice-99803-ac-1",
+        "file": "regression/direct-controls/j-direct-controls-ops-ui.test.js"
+      },
+      {
+        "tag": "slice-99804-ac-1",
+        "file": "regression/direct-controls/j-direct-controls-ops-ui.test.js"
+      },
+      {
+        "tag": "slice-99805-ac-1",
+        "file": "regression/direct-controls/j-direct-controls-ops-ui.test.js"
+      },
+      {
+        "tag": "slice-99806-ac-1",
+        "file": "regression/direct-controls/j-direct-controls-ops-ui.test.js"
+      },
+      {
+        "tag": "slice-99807-ac-1",
+        "file": "regression/direct-controls/j-direct-controls-ops-ui.test.js"
+      },
+      {
+        "tag": "slice-99808-ac-1",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99808-ac-2",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99808-ac-3",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99808-ac-4",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99809-ac-1",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99809-ac-2",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99810-ac-1",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99810-ac-2",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99811-ac-1",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99811-ac-2",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      }
+    ],
+    "lib/assert-direction.js": [
+      {
+        "tag": "slice-99808-ac-1",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99808-ac-2",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99808-ac-3",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99808-ac-4",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99809-ac-1",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99809-ac-2",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99810-ac-1",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99810-ac-2",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99811-ac-1",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99811-ac-2",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      }
+    ],
+    "lib/tests-needed.js": [
+      {
+        "tag": "slice-99822-ac-1",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-2",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-3",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-4",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-5",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-6",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-7",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-8",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-9",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      }
+    ],
+    "regression/COVERAGE.lock": [
+      {
+        "tag": "slice-99822-ac-1",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-2",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-3",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-4",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-5",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-6",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-7",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-8",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-9",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      }
+    ],
+    "scripts/build-coverage-map.js": [
+      {
+        "tag": "slice-99822-ac-1",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-2",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-3",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-4",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-5",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-6",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-7",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-8",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-9",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      }
+    ],
+    "scripts/tests-needed.js": [
+      {
+        "tag": "slice-99822-ac-1",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-2",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-3",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-4",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-5",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-6",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-7",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-8",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99822-ac-9",
+        "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      }
+    ]
+  }
+}
