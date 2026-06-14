@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 159,
+  "guardCount": 167,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -126,6 +126,14 @@
       {
         "tag": "slice-99811-ac-2",
         "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99812-ac-1",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99812-ac-2",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
       }
     ],
     "dashboard/lcars-dashboard.html": [
@@ -167,6 +175,14 @@
       },
       {
         "tag": "slice-99811-ac-2",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99812-ac-1",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99812-ac-2",
         "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
       }
     ],
@@ -458,6 +474,14 @@
       {
         "tag": "slice-99811-ac-2",
         "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99812-ac-1",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99812-ac-2",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
       }
     ],
     "lib/assert-direction.js": [
@@ -499,6 +523,14 @@
       },
       {
         "tag": "slice-99811-ac-2",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99812-ac-1",
+        "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99812-ac-2",
         "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
       }
     ],

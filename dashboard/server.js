@@ -533,6 +533,54 @@ function getTestChanges() {
   return value;
 }
 
+// The Test-Update Gate VERDICT for the dev→main promotion (ADR-TEST-UPDATE-GATE,
+// Slice D). getTestChanges() lists what changed; this says whether it's SAFE to run:
+// clear / needs_review / overridden / red_flag. Pins base = merge-base(main,dev),
+// head = dev tip, so the verdict is the exact promoted changeset. SHA-keyed cache.
+// The dashboard defaults to STOP on red_flag and demands a second acknowledgement.
+let _testsNeededCache = { key: null, value: null, fetchedAt: 0 };
+function getTestsNeeded() {
+  const now = Date.now();
+  let head = null, base = null;
+  try { head = execFileSync('git', ['rev-parse', 'origin/dev'], { cwd: REPO_ROOT, encoding: 'utf8', timeout: 5000 }).trim(); } catch (_) {}
+  try { base = execFileSync('git', ['merge-base', 'origin/main', 'origin/dev'], { cwd: REPO_ROOT, encoding: 'utf8', timeout: 5000 }).trim(); } catch (_) {}
+  if (!head || !base) return { error: 'cannot resolve git refs', decision: 'unknown', head, base };
+
+  const key = base + '..' + head;
+  if (_testsNeededCache.key === key && (now - _testsNeededCache.fetchedAt) < 30000) {
+    return _testsNeededCache.value;
+  }
+
+  // Lazily required (code, relative to this file) for the same reason as the engine
+  // in getTestChanges — the test harness compiles server.js at a faked path.
+  const { classify } = require(path.join(__dirname, '..', 'lib', 'tests-needed'));
+  let r;
+  try { r = classify({ base, head, repoRoot: REPO_ROOT }); }
+  catch (err) { return { error: String(err && err.message || err), decision: 'unknown', head, base }; }
+
+  const value = {
+    decision: r.decision,
+    base: r.base, head: r.head, base7: String(r.base || '').slice(0, 7), head7: String(r.head || '').slice(0, 7),
+    counts: {
+      loosened: r.loosenedUndeclared.length, removed: r.removedUndeclared.length, skipped: r.skippedUndeclared.length,
+      newBehaviourNoTest: r.newBehaviourNoTest.length, unguarded: r.unguardedSourceChanges.length,
+      overridden: r.overridden.length, rejectedTrailers: r.rejectedTrailers.length,
+    },
+    coverageShrink: !!r.coverageShrink, coverageShrinkUndeclared: !!r.coverageShrinkUndeclared,
+    coverageGuardCount: r.coverageGuardCount, coverageGuardCountBase: r.coverageGuardCountBase,
+    mismatchedOverride: !!r.mismatchedOverride,
+    // The dangerous, human-readable specifics the second-ack must enumerate.
+    blockers: []
+      .concat(r.loosenedUndeclared.map(c => ({ kind: 'loosened', name: humanizeTestName(c.tag), file: c.file })))
+      .concat(r.removedUndeclared.map(c => ({ kind: 'removed', name: humanizeTestName(c.tag), file: c.file })))
+      .concat(r.skippedUndeclared.map(c => ({ kind: 'skipped', name: humanizeTestName(c.tag), file: c.file })))
+      .concat(r.newBehaviourNoTest.map(b => ({ kind: 'untested', name: b.path, file: b.path }))),
+    needsReview: r.unguardedSourceChanges.map(b => b.path),
+  };
+  _testsNeededCache = { key, value, fetchedAt: now };
+  return value;
+}
+
 // The three gate phases promote.yml runs, in order, before main moves. Matched by
 // step name so renaming a step's prose doesn't silently drop a phase (the match is
 // the contract; j-promote-gate-phases locks it).
@@ -2367,6 +2415,19 @@ const server = http.createServer(async (req, res) => {
     try {
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
       res.end(JSON.stringify(getTestChanges()));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: String(err) }));
+    }
+    return;
+  }
+
+  // The Test-Update Gate verdict for the pinned promotion changeset. no-store so the
+  // operator always sees the verdict for the current dev tip, never a cached SHA.
+  if (pathname === '/api/tests-needed' && req.method === 'GET') {
+    try {
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify(getTestsNeeded()));
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: String(err) }));

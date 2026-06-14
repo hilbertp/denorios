@@ -3635,6 +3635,18 @@ body.lcars-mode .gate-flow-foot { border-color:#33334d; color:#b6a4e0; }
 .utc-modified { border-color:#fde68a; background:#fffbeb; } .utc-modified .utc-head { color:#92400e; }
 .utc-added { border-color:#a7f3d0; background:#ecfdf5; } .utc-added .utc-head { color:#047857; }
 .utc-none { padding:11px 13px; border:1px solid #a7f3d0; background:#ecfdf5; color:#065f46; border-radius:8px; font-size:12.5px; }
+/* Test-Update Gate verdict chip + second-reviewer acknowledgement (Slice D) */
+.utc-verdict { display:flex; flex-wrap:wrap; align-items:baseline; gap:8px; margin:2px 0 10px; }
+.utc-verdict-chip { display:inline-block; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.05em;
+  padding:3px 9px; border-radius:999px; border:1px solid currentColor; }
+.utc-verdict-sha { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11px; color:#6b7280; }
+.utc-verdict-blurb { flex:1 1 100%; font-size:12px; line-height:1.5; color:#4b5563; }
+.utc-ack { margin:0 0 12px; padding:11px 13px; border:1px solid #fecaca; background:#fef2f2; border-radius:8px; }
+.utc-ack-head { font-size:12px; line-height:1.5; color:#991b1b; font-weight:600; margin-bottom:7px; }
+.utc-ack-list { margin:0 0 8px; padding-left:18px; }
+.utc-ack-list li { font-size:12px; line-height:1.55; color:#7f1d1d; }
+.utc-ack-check { display:flex; align-items:flex-start; gap:8px; font-size:12.5px; line-height:1.45; color:#374151; cursor:pointer; font-weight:600; }
+.utc-ack-check input { margin-top:2px; flex:0 0 auto; }
 /* Report modal honesty banners (stale local report vs live CI) */
 .report-stale-warn { margin-bottom:12px; padding:11px 13px; border:1px solid #fecaca; background:#fef2f2;
   color:#991b1b; border-radius:8px; font-size:12.5px; line-height:1.55; }
@@ -7978,6 +7990,56 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     return html;
   }
 
+  // The Test-Update Gate verdict bands (ADR-TEST-UPDATE-GATE, Slice D). RED defaults
+  // the checkpoint to STOP and demands a second acknowledgement before Approve unlocks.
+  const UTC_VERDICTS = {
+    clear:        { glyph: '✓', label: 'CLEAR',        color: '#15803d', bg: 'rgba(22,163,74,.12)',  blurb: 'every behaviour change is corroborated by a test that moved with it — safe to run.' },
+    needs_review: { glyph: '●', label: 'NEEDS REVIEW', color: '#b45309', bg: 'rgba(217,119,6,.12)',  blurb: 'a source changed but no test that reads it moved — glance at the diff, then approve if expected.' },
+    overridden:   { glyph: '◑', label: 'OVERRIDDEN',   color: '#0e7490', bg: 'rgba(8,145,178,.12)',  blurb: 'weakened/removed checks are declared intentional by a trailer — approve if you trust the declaration.' },
+    red_flag:     { glyph: '✗', label: 'RED FLAG',     color: '#b91c1c', bg: 'rgba(220,38,38,.12)',  blurb: 'a check was weakened, removed or skipped, or new behaviour shipped untested. STOP unless a second reviewer confirms each item is intentional.' },
+    unknown:      { glyph: '?', label: 'VERDICT N/A',  color: '#6b7280', bg: 'rgba(107,114,128,.12)', blurb: 'the gate verdict could not be computed — review the full diff before approving.' },
+  };
+
+  // Render the verdict chip + pinned SHA. On RED, wire the non-author second-ack that
+  // gates the Approve button; otherwise leave Approve enabled.
+  function _utcApplyVerdict(tn) {
+    const slot = document.getElementById('utc-verdict');
+    const ackSlot = document.getElementById('utc-secondack');
+    const approve = document.getElementById('utc-approve-btn');
+    if (!slot) return;
+    const dec = (tn && tn.decision) || 'unknown';
+    const v = UTC_VERDICTS[dec] || UTC_VERDICTS.unknown;
+    const sha = tn && tn.head7 ? ` <span class="utc-verdict-sha" title="the exact dev commit this verdict was computed for">@ ${_esc(tn.head7)}</span>` : '';
+    slot.innerHTML = `<span class="utc-verdict-chip" style="color:${v.color};background:${v.bg};border-color:${v.color}">${v.glyph} ${v.label}</span>${sha}`
+      + `<span class="utc-verdict-blurb">${v.blurb}</span>`;
+    if (dec === 'red_flag') {
+      const items = (tn.blockers || []);
+      const list = items.length
+        ? `<ul class="utc-ack-list">${items.map(b => `<li><strong style="text-transform:uppercase;font-size:9px;letter-spacing:.04em">${_esc(b.kind)}</strong> ${_esc(b.name)}</li>`).join('')}</ul>`
+        : '';
+      ackSlot.innerHTML = `<div class="utc-ack" role="group" aria-label="second reviewer acknowledgement">`
+        + `<div class="utc-ack-head">A second reviewer (not the author of these changes) must confirm each item below is the intended result of a feature — not a check disabled to go green:</div>`
+        + list
+        + `<label class="utc-ack-check"><input type="checkbox" id="utc-ack-box" onchange="utcToggleSecondAck()"> I am not the author, and I’ve confirmed every item above is intentional.</label>`
+        + `</div>`;
+      if (approve) { approve.disabled = true; approve.setAttribute('aria-disabled', 'true'); approve.title = 'Blocked: a second reviewer must acknowledge the RED-FLAG items first.'; }
+    } else {
+      if (ackSlot) ackSlot.innerHTML = '';
+      if (approve) { approve.disabled = false; approve.removeAttribute('aria-disabled'); approve.title = ''; }
+    }
+  }
+
+  // Approve unlocks only when the second-ack box is checked (RED path).
+  function utcToggleSecondAck() {
+    const box = document.getElementById('utc-ack-box');
+    const approve = document.getElementById('utc-approve-btn');
+    if (!approve) return;
+    const ok = !!(box && box.checked);
+    approve.disabled = !ok;
+    if (ok) approve.removeAttribute('aria-disabled'); else approve.setAttribute('aria-disabled', 'true');
+    approve.title = ok ? '' : 'Blocked: a second reviewer must acknowledge the RED-FLAG items first.';
+  }
+
   function confirmUpdateTests() {
     const gh = _lastBranchState ? _lastBranchState.github : null;
     const ahead = _ghAhead(gh);
@@ -7988,12 +8050,14 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     overlay.onclick = (e) => { if (e.target === overlay) closeUpdateTestsOverlay(); };
     overlay.innerHTML = `<div class="rollback-card" role="dialog" aria-modal="true" aria-label="Step 1 — review test changes before running the gate">
       <h3>Step 1 — Review the test changes</h3>
+      <div id="utc-verdict" class="utc-verdict"><span class="null-val">Computing the gate verdict…</span></div>
       <p class="rb-sub">dev is <strong>${ahead} commit${ahead === 1 ? '' : 's'}</strong> ahead of main. The gate tests <strong>intended</strong> behaviour. Here's how the regression &amp; e2e <strong>checks</strong> changed since the last promotion — <strong>approve</strong> only if each change is the intended result of a feature. A removed or loosened check could be hiding a real regression — <strong>stop</strong> and investigate if anything looks off.</p>
       <div id="update-tests-body" class="utc-body"><span class="null-val">Reading the test changes…</span></div>
+      <div id="utc-secondack"></div>
       <div class="rollback-actions">
         <a class="rb-btn rb-btn-cancel" href="${compareUrl}" target="_blank" rel="noopener">See full diff ↗</a>
         <button class="rb-btn rb-btn-danger" onclick="closeUpdateTestsOverlay()">Stop — don't run</button>
-        <button class="rb-btn rb-btn-go" onclick="closeUpdateTestsOverlay(); dispatchPromoteGate();">Approve &amp; run gate</button>
+        <button id="utc-approve-btn" class="rb-btn rb-btn-go" onclick="closeUpdateTestsOverlay(); dispatchPromoteGate();">Approve &amp; run gate</button>
       </div>
     </div>`;
     document.body.appendChild(overlay);
@@ -8004,6 +8068,9 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       const body = document.getElementById('update-tests-body');
       if (body) body.innerHTML = '<p class="rb-sub" style="color:#9ca3af">Couldn\'t read the test changes — review the diff before approving.</p>';
     });
+    // The verdict (clear/needs_review/overridden/red_flag) decides whether Approve is
+    // unlocked immediately or only after a second reviewer acknowledges the RED items.
+    fetch('/api/tests-needed').then(r => r.json()).then(_utcApplyVerdict).catch(() => _utcApplyVerdict({ decision: 'unknown' }));
   }
 
   async function dispatchPromoteGate() {
