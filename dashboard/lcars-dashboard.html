@@ -3590,10 +3590,10 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
 .gflow-glyph { font-weight: 700; }
 .gflow-dur { color:#9ca3af; font-weight:500; }
 .gflow-arrow { color:#cbd5e1; font-size:13px; }
-.gflow-trigger { background:#111827; color:#fff; border-color:#111827; }
-.gflow-trigger-run { background:#92400e; border-color:#92400e; }
-.gflow-trigger-fail { background:#991b1b; border-color:#991b1b; }
-.gflow-trigger-done { background:#065f46; border-color:#065f46; }
+.gflow-trigger { background:#f9fafb; color:#1f2937; border-color:#9ca3af; font-weight:700; }
+.gflow-trigger-run  { background:#fffbeb; color:#92400e; border-color:#fcd34d; }
+.gflow-trigger-fail { background:#fef2f2; color:#991b1b; border-color:#fecaca; }
+.gflow-trigger-done { background:#ecfdf5; color:#065f46; border-color:#a7f3d0; }
 .gflow-target { background:#ecfdf5; border-color:#a7f3d0; color:#065f46; }
 .gflow-target-held { background:#fef2f2; border-color:#fecaca; color:#991b1b; }
 .gflow-step.gflow-idle, .gflow-step.gflow-pending { opacity:.7; }
@@ -3609,6 +3609,13 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
 .gflow-cap-fail { color:#991b1b; }
 .gflow-cap-ok { color:#065f46; }
 @keyframes gflow-spin { to { transform: rotate(360deg); } }
+
+/* Merge Pressure pill — 4 bands: low/green, rising/yellow, moderate/orange, high/red */
+.rr-pill.mp-low      { background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; }
+.rr-pill.mp-rising   { background:#fefce8; color:#a16207; border:1px solid #fde68a; }
+.rr-pill.mp-moderate { background:#fff7ed; color:#c2410c; border:1px solid #fed7aa; }
+.rr-pill.mp-high     { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; }
+.mp-helper { margin:8px 0 0; font-size:11.5px; color:#9ca3af; }
 
 /* Minimal LCARS placeholder (full dark polish deferred per Philipp) */
 body.lcars-mode .gate-flow { background:#12121e; border-color:#33334d; }
@@ -3653,6 +3660,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
           <span class="topo-foot-stats" id="topo-foot-stats"></span>
           <span id="topo-foot-action"></span>
         </div>
+        <div class="mp-helper">Merge Pressure shows how urgently dev should be validated and merged into main — it is <strong>not</strong> a regression probability.</div>
         <!-- ── Gate sequence (Ziyal: makes the regression → promote flow explicit) ── -->
         <div class="gate-flow" id="gate-flow">
           <div class="gate-flow-head">Gate sequence</div>
@@ -7431,6 +7439,17 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     wrap.innerHTML = svg;
   }
 
+  // Merge Pressure band from score — validation urgency, NOT regression probability.
+  // 0–25 low · 26–50 rising · 51–75 moderate · 76–100 high.
+  function mergePressureBand(score) {
+    const s = Number(score) || 0;
+    if (s <= 25) return { band: 'low',      cls: 'mp-low' };
+    if (s <= 50) return { band: 'rising',   cls: 'mp-rising' };
+    if (s <= 75) return { band: 'moderate', cls: 'mp-moderate' };
+    return { band: 'high', cls: 'mp-high' };
+  }
+  const MERGE_PRESSURE_TIP = 'Validation urgency — how strongly to run the gate and merge dev into main before adding more work. Not a regression probability.';
+
   function renderRRPill(bs) {
     const rrEl = document.getElementById('topo-foot-rr');
     if (!rrEl) return;
@@ -7442,14 +7461,13 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     const gh = bs && bs.github ? bs.github : null;
     const ghRR = gh && gh.rr ? gh.rr : null;
     if (ghRR) {
-      const level = ghRR.level || 'clean';
-      const cls = level === 'high' ? 'red' : (level === 'moderate' ? 'amber' : 'green'); // clean/low -> ok tokens
       const score = ghRR.score != null ? ghRR.score : 0;
+      const mp = mergePressureBand(score);
       const commits = ghRR.commits != null ? ghRR.commits : 0;
       const churn = ghRR.churn != null ? ghRR.churn : 0;
       const nCrit = Array.isArray(ghRR.critical_files) ? ghRR.critical_files.length : 0;
-      const tip = `${commits} commits · ${churn} lines churn · ${nCrit} critical files`;
-      rrEl.innerHTML = `<span class="rr-pill ${cls}" title="${tip}">Regression Risk ${score}% &middot; ${level}</span>`;
+      const tip = `${MERGE_PRESSURE_TIP}\n${commits} commits · ${churn} lines churn · ${nCrit} critical files.`;
+      rrEl.innerHTML = `<span class="rr-pill ${mp.cls}" title="${tip}">Merge Pressure ${score}% &middot; ${mp.band}</span>`;
       return;
     }
 
@@ -7458,8 +7476,8 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     const ahead = bs.dev ? (bs.dev.commits_ahead_of_main || 0) : 0;
 
     if (!rr || ahead === 0) {
-      // Empty dev or no RR data — show clean pill
-      rrEl.innerHTML = '<span class="rr-pill green">Regression Risk 0% &middot; clean</span>';
+      // Empty dev or no RR data — show low-pressure pill
+      rrEl.innerHTML = `<span class="rr-pill mp-low" title="${MERGE_PRESSURE_TIP}">Merge Pressure 0% &middot; low</span>`;
       return;
     }
 
@@ -7470,9 +7488,10 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     const sv = Math.round((inputs.surface_volatility || 0) * 100);
     const ac = Math.round((inputs.ac_coverage_gap || 0) * 100);
 
-    const label = pct === 0 ? 'Regression Risk 0% &middot; clean' : `Regression Risk ${pct}%`;
+    const mpb = mergePressureBand(pct);
+    const label = `Merge Pressure ${pct}% &middot; ${mpb.band}`;
 
-    rrEl.innerHTML = `<span class="rr-pill ${band}">${label}<span class="rr-pill-tooltip">Slice pressure: ${sp}% | Surface volatility: ${sv}% | AC coverage gap: ${ac}%</span></span>`;
+    rrEl.innerHTML = `<span class="rr-pill ${mpb.cls}" title="${MERGE_PRESSURE_TIP}">${label}<span class="rr-pill-tooltip">Slice pressure: ${sp}% | Surface volatility: ${sv}% | AC coverage gap: ${ac}%</span></span>`;
   }
 
   // ── Operator-gated promotion (slice 316) ────────────────────────────────────
