@@ -39,7 +39,15 @@ function main() {
     process.exit(1);
   }
 
-  const r = classify({ base, head, repoRoot: REPO_ROOT });
+  let r;
+  try {
+    r = classify({ base, head, repoRoot: REPO_ROOT });
+  } catch (e) {
+    // A transient git error must never let an advisory run fail (exit 0). In --strict
+    // we fail CLOSED: an unclassifiable changeset is treated as unsafe to promote.
+    console.error('tests-needed: classification failed — ' + (e && e.message || e));
+    process.exit(strict ? 1 : 0);
+  }
   r.devTipAtGate = devTip;
   r.headEqualsDevTip = headEqualsDevTip;
 

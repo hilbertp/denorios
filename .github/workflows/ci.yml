@@ -29,10 +29,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the Test-Update Gate needs history to merge-base origin/main
 
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+
+      # Per-push CI is EARLY WARNING, not the gate (promote.yml enforces). Run the
+      # Test-Update Gate ADVISORY (no --strict → never fails the job) so a loosened/
+      # removed/skipped check or shrunk coverage shows up in the run summary on every
+      # dev push, long before the operator dispatches a promotion.
+      - name: Test-Update Gate (advisory — warn only on dev push)
+        run: |
+          set +e
+          git fetch origin main dev || true
+          echo "### Test-Update Gate (advisory)" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          node scripts/tests-needed.js | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          exit 0
 
       - name: Run Bashir's regression suite
         run: |

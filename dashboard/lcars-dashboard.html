@@ -8257,15 +8257,20 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
 
     const arrow = '<span class="gflow-arrow">→</span>';
 
-    // Step 1 is "Update tests" — a PRECONDITION done before the suite runs, not a
-    // GitHub phase. The suites test intended behaviour, so the tests must already
-    // match the dev changes or the gate fails by design. Shown ✓ once the gate is
-    // in flight (the operator confirmed it at dispatch); a "to-do" pencil when idle.
-    const utDone = running || success || failed;
-    const updateTestsHtml = `<span class="gflow-step ${utDone ? 'gflow-passed' : 'gflow-step-todo'} gflow-step-pre" title="Before the suite runs: update the regression & e2e tests to match the behaviour you changed on dev.">`
+    // Step 1 is "Update tests" — a PRECONDITION done before the suite runs. When the
+    // gate is in flight it reflects the MACHINE verdict: promote.yml's Test-Update Gate
+    // (the 'tests-needed' phase) classifies the changeset and fails closed on RED, so a
+    // ✗ here means a loosened/removed/skipped check or untested behaviour stopped the
+    // gate before the suites ran. Falls back to the todo/done heuristic when idle.
+    const tnPhase = byKey['tests-needed'] || null;
+    const utStatus = tnPhase ? tnPhase.status : ((running || success || failed) ? 'passed' : 'todo');
+    const utGlyphMap = { passed: '✓', running: '↻', failed: '✗', pending: '○', skipped: '–', todo: '✎' };
+    const utClass = utStatus === 'todo' ? 'gflow-step-todo' : 'gflow-' + utStatus;
+    const utDur = tnPhase && tnPhase.duration_s != null ? `<span class="gflow-dur">· ${tnPhase.duration_s}s</span>` : '';
+    const updateTestsHtml = `<span class="gflow-step ${utClass} gflow-step-pre" title="Step 1 of the gate: the Test-Update Gate classifies the dev changes and fails closed on a RED verdict (a weakened/removed/skipped check, or new behaviour shipped untested) before the suites run.">`
       + `<span class="gflow-num">1</span>`
-      + `<span class="gflow-glyph">${utDone ? '✓' : '✎'}</span>`
-      + `<span class="gflow-label">Update tests</span></span>`;
+      + `<span class="gflow-glyph">${utGlyphMap[utStatus] || '✎'}</span>`
+      + `<span class="gflow-label">Update tests</span>${utDur}</span>`;
 
     const stepHtml = STEPS.map((s, i) => {
       const ph = byKey[s.key];

@@ -55,6 +55,20 @@ jobs:
           echo "them BEFORE running the gate, not after the suites below catch a stale test."
           echo "::endgroup::"
 
+      # The ENFORCING half of step 1: the signed Test-Update Gate. It classifies the
+      # exact promoted changeset (base = merge-base(origin/main, HEAD), head = HEAD,
+      # two-dot) and FAILS CLOSED on a RED FLAG — a check loosened/removed/skipped, new
+      # behaviour shipped untested, or the COVERAGE.lock guard count shrunk — unless an
+      # auditable override trailer (Test-Loosen-OK / Tests-Not-Needed / Coverage-Removed)
+      # declares it intentional. No error-suppression escape hatch: a RED verdict stops
+      # the gate BEFORE the suites run, so a masked regression can't ride a loosened
+      # test to green. (The j-gate-fail-retry guard forbids the literal escape-hatch key.)
+      - name: Test-Update Gate (verdict — fail closed on RED)
+        run: |
+          set -euo pipefail
+          git fetch origin main dev
+          node scripts/tests-needed.js --strict
+
       - name: Run regression gate (fast node:test suite)
         run: |
           set -euo pipefail

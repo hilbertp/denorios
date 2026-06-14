@@ -585,9 +585,10 @@ function getTestsNeeded() {
 // step name so renaming a step's prose doesn't silently drop a phase (the match is
 // the contract; j-promote-gate-phases locks it).
 const PROMOTE_PHASES = [
-  { key: 'regression', label: 'regression',   match: /regression gate/i },
-  { key: 'e2e',        label: 'e2e',           match: /e2e|playwright|click-paths/i },
-  { key: 'ff',         label: 'fast-forward',  match: /fast-forward main/i },
+  { key: 'tests-needed', label: 'test-update gate', match: /test-update gate/i },
+  { key: 'regression',   label: 'regression',       match: /regression gate/i },
+  { key: 'e2e',          label: 'e2e',               match: /e2e|playwright|click-paths/i },
+  { key: 'ff',           label: 'fast-forward',      match: /fast-forward main/i },
 ];
 
 // Steps that prepare the run rather than BE a gate phase. Excluded from matching so
