@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ops — Operations Center (Ziyal redesign v2)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   ZIYAL OPS REDESIGN v2 — design tokens
+   Derived from interface-auditor + uxui-evaluator + uxui-designer/ux-audit
+   ============================================================ */
+:root{
+  /* Surfaces — softened from #000 (anti-slop: no pure black) */
+  --bg:#0a0b0f;
+  --panel:#13151d;
+  --panel-2:#1a1d27;
+  --panel-3:#21242f;
+  --line:rgba(255,255,255,.07);
+  --line-2:rgba(255,255,255,.12);
+
+  /* Ink — all >= 4.5:1 on --bg (fixes contrast-blindness) */
+  --ink:#f3f5fa;       /* headings  ~17:1 */
+  --ink-2:#c7cdda;     /* body      ~11:1 */
+  --ink-3:#9aa3b4;     /* muted     ~6.2:1  (was #6b7280 @3.8:1) */
+
+  /* LCARS accents (kept) — text variants brightened to pass AA */
+  --amber:#f5a623; --amber-ink:#ffc24d;
+  --lav:#b794f6;
+  --blue:#6f9bff;  --blue-ink:#8fb2ff;
+  --green:#3ddc97; --green-ink:#5ef0ad;   /* was green-800 @2.3:1 -> passes */
+  --red:#ff6b6b;   --red-ink:#ff8a8a;
+
+  /* One spacing scale (8pt) — fixes 27 random left-edges */
+  --g:20px; --r:14px;
+
+  /* One type scale — fixes 11 ad-hoc font sizes (now 5) */
+  --fs-display:28px;  /* hero numbers / page title */
+  --fs-title:14px;    /* panel titles */
+  --fs-body:13px;     /* prose */
+  --fs-data:12px;     /* mono data */
+  --fs-label:10.5px;  /* uppercase micro-labels */
+
+  /* Fonts — readable technical pairing (replaces Antonio / Share Tech Mono).
+     IBM Plex: engineered for instrument panels + code, high legibility at small sizes. */
+  --font-ui:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,"SF Mono",monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(111,155,255,.06), transparent 60%),
+    var(--bg);
+  color:var(--ink-2);
+  font-family:var(--font-ui);
+  font-size:var(--fs-body);
+  line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+  padding:22px 26px 60px;
+}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.num{font-variant-numeric:tabular-nums;font-family:var(--font-mono)}
+
+/* ---- label / heading primitives ---- */
+.label{font-size:var(--fs-label);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.ptitle{font-size:var(--fs-title);letter-spacing:.1em;text-transform:uppercase;color:var(--ink);font-weight:600;margin:0}
+
+/* ---- status: dot + TEXT (never colour alone -> WCAG 1.4.1) ---- */
+.pill{display:inline-flex;align-items:center;gap:7px;height:24px;padding:0 10px;border-radius:999px;
+  font-size:var(--fs-label);letter-spacing:.1em;text-transform:uppercase;font-weight:600;
+  border:1px solid var(--line-2);background:var(--panel-2);color:var(--ink-2)}
+.dot{width:7px;height:7px;border-radius:50%;flex:none}
+.dot.g{background:var(--green);box-shadow:0 0 8px var(--green)}
+.dot.a{background:var(--amber)}
+.dot.b{background:var(--blue)}
+.dot.r{background:var(--red);box-shadow:0 0 8px var(--red)}
+.dot.idle{background:var(--ink-3)}
+.pill.g{color:var(--green-ink);border-color:rgba(61,220,151,.35);background:rgba(61,220,151,.08)}
+.pill.r{color:var(--red-ink);border-color:rgba(255,107,107,.35);background:rgba(255,107,107,.08)}
+
+/* ============================================================ HEADER */
+.topbar{display:flex;align-items:center;gap:18px;margin-bottom:var(--g)}
+.brand{display:flex;align-items:baseline;gap:12px}
+.brand h1{font-size:26px;font-weight:700;letter-spacing:.04em;color:var(--ink);margin:0;
+  font-family:var(--font-ui)}
+.brand .sub{font-size:var(--fs-label);letter-spacing:.22em;text-transform:uppercase;color:var(--amber-ink)}
+.topbar .spacer{flex:1}
+.kv{display:flex;align-items:center;gap:8px;font-size:var(--fs-data)}
+.kv .label{font-size:var(--fs-label)}
+.kv .mono{color:var(--ink)}
+.clock{color:var(--ink);font-size:var(--fs-data)}
+
+/* ============================================================ GRID */
+.grid{display:grid;gap:var(--g)}
+.primary{grid-template-columns:1.85fr 1fr}
+.triple{grid-template-columns:repeat(3,1fr)}
+.lower{grid-template-columns:1.6fr 1fr;align-items:start}
+@media(max-width:1100px){.primary,.triple,.lower{grid-template-columns:1fr}}
+
+/* ============================================================ PANEL */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+  position:relative;overflow:hidden}
+.panel.hero{background:linear-gradient(180deg,#15171f,#111319)}
+.panel-h{display:flex;align-items:center;gap:10px;padding:13px var(--g);border-bottom:1px solid var(--line)}
+.panel-h .owner{margin-left:auto;display:flex;align-items:center;gap:8px}
+.panel-b{padding:var(--g)}
+/* owner accent bar (LCARS elbow, restrained) */
+.accent{position:absolute;left:0;top:0;bottom:0;width:4px}
+.accent.bashir{background:var(--green)} .accent.rom{background:var(--amber)}
+.accent.nog{background:var(--blue)} .accent.obrien{background:var(--lav)}
+.accent.quark{background:var(--ink-3)}
+.panel.haspad{padding-left:4px}
+
+/* ============================================================ HERO: promotion control */
+.hero-top{display:flex;align-items:flex-start;gap:var(--g)}
+.hero-metric{flex:none}
+.hero-metric .big{font-size:var(--fs-display);color:var(--ink);font-family:var(--font-ui);font-weight:600;line-height:1}
+.hero-metric .cap{margin-top:4px}
+.branchline{flex:1;min-width:0}
+.branchline .row{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.commit{color:var(--ink);}
+.muted{color:var(--ink-3)}
+
+/* gate phase tracker — addresses Bashir handoff (step-level, in-gate vs per-push) */
+.gate{margin-top:18px;border-top:1px solid var(--line);padding-top:16px}
+.gate .sect{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.phases{display:flex;align-items:stretch;gap:8px}
+.phase{flex:1;border:1px solid var(--line-2);border-radius:10px;padding:10px 12px;background:var(--panel-2);
+  display:flex;flex-direction:column;gap:6px}
+.phase .pname{font-size:var(--fs-label);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.phase .pstat{display:flex;align-items:center;gap:7px;color:var(--ink);font-size:var(--fs-data)}
+.phase.done{border-color:rgba(61,220,151,.3)}
+.arrow{align-self:center;color:var(--ink-3);font-size:14px}
+
+/* per-push CI row, clearly separated from the in-gate run */
+.cirow{display:flex;align-items:center;gap:10px;margin-top:14px;padding:10px 12px;border:1px dashed var(--line-2);
+  border-radius:10px;background:rgba(255,255,255,.015)}
+.cirow .tag{font-size:var(--fs-label);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.cirow a{color:var(--blue-ink);text-decoration:none;font-size:var(--fs-data)}
+
+/* action cluster — right-aligned, shared baseline, destructive separated */
+.actions{display:flex;align-items:center;gap:12px;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+.actions .hint{font-size:var(--fs-data);color:var(--ink-3);max-width:330px}
+.actions .grp{margin-left:auto;display:flex;align-items:center;gap:10px}
+.btn{height:38px;border-radius:9px;padding:0 16px;font-family:var(--font-ui);font-size:13px;font-weight:600;
+  letter-spacing:.06em;text-transform:uppercase;cursor:pointer;border:1px solid transparent;
+  display:inline-flex;align-items:center;gap:8px;transition:.15s}
+.btn:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.btn-primary{background:var(--amber);color:#1a1205;border-color:var(--amber)}
+.btn-primary:hover{background:var(--amber-ink)}
+.btn-danger{background:transparent;color:var(--red-ink);border-color:rgba(255,107,107,.4)}
+.btn-danger:hover{background:rgba(255,107,107,.1)}
+.btn[disabled]{opacity:.4;cursor:not-allowed}
+
+/* ============================================================ STATUS CARDS (pipeline strip) */
+.scard .panel-b{display:flex;flex-direction:column;gap:10px;min-height:148px}
+.scard .state{display:flex;align-items:center;gap:8px;color:var(--ink);font-size:var(--fs-body)}
+.scard .desc{color:var(--ink-3);font-size:var(--fs-data);line-height:1.5}
+.scard .foot{margin-top:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.chip{font-size:var(--fs-label);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);
+  border:1px solid var(--line);border-radius:6px;padding:3px 7px;background:var(--panel-2)}
+
+/* ============================================================ TABLE (history) */
+table{width:100%;border-collapse:collapse;font-size:var(--fs-data)}
+thead th{font-size:var(--fs-label);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);
+  text-align:left;font-weight:600;padding:10px var(--g);border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel)}
+thead th.r,tbody td.r{text-align:right}
+tbody td{padding:11px var(--g);border-bottom:1px solid var(--line)}
+tbody tr:hover{background:rgba(255,255,255,.02)}
+.ttitle{color:var(--ink);font-family:var(--font-ui);font-size:var(--fs-body)}
+.flow{display:inline-flex;align-items:center;gap:5px}
+.stage{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:5px;font-weight:600}
+.stage.dev{background:rgba(61,220,151,.14);color:var(--green-ink)}
+.stage.reg{background:rgba(111,155,255,.14);color:var(--blue-ink)}
+.stage.main{background:rgba(183,148,246,.16);color:var(--lav)}
+.stage.err{background:rgba(255,107,107,.14);color:var(--red-ink)}
+.sep{color:var(--ink-3)}
+.tablefoot{display:flex;align-items:center;justify-content:space-between;padding:12px var(--g);color:var(--ink-3);font-size:var(--fs-data)}
+.tablefoot a{color:var(--blue-ink);text-decoration:none}
+
+/* ============================================================ GATE HEALTH + CREW */
+.kvrow{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);font-size:var(--fs-data)}
+.kvrow:last-child{border-bottom:0}
+.kvrow .k{color:var(--ink-3)}
+.kvrow .v{color:var(--ink)}
+
+.crew{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media(max-width:760px){.crew{grid-template-columns:repeat(2,1fr)}}
+.cmember{border:1px solid var(--line);border-radius:10px;padding:11px;background:var(--panel-2);position:relative}
+.cmember .nm{color:var(--ink);font-weight:600;font-size:var(--fs-body);letter-spacing:.02em}
+.cmember .ro{font-size:var(--fs-label);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin-top:1px}
+.cmember .st{display:flex;align-items:center;gap:6px;margin-top:9px;font-size:var(--fs-label);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+
+/* economics summary (collapsed by default = progressive disclosure) */
+.econ-sum{display:flex;gap:26px;flex-wrap:wrap}
+.econ-sum .stat .v{font-size:22px;color:var(--ink);font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.econ-sum .stat .l{margin-top:2px}
+details.econ{border:1px solid var(--line);border-radius:var(--r);background:var(--panel);overflow:hidden}
+details.econ>summary{list-style:none;cursor:pointer;padding:13px var(--g);display:flex;align-items:center;gap:10px}
+details.econ>summary::-webkit-details-marker{display:none}
+details.econ>summary .chev{margin-left:auto;color:var(--ink-3);transition:.2s}
+details.econ[open]>summary .chev{transform:rotate(180deg)}
+.section-gap{height:var(--g)}
+.note{font-size:var(--fs-label);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+</style>
+</head>
+<body>
+
+<!-- ===================== HEADER ===================== -->
+<div class="topbar">
+  <div class="brand"><h1>OPS</h1><span class="sub">Operations Center</span></div>
+  <div class="spacer"></div>
+  <div class="kv"><span class="label">Branch</span><span class="mono">dev</span></div>
+  <div class="kv"><span class="label">Origin</span><span class="mono">4dc8344</span></div>
+  <span class="pill g"><span class="dot g"></span>Nominal</span>
+  <span class="clock mono" id="clk">--:--:--</span>
+</div>
+
+<!-- ===================== PRIMARY: promotion control + pipeline ===================== -->
+<div class="grid primary">
+
+  <!-- HERO: the thing you act on -->
+  <section class="panel hero haspad">
+    <div class="accent bashir"></div>
+    <div class="panel-h">
+      <h2 class="ptitle">Promotion Control</h2>
+      <div class="owner"><span class="label">Gatekeeper</span><span class="pill"><span class="dot g"></span>Bashir</span></div>
+    </div>
+    <div class="panel-b">
+      <div class="hero-top">
+        <div class="hero-metric">
+          <div class="big num">0%</div>
+          <div class="cap"><span class="pill g"><span class="dot g"></span>RR clean</span></div>
+        </div>
+        <div class="branchline">
+          <div class="row"><span class="label">Target</span><span class="commit mono">origin/main → 4dc8344</span><span class="muted mono">· 12h ago</span></div>
+          <div class="row"><span class="label">Diff</span><span class="commit">0 commits ahead of origin/main</span></div>
+          <div class="row muted" style="font-size:var(--fs-data)">Nothing staged to promote. Last promotion fast-forwarded cleanly.</div>
+        </div>
+      </div>
+
+      <!-- IN-GATE step tracker (Bashir's ask: surface regression -> e2e -> ff, live) -->
+      <div class="gate">
+        <div class="sect"><span class="label">Last promote run</span><span class="mono muted">bc162ac</span><span class="pill g" style="margin-left:auto"><span class="dot g"></span>all green</span></div>
+        <div class="phases">
+          <div class="phase done"><span class="pname">1 · Regression</span><span class="pstat"><span class="dot g"></span>passed · 2s</span></div>
+          <span class="arrow">→</span>
+          <div class="phase done"><span class="pname">2 · Browser e2e</span><span class="pstat"><span class="dot g"></span>passed · 40s</span></div>
+          <span class="arrow">→</span>
+          <div class="phase done"><span class="pname">3 · Fast-forward</span><span class="pstat"><span class="dot g"></span>main moved · 2s</span></div>
+        </div>
+        <!-- per-push CI run, explicitly distinct from the in-gate regression above -->
+        <div class="cirow">
+          <span class="dot g"></span>
+          <span class="tag">Per-push CI · ci.yml</span>
+          <span class="mono muted">regression passing · run #55 · 12h ago</span>
+          <span style="margin-left:auto"><a href="#">view</a> · <a href="#">report</a></span>
+        </div>
+      </div>
+
+      <!-- ACTION CLUSTER: right-aligned, destructive separated from primary -->
+      <div class="actions">
+        <div class="hint">Re-runs the full suite on a clean runner, then fast-forwards <span class="mono">main</span> only if every phase is green.</div>
+        <div class="grp">
+          <button class="btn btn-danger">↻ Roll back</button>
+          <button class="btn btn-primary">Run gate &amp; merge to main →</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PIPELINE: where work is right now (glanceable) -->
+  <section class="panel haspad scard">
+    <div class="accent rom"></div>
+    <div class="panel-h">
+      <h2 class="ptitle">Pipeline</h2>
+      <div class="owner"><span class="label">In flight</span><span class="pill"><span class="dot idle"></span>Idle</span></div>
+    </div>
+    <div class="panel-b">
+      <div class="state"><span class="dot idle"></span>No slice in flight</div>
+      <div class="desc">Rom (build) and Nog (review) are on standby. The lane picks up the next approved work order automatically.</div>
+      <div class="foot">
+        <span class="chip">Build · Rom · standby</span>
+        <span class="chip">Review · Nog · standby</span>
+        <span class="chip">Queue · 0 approved</span>
+      </div>
+      <div class="desc" style="margin-top:6px">Last activity <span class="mono">#314</span> merged to main · 1m · $0.29</div>
+    </div>
+  </section>
+</div>
+
+<div class="section-gap"></div>
+
+<!-- ===================== SECONDARY: queue + engineering ===================== -->
+<div class="grid triple">
+  <section class="panel haspad scard">
+    <div class="accent obrien"></div>
+    <div class="panel-h"><h2 class="ptitle">Engineering Queue</h2><div class="owner"><span class="pill"><span class="dot idle"></span>O'Brien</span></div></div>
+    <div class="panel-b">
+      <div class="label">Approved work orders</div>
+      <div class="desc">No approved work orders waiting. Approve a proposed improvement to fill the queue.</div>
+      <div class="foot"><span class="chip">0 approved</span><span class="chip">0 proposed</span><span class="chip" style="color:var(--green-ink)">Auto-approve · on</span></div>
+    </div>
+  </section>
+  <section class="panel haspad scard">
+    <div class="accent nog"></div>
+    <div class="panel-h"><h2 class="ptitle">Quality Diagnostics</h2><div class="owner"><span class="pill"><span class="dot idle"></span>Nog</span></div></div>
+    <div class="panel-b">
+      <div class="state"><span class="dot idle"></span>Standing by</div>
+      <div class="desc">Reviews each slice after Rom delivers: AC pass, lint, readability, naming, anti-patterns, dead code.</div>
+    </div>
+  </section>
+  <section class="panel haspad scard">
+    <div class="accent rom"></div>
+    <div class="panel-h"><h2 class="ptitle">Active Build</h2><div class="owner"><span class="pill"><span class="dot idle"></span>Rom</span></div></div>
+    <div class="panel-b">
+      <div class="state"><span class="dot idle"></span>Standing by</div>
+      <div class="desc">Picks up the next approved slice automatically and builds it end-to-end.</div>
+      <div class="foot"><span class="chip">0 proposed</span></div>
+    </div>
+  </section>
+</div>
+
+<div class="section-gap"></div>
+
+<!-- ===================== LOWER: history (wide) + health/crew ===================== -->
+<div class="grid lower">
+
+  <!-- HISTORY -->
+  <section class="panel haspad">
+    <div class="accent obrien"></div>
+    <div class="panel-h"><h2 class="ptitle">History · Logbook</h2><div class="owner"><span class="note">169 slices accepted</span></div></div>
+    <table>
+      <thead><tr>
+        <th style="width:52px">#</th><th>Title</th><th>Outcome</th>
+        <th class="r">Time</th><th class="r">Tokens</th><th class="r">Cost</th>
+      </tr></thead>
+      <tbody>
+        <tr><td class="mono">315</td><td class="ttitle">Move Bashir into Branch Topology</td>
+          <td><span class="flow"><span class="stage err">● Error</span></span></td>
+          <td class="r mono">13m</td><td class="r mono muted">—</td><td class="r mono muted">—</td></tr>
+        <tr><td class="mono">314</td><td class="ttitle">Ops reads GitHub truth — retire local-merge controls</td>
+          <td><span class="flow"><span class="stage dev">dev</span><span class="sep">→</span><span class="stage reg">reg</span><span class="sep">→</span><span class="stage main">main</span></span></td>
+          <td class="r mono">1m</td><td class="r mono">10</td><td class="r mono">$0.29</td></tr>
+        <tr><td class="mono">313</td><td class="ttitle">Make squash-to-dev robust so accepted slices stop stranding</td>
+          <td><span class="flow"><span class="stage dev">dev</span><span class="sep">→</span><span class="stage reg">reg</span><span class="sep">→</span><span class="stage main">main</span></span></td>
+          <td class="r mono">20m</td><td class="r mono">106</td><td class="r mono">$4.18</td></tr>
+        <tr><td class="mono">312</td><td class="ttitle">Freeze the Bashir-lane timer when the gate heartbeat is stale</td>
+          <td><span class="flow"><span class="stage dev">dev</span><span class="sep">→</span><span class="stage reg">reg</span><span class="sep">→</span><span class="stage main">main</span></span></td>
+          <td class="r mono">1m</td><td class="r mono">17</td><td class="r mono">$0.38</td></tr>
+        <tr><td class="mono">309</td><td class="ttitle">F-GateHeartbeat-1 — reset Bashir heartbeat at gate spawn</td>
+          <td><span class="flow"><span class="stage dev">dev</span><span class="sep">→</span><span class="stage reg">reg</span><span class="sep">→</span><span class="stage main">main</span></span></td>
+          <td class="r mono">2m</td><td class="r mono">33</td><td class="r mono">$0.70</td></tr>
+      </tbody>
+    </table>
+    <div class="tablefoot"><a href="#">← newer</a><span>page 1 of 40 · 197 entries</span><a href="#">older →</a></div>
+  </section>
+
+  <!-- HEALTH + CREW stacked in the narrow column -->
+  <div style="display:flex;flex-direction:column;gap:var(--g)">
+    <section class="panel haspad">
+      <div class="accent bashir"></div>
+      <div class="panel-h"><h2 class="ptitle">Gate Health</h2><div class="owner"><span class="pill g"><span class="dot g"></span>OK</span></div></div>
+      <div class="panel-b" style="padding-top:6px;padding-bottom:6px">
+        <div class="kvrow"><span class="k">Mutex</span><span class="v">absent</span></div>
+        <div class="kvrow"><span class="k">Heartbeat</span><span class="v mono">3s ago</span></div>
+        <div class="kvrow"><span class="k">Last lock cycle</span><span class="v mono">263ms</span></div>
+        <div class="kvrow"><span class="k">Recent events</span><span class="v muted">none</span></div>
+      </div>
+    </section>
+
+    <section class="panel haspad">
+      <div class="accent quark"></div>
+      <div class="panel-h"><h2 class="ptitle">Crew</h2><div class="owner"><span class="note">8 active</span></div></div>
+      <div class="panel-b">
+        <div class="crew">
+          <div class="cmember"><div class="nm">Sisko</div><div class="ro">Product</div><div class="st"><span class="dot g"></span>active</div></div>
+          <div class="cmember"><div class="nm">Ziyal</div><div class="ro">UX</div><div class="st"><span class="dot g"></span>active</div></div>
+          <div class="cmember"><div class="nm">O'Brien</div><div class="ro">Tech Lead</div><div class="st"><span class="dot g"></span>active</div></div>
+          <div class="cmember"><div class="nm">Rom</div><div class="ro">Backend</div><div class="st"><span class="dot idle"></span>standby</div></div>
+          <div class="cmember"><div class="nm">Nog</div><div class="ro">Evaluator</div><div class="st"><span class="dot idle"></span>standby</div></div>
+          <div class="cmember"><div class="nm">Bashir</div><div class="ro">QA</div><div class="st"><span class="dot g"></span>active</div></div>
+          <div class="cmember"><div class="nm">Dax</div><div class="ro">Architect</div><div class="st"><span class="dot g"></span>active</div></div>
+          <div class="cmember"><div class="nm">Worf</div><div class="ro">DevOps</div><div class="st"><span class="dot g"></span>active</div></div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="section-gap"></div>
+
+<!-- ===================== ECONOMICS (collapsed = progressive disclosure) ===================== -->
+<details class="econ">
+  <summary>
+    <h2 class="ptitle">Economics · Quark's Ledger</h2>
+    <div class="econ-sum" style="margin-left:24px">
+      <div class="stat"><div class="v">$209.91</div><div class="l label">Total burn</div></div>
+      <div class="stat"><div class="v">2.85M</div><div class="l label">Output tokens</div></div>
+      <div class="stat"><div class="v">301</div><div class="l label">Slices</div></div>
+    </div>
+    <span class="chev">▾</span>
+  </summary>
+  <div class="panel-b" style="border-top:1px solid var(--line)">
+    <table>
+      <thead><tr><th>Role</th><th>Model</th><th class="r">Count</th><th class="r">Output</th><th class="r">Cost</th></tr></thead>
+      <tbody>
+        <tr><td class="ttitle">Rom</td><td class="mono muted">claude-sonnet-4-6</td><td class="r mono">301 slices</td><td class="r mono">2.85M</td><td class="r mono">$209.91</td></tr>
+        <tr><td class="ttitle">Sisko</td><td class="mono muted">claude-sonnet-4-6</td><td class="r mono">1 session</td><td class="r mono muted">—</td><td class="r mono muted">—</td></tr>
+        <tr><td class="ttitle">Ziyal</td><td class="mono muted">—</td><td class="r mono muted">0 sessions</td><td class="r mono muted">—</td><td class="r mono muted">—</td></tr>
+        <tr><td class="ttitle">O'Brien</td><td class="mono muted">—</td><td class="r mono muted">0 sessions</td><td class="r mono muted">—</td><td class="r mono muted">—</td></tr>
+      </tbody>
+    </table>
+  </div>
+</details>
+
+<script>
+(function(){
+  function tick(){var d=new Date();document.getElementById('clk').textContent=
+    d.toTimeString().slice(0,8);}
+  tick();setInterval(tick,1000);
+})();
+</script>
+</body>
+</html>
