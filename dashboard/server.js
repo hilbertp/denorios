@@ -462,6 +462,84 @@ function getGitHubRegressionReport() {
   return value;
 }
 
+// Strip machine tags from a test name so the operator reads plain behaviour:
+// "J-foo slice-99809-ac-2 — the dashboard explains promote" -> "the dashboard explains promote".
+function humanizeTestName(name) {
+  let h = String(name || '');
+  const dash = h.indexOf(' — ');
+  if (dash !== -1) h = h.slice(dash + 3);
+  h = h.replace(/^(?:J-[\w-]+\s+)?(?:slice-[\w-]+\s+)?(?:—\s*)?/i, '');
+  return h.trim() || String(name || '');
+}
+
+// What changed in the REGRESSION + E2E suites between main and dev, in plain
+// language, so the operator can approve (intended behaviour change) or stop
+// (a removed/loosened check that may be masking a real regression) before the
+// gate runs. Cached briefly — it shells git per changed test file.
+let _testChangesCache = { key: null, value: null, fetchedAt: 0 };
+function getTestChanges() {
+  const now = Date.now();
+  let head = null;
+  try { head = execFileSync('git', ['rev-parse', 'origin/dev'], { cwd: REPO_ROOT, encoding: 'utf8', timeout: 5000 }).trim(); } catch (_) {}
+  const key = head;
+  if (key && _testChangesCache.key === key && (now - _testChangesCache.fetchedAt) < 30000) {
+    return _testChangesCache.value;
+  }
+
+  let files = [];
+  try {
+    const out = execFileSync('git',
+      ['diff', '--name-only', 'origin/main...origin/dev', '--', 'regression/', 'e2e/'],
+      { cwd: REPO_ROOT, encoding: 'utf8', timeout: 8000 }).trim();
+    files = out ? out.split('\n').filter(Boolean) : [];
+  } catch (_) { files = []; }
+
+  // A check's stable identity is its slice-<id>-ac-<n> tag (or its full name when
+  // untagged, e.g. e2e specs). Matching on identity means a *reworded* check reads
+  // as "modified", not a scary "removed", while a truly deleted check still shows.
+  const tagOf = (name) => {
+    const m = String(name).match(/slice-[\w]+-ac-\d+/i);
+    return m ? m[0].toLowerCase() : String(name).trim();
+  };
+  const added = [], removed = [], modified = [];
+  for (const f of files) {
+    if (!/\.(test|spec)\.js$/.test(f)) continue;
+    let diff = '';
+    try {
+      diff = execFileSync('git', ['diff', 'origin/main...origin/dev', '--', f],
+        { cwd: REPO_ROOT, encoding: 'utf8', timeout: 8000 });
+    } catch (_) { continue; }
+    const addedItems = [], removedItems = [];
+    let assertionDelta = 0;
+    for (const line of diff.split('\n')) {
+      // Capture the WHOLE quoted name (closing quote = same as opening), so names
+      // containing inner quotes aren't truncated.
+      const a = line.match(/^\+\s*(?:test|it)(?:\.\w+)?\(\s*(['"`])(.*?)\1/);
+      const r = line.match(/^-\s*(?:test|it)(?:\.\w+)?\(\s*(['"`])(.*?)\1/);
+      if (a) addedItems.push({ name: a[2], key: tagOf(a[2]) });
+      else if (r) removedItems.push({ name: r[2], key: tagOf(r[2]) });
+      else if (/^[+-]\s*(?:assert|expect|await expect|await assert)\b/.test(line)) assertionDelta++;
+    }
+    const addedKeys = new Set(addedItems.map(i => i.key));
+    const removedKeys = new Set(removedItems.map(i => i.key));
+    addedItems.forEach(i => { if (!removedKeys.has(i.key)) added.push({ file: f, name: humanizeTestName(i.name) }); });
+    removedItems.forEach(i => { if (!addedKeys.has(i.key)) removed.push({ file: f, name: humanizeTestName(i.name) }); });
+    const reworded = addedItems.filter(i => removedKeys.has(i.key)).map(i => humanizeTestName(i.name));
+    if (assertionDelta > 0 || reworded.length > 0) {
+      modified.push({ file: f.replace(/^.*\//, ''), assertions: assertionDelta, checks: reworded });
+    }
+  }
+
+  const value = {
+    base: 'origin/main', head: 'origin/dev',
+    counts: { added: added.length, removed: removed.length, modifiedFiles: modified.length },
+    added, removed, modified,
+    anyChange: added.length + removed.length + modified.length > 0,
+  };
+  _testChangesCache = { key, value, fetchedAt: now };
+  return value;
+}
+
 // The three gate phases promote.yml runs, in order, before main moves. Matched by
 // step name so renaming a step's prose doesn't silently drop a phase (the match is
 // the contract; j-promote-gate-phases locks it).
@@ -2289,6 +2367,20 @@ const server = http.createServer(async (req, res) => {
   // ── Last regression report (Bashir → O'Brien feedback loop) ────────────────
   // Serves regression/LAST-RUN.md: what passed/regressed in the latest run.
   // status: 'pass' | 'fail' | 'none', parsed from the report heading.
+  // What changed in the regression + e2e suites since the last promotion, in plain
+  // language — so the operator approves intended spec changes and stops a removed/
+  // loosened check that may be masking a real regression, before the gate runs.
+  if (pathname === '/api/test-changes' && req.method === 'GET') {
+    try {
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify(getTestChanges()));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: String(err) }));
+    }
+    return;
+  }
+
   if (pathname === '/api/regression/report' && req.method === 'GET') {
     try {
       // Prefer the report from the ACTUAL latest GitHub run (artifact) so it can't

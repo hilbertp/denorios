@@ -3625,6 +3625,16 @@ body.lcars-mode .gate-flow-foot { border-color:#33334d; color:#b6a4e0; }
   background:#fef2f2; color:#991b1b; border-radius:8px; font-size:12px; line-height:1.5; }
 .rb-btn-danger { background:#dc2626 !important; border-color:#dc2626 !important; color:#fff !important; }
 .rb-btn-danger:hover { background:#b91c1c !important; }
+/* Update-tests checkpoint: plain-language test-suite changes to approve or stop on */
+.utc-body { margin:4px 0 12px; max-height:280px; overflow-y:auto; }
+.utc-group { border:1px solid #e5e7eb; border-radius:8px; padding:9px 12px; margin-bottom:8px; }
+.utc-head { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; margin-bottom:6px; }
+.utc-item { font-size:12.5px; line-height:1.5; color:#374151; padding:2px 0 2px 14px; position:relative; }
+.utc-item::before { content:'·'; position:absolute; left:4px; color:#9ca3af; }
+.utc-removed { border-color:#fecaca; background:#fef2f2; } .utc-removed .utc-head { color:#b91c1c; }
+.utc-modified { border-color:#fde68a; background:#fffbeb; } .utc-modified .utc-head { color:#92400e; }
+.utc-added { border-color:#a7f3d0; background:#ecfdf5; } .utc-added .utc-head { color:#047857; }
+.utc-none { padding:11px 13px; border:1px solid #a7f3d0; background:#ecfdf5; color:#065f46; border-radius:8px; font-size:12.5px; }
 /* Report modal honesty banners (stale local report vs live CI) */
 .report-stale-warn { margin-bottom:12px; padding:11px 13px; border:1px solid #fecaca; background:#fef2f2;
   color:#991b1b; border-radius:8px; font-size:12.5px; line-height:1.55; }
@@ -7931,6 +7941,36 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     const o = document.getElementById('update-tests-overlay');
     if (o) o.remove();
   }
+  function _esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  // Render the plain-language test-suite changes the operator approves or stops on.
+  function _renderTestChanges(tc) {
+    if (!tc || tc.error) {
+      return `<p class="rb-sub" style="color:#9ca3af">Couldn't read the test changes${tc && tc.error ? ' (' + _esc(tc.error) + ')' : ''}. Review the diff before approving.</p>`;
+    }
+    if (!tc.anyChange) {
+      return `<div class="utc-none">✓ No regression or e2e <strong>checks</strong> changed since the last promotion. Nothing to approve — the suite will run the same checks as before.</div>`;
+    }
+    let html = '';
+    if (tc.removed && tc.removed.length) {
+      html += `<div class="utc-group utc-removed"><div class="utc-head">⚠ No longer checked (${tc.removed.length}) — make sure none of these is hiding a real break</div>`
+        + tc.removed.map(c => `<div class="utc-item">${_esc(c.name)}</div>`).join('') + `</div>`;
+    }
+    if (tc.modified && tc.modified.length) {
+      const totalChecks = tc.modified.reduce((n,m)=>n+(m.checks?m.checks.length:0),0);
+      const names = tc.modified.flatMap(m => m.checks || []);
+      html += `<div class="utc-group utc-modified"><div class="utc-head">✎ Changed what we check for (${totalChecks || tc.modified.length})</div>`
+        + (names.length ? names.map(n => `<div class="utc-item">${_esc(n)}</div>`).join('')
+                        : tc.modified.map(m => `<div class="utc-item">${_esc(m.file)} — ${m.assertions} assertion change${m.assertions===1?'':'s'}</div>`).join(''))
+        + `</div>`;
+    }
+    if (tc.added && tc.added.length) {
+      html += `<div class="utc-group utc-added"><div class="utc-head">✓ Now also checking (${tc.added.length})</div>`
+        + tc.added.map(c => `<div class="utc-item">${_esc(c.name)}</div>`).join('') + `</div>`;
+    }
+    return html;
+  }
+
   function confirmUpdateTests() {
     const gh = _lastBranchState ? _lastBranchState.github : null;
     const ahead = _ghAhead(gh);
@@ -7939,18 +7979,24 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     overlay.className = 'rollback-overlay';
     overlay.id = 'update-tests-overlay';
     overlay.onclick = (e) => { if (e.target === overlay) closeUpdateTestsOverlay(); };
-    overlay.innerHTML = `<div class="rollback-card" role="dialog" aria-modal="true" aria-label="Step 1 — update tests before running the gate">
-      <h3>Step 1 — Update tests</h3>
-      <p class="rb-sub">dev is <strong>${ahead} commit${ahead === 1 ? '' : 's'}</strong> ahead of main. The gate runs the regression &amp; browser e2e suites on a clean runner — both test <strong>intended</strong> behaviour.</p>
-      <p class="rb-sub">If any of these commits changed behaviour <em>on purpose</em>, the regression &amp; e2e tests must already be updated to match. Otherwise the gate <strong>fails by design</strong> on stale tests — that is not a real regression, it is a test you still need to update.</p>
-      <div class="rb-final-warn" style="background:#fffbeb;border-color:#fde68a;color:#92400e">Update the tests <strong>before</strong> running the suite — not after the gate catches them.</div>
+    overlay.innerHTML = `<div class="rollback-card" role="dialog" aria-modal="true" aria-label="Step 1 — review test changes before running the gate">
+      <h3>Step 1 — Review the test changes</h3>
+      <p class="rb-sub">dev is <strong>${ahead} commit${ahead === 1 ? '' : 's'}</strong> ahead of main. The gate tests <strong>intended</strong> behaviour. Here's how the regression &amp; e2e <strong>checks</strong> changed since the last promotion — <strong>approve</strong> only if each change is the intended result of a feature. A removed or loosened check could be hiding a real regression — <strong>stop</strong> and investigate if anything looks off.</p>
+      <div id="update-tests-body" class="utc-body"><span class="null-val">Reading the test changes…</span></div>
       <div class="rollback-actions">
-        <a class="rb-btn rb-btn-cancel" href="${compareUrl}" target="_blank" rel="noopener">Review what changed ↗</a>
-        <button class="rb-btn rb-btn-cancel" onclick="closeUpdateTestsOverlay()">Cancel</button>
-        <button class="rb-btn rb-btn-go" onclick="closeUpdateTestsOverlay(); dispatchPromoteGate();">Tests are updated — run gate</button>
+        <a class="rb-btn rb-btn-cancel" href="${compareUrl}" target="_blank" rel="noopener">See full diff ↗</a>
+        <button class="rb-btn rb-btn-danger" onclick="closeUpdateTestsOverlay()">Stop — don't run</button>
+        <button class="rb-btn rb-btn-go" onclick="closeUpdateTestsOverlay(); dispatchPromoteGate();">Approve &amp; run gate</button>
       </div>
     </div>`;
     document.body.appendChild(overlay);
+    fetch('/api/test-changes').then(r => r.json()).then(tc => {
+      const body = document.getElementById('update-tests-body');
+      if (body) body.innerHTML = _renderTestChanges(tc);
+    }).catch(() => {
+      const body = document.getElementById('update-tests-body');
+      if (body) body.innerHTML = '<p class="rb-sub" style="color:#9ca3af">Couldn\'t read the test changes — review the diff before approving.</p>';
+    });
   }
 
   async function dispatchPromoteGate() {

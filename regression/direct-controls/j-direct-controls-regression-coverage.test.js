@@ -223,7 +223,7 @@ test('J-direct-controls-ops-ui slice-99811-ac-1 — "update tests" is the explic
   assert.match(html, /onclick="confirmUpdateTests\(\)"/,
     'RUN GATE must open the update-tests checkpoint, not dispatch directly');
   assert.match(html, /function confirmUpdateTests\(\)/, 'the checkpoint function must exist');
-  assert.match(html, /Tests are updated — run gate/, 'the checkpoint must require explicit confirmation');
+  assert.ok(html.includes('Approve &amp; run gate'), 'the checkpoint requires an explicit approval to run');
 
   // promote.yml runs an "Update tests" step strictly before the regression suite.
   const yml = fs.readFileSync(PROMOTE_YML, 'utf8');
@@ -232,6 +232,28 @@ test('J-direct-controls-ops-ui slice-99811-ac-1 — "update tests" is the explic
   assert.ok(updateIdx !== -1, 'promote.yml has an "Update tests" step');
   assert.ok(gateIdx !== -1, 'promote.yml runs the regression suite');
   assert.ok(updateIdx < gateIdx, 'the "Update tests" step precedes the regression suite');
+});
+
+// The operator must be able to tell an INTENDED spec change from a masked regression,
+// in plain language, and approve or STOP the pipeline right there.
+test('J-direct-controls-ops-ui slice-99811-ac-2 — the gate surfaces regression/e2e check changes in plain language for the operator to approve or stop', () => {
+  const server = fs.readFileSync(SERVER_SRC, 'utf8');
+  const html   = fs.readFileSync(DASHBOARD_SRC, 'utf8');
+
+  // Server computes which CHECKS changed (added / removed / reworded) in the
+  // promotion window, identified by slice-ac tag so a reword is not a false removal,
+  // with machine tags stripped for human reading.
+  assert.ok(server.includes('/api/test-changes'), 'server exposes /api/test-changes');
+  assert.ok(server.includes('function getTestChanges()'), 'getTestChanges computes the suite changes');
+  assert.ok(server.includes('origin/main...origin/dev'), 'changes are scoped to the promotion window');
+  assert.ok(server.includes('slice-[\\w]+-ac-\\d+'), 'checks identified by slice-ac tag (a reword is not a false removal)');
+  assert.ok(server.includes('humanizeTestName'), 'test names are humanised (machine tags stripped)');
+
+  // The checkpoint loads the plain-language changes and lets the operator STOP.
+  assert.ok(html.includes("fetch('/api/test-changes')"), 'checkpoint loads the plain-language test changes');
+  assert.ok(html.includes("Stop — don't run"), 'operator can stop the pipeline right there');
+  assert.ok(html.includes('No longer checked'), 'removed checks are surfaced as a masking risk');
+  assert.ok(html.includes('Now also checking'), 'added checks are surfaced');
 });
 
 test('J-direct-controls-ops-ui slice-99810-ac-1 — branch-state enrichment: server exposes run recency, commit subjects/ages, and churn split for the topology panel', () => {
