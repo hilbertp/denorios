@@ -240,13 +240,16 @@ test('J-direct-controls-ops-ui slice-99811-ac-2 — the gate surfaces regression
   const server = fs.readFileSync(SERVER_SRC, 'utf8');
   const html   = fs.readFileSync(DASHBOARD_SRC, 'utf8');
 
-  // Server computes which CHECKS changed (added / removed / reworded) in the
-  // promotion window, identified by slice-ac tag so a reword is not a false removal,
-  // with machine tags stripped for human reading.
+  // Server computes which CHECKS changed in the promotion window, via the signed
+  // assertion-direction engine (lib/assert-direction.js); the engine keys checks by
+  // slice-ac tag so a reword is not a false removal, and reports a direction.
+  const engine = fs.readFileSync(path.resolve(__dirname, '..', '..', 'lib', 'assert-direction.js'), 'utf8');
   assert.ok(server.includes('/api/test-changes'), 'server exposes /api/test-changes');
   assert.ok(server.includes('function getTestChanges()'), 'getTestChanges computes the suite changes');
   assert.ok(server.includes('origin/main...origin/dev'), 'changes are scoped to the promotion window');
-  assert.ok(server.includes('slice-[\\w]+-ac-\\d+'), 'checks identified by slice-ac tag (a reword is not a false removal)');
+  assert.ok(server.includes("require(path.join(__dirname, '..', 'lib', 'assert-direction'))"), 'getTestChanges uses the shared direction engine (resolved as code, not via REPO_ROOT)');
+  assert.ok(server.includes('classifyFileDiff'), 'getTestChanges classifies each check via the engine');
+  assert.ok(engine.includes('slice-[\\w]+-ac-\\d+'), 'the engine identifies checks by slice-ac tag');
   assert.ok(server.includes('humanizeTestName'), 'test names are humanised (machine tags stripped)');
 
   // The checkpoint loads the plain-language changes and lets the operator STOP.

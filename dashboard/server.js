@@ -494,13 +494,13 @@ function getTestChanges() {
     files = out ? out.split('\n').filter(Boolean) : [];
   } catch (_) { files = []; }
 
-  // A check's stable identity is its slice-<id>-ac-<n> tag (or its full name when
-  // untagged, e.g. e2e specs). Matching on identity means a *reworded* check reads
-  // as "modified", not a scary "removed", while a truly deleted check still shows.
-  const tagOf = (name) => {
-    const m = String(name).match(/slice-[\w]+-ac-\d+/i);
-    return m ? m[0].toLowerCase() : String(name).trim();
-  };
+  // Per-check classification (ADR-TEST-UPDATE-GATE, Slice A). The signed engine keys
+  // each check by its slice-ac tag, and reports a DIRECTION (tightened / loosened /
+  // reworded / removed / skipped) — so loosen/delete/skip are loud, not benign churn.
+  // Required lazily (code, relative to this file) so the test harness — which compiles
+  // server.js at a faked path and only string-rewrites the bridge require — never needs
+  // to stage lib/ unless a test actually exercises this endpoint.
+  const { classifyFileDiff } = require(path.join(__dirname, '..', 'lib', 'assert-direction'));
   const added = [], removed = [], modified = [];
   for (const f of files) {
     if (!/\.(test|spec)\.js$/.test(f)) continue;
@@ -509,31 +509,24 @@ function getTestChanges() {
       diff = execFileSync('git', ['diff', 'origin/main...origin/dev', '--', f],
         { cwd: REPO_ROOT, encoding: 'utf8', timeout: 8000 });
     } catch (_) { continue; }
-    const addedItems = [], removedItems = [];
-    let assertionDelta = 0;
-    for (const line of diff.split('\n')) {
-      // Capture the WHOLE quoted name (closing quote = same as opening), so names
-      // containing inner quotes aren't truncated.
-      const a = line.match(/^\+\s*(?:test|it)(?:\.\w+)?\(\s*(['"`])(.*?)\1/);
-      const r = line.match(/^-\s*(?:test|it)(?:\.\w+)?\(\s*(['"`])(.*?)\1/);
-      if (a) addedItems.push({ name: a[2], key: tagOf(a[2]) });
-      else if (r) removedItems.push({ name: r[2], key: tagOf(r[2]) });
-      else if (/^[+-]\s*(?:assert|expect|await expect|await assert)\b/.test(line)) assertionDelta++;
-    }
-    const addedKeys = new Set(addedItems.map(i => i.key));
-    const removedKeys = new Set(removedItems.map(i => i.key));
-    addedItems.forEach(i => { if (!removedKeys.has(i.key)) added.push({ file: f, name: humanizeTestName(i.name) }); });
-    removedItems.forEach(i => { if (!addedKeys.has(i.key)) removed.push({ file: f, name: humanizeTestName(i.name) }); });
-    const reworded = addedItems.filter(i => removedKeys.has(i.key)).map(i => humanizeTestName(i.name));
-    if (assertionDelta > 0 || reworded.length > 0) {
-      modified.push({ file: f.replace(/^.*\//, ''), assertions: assertionDelta, checks: reworded });
+    const byTag = classifyFileDiff(diff);
+    for (const k of Object.keys(byTag)) {
+      const e = byTag[k];
+      const name = humanizeTestName(e.name);
+      if (e.onPlus && !e.onMinus) added.push({ file: f, name, direction: 'added' });
+      else if (e.onMinus && !e.onPlus) removed.push({ file: f, name, direction: 'removed' });
+      else modified.push({ file: f, name, direction: e.direction });
     }
   }
+  // The dangerous subset the gate + UI must surface loudly.
+  const loosened = modified.filter(m => m.direction === 'loosened');
+  const skipped  = modified.filter(m => m.direction === 'skipped');
 
   const value = {
     base: 'origin/main', head: 'origin/dev',
-    counts: { added: added.length, removed: removed.length, modifiedFiles: modified.length },
-    added, removed, modified,
+    counts: { added: added.length, removed: removed.length, modified: modified.length,
+              loosened: loosened.length, skipped: skipped.length },
+    added, removed, modified, loosened, skipped,
     anyChange: added.length + removed.length + modified.length > 0,
   };
   _testChangesCache = { key, value, fetchedAt: now };

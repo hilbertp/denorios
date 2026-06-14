@@ -7957,17 +7957,19 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       return `<div class="utc-none">✓ No regression or e2e <strong>checks</strong> changed since the last promotion. Nothing to approve — the suite will run the same checks as before.</div>`;
     }
     let html = '';
+    const danger   = (tc.modified || []).filter(m => m.direction === 'loosened' || m.direction === 'skipped');
+    const reworded = (tc.modified || []).filter(m => m.direction === 'reworded' || m.direction === 'tightened');
     if (tc.removed && tc.removed.length) {
       html += `<div class="utc-group utc-removed"><div class="utc-head">⚠ No longer checked (${tc.removed.length}) — make sure none of these is hiding a real break</div>`
         + tc.removed.map(c => `<div class="utc-item">${_esc(c.name)}</div>`).join('') + `</div>`;
     }
-    if (tc.modified && tc.modified.length) {
-      const totalChecks = tc.modified.reduce((n,m)=>n+(m.checks?m.checks.length:0),0);
-      const names = tc.modified.flatMap(m => m.checks || []);
-      html += `<div class="utc-group utc-modified"><div class="utc-head">✎ Changed what we check for (${totalChecks || tc.modified.length})</div>`
-        + (names.length ? names.map(n => `<div class="utc-item">${_esc(n)}</div>`).join('')
-                        : tc.modified.map(m => `<div class="utc-item">${_esc(m.file)} — ${m.assertions} assertion change${m.assertions===1?'':'s'}</div>`).join(''))
-        + `</div>`;
+    if (danger.length) {
+      html += `<div class="utc-group utc-removed"><div class="utc-head">⚠ Weakened or skipped (${danger.length}) — a loosened or disabled check can hide a real break</div>`
+        + danger.map(m => `<div class="utc-item">${_esc(m.name)} <strong style="text-transform:uppercase;font-size:10px;letter-spacing:.04em">${_esc(m.direction)}</strong></div>`).join('') + `</div>`;
+    }
+    if (reworded.length) {
+      html += `<div class="utc-group utc-modified"><div class="utc-head">✎ Changed what we check for (${reworded.length})</div>`
+        + reworded.map(m => `<div class="utc-item">${_esc(m.name)}</div>`).join('') + `</div>`;
     }
     if (tc.added && tc.added.length) {
       html += `<div class="utc-group utc-added"><div class="utc-head">✓ Now also checking (${tc.added.length})</div>`
