@@ -3617,6 +3617,11 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
 .gflow-report { color:#2563eb; text-decoration:none; font-size:11.5px; white-space:nowrap; }
 .gflow-report:hover { text-decoration:underline; }
 body.lcars-mode .gate-flow-foot { border-color:#33334d; color:#b6a4e0; }
+/* Rollback second-step "are you sure" */
+.rb-final-warn { margin:10px 0 4px; padding:10px 12px; border:1px solid #fecaca;
+  background:#fef2f2; color:#991b1b; border-radius:8px; font-size:12px; line-height:1.5; }
+.rb-btn-danger { background:#dc2626 !important; border-color:#dc2626 !important; color:#fff !important; }
+.rb-btn-danger:hover { background:#b91c1c !important; }
 
 /* Merge Pressure pill — 4 bands: low/green, rising/yellow, moderate/orange, high/red */
 .rr-pill.mp-low      { background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; }
@@ -5471,12 +5476,30 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       <div style="font-size:12px;color:#6b7280;margin-bottom:6px;">What will fast-forward onto main once the gate is green:</div>
       ${movesHtml}
       ${gotchaHtml}
-      <div class="rollback-actions">
+      <div class="rollback-actions" id="rollback-actions">
         <button class="rb-btn rb-btn-cancel" onclick="closeRollbackOverlay()">Cancel</button>
-        <button class="rb-btn rb-btn-go" id="rollback-confirm-btn" onclick="confirmTopoRollback('${_rbEsc(mainSha)}')" ${confirmDisabled}>Confirm rollback</button>
+        <button class="rb-btn rb-btn-go" id="rollback-confirm-btn" onclick="armTopoRollback('${_rbEsc(mainSha)}')" ${confirmDisabled}>Confirm rollback</button>
       </div>
     </div>`;
     document.body.appendChild(overlay);
+  }
+
+  // Second confirmation: rolling back is a real change to dev, so require an
+  // explicit "are you sure" before dispatching.
+  function armTopoRollback(mainSha) {
+    const card = document.querySelector('#rollback-overlay .rollback-card');
+    const actions = document.getElementById('rollback-actions');
+    if (!card || !actions) return;
+    const tag = _rbEsc(commitTagBySha(mainSha));
+    if (!card.querySelector('.rb-final-warn')) {
+      const warn = document.createElement('div');
+      warn.className = 'rb-final-warn';
+      warn.innerHTML = `<strong>⚠ Are you sure?</strong> This adds a revert of <strong>${tag}</strong> to dev and re-runs the full gate. It's a real change to dev — main only moves if the gate passes.`;
+      actions.parentNode.insertBefore(warn, actions);
+    }
+    actions.innerHTML =
+      `<button class="rb-btn rb-btn-cancel" onclick="closeRollbackOverlay()">Cancel</button>`
+      + `<button class="rb-btn rb-btn-go rb-btn-danger" id="rollback-confirm-btn" onclick="confirmTopoRollback('${_rbEsc(mainSha)}')">Yes, roll back</button>`;
   }
 
   async function confirmTopoRollback(mainSha) {
