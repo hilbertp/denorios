@@ -2,6 +2,8 @@
 
 *Read this before starting any design work on the Liberation of Bajor project.*
 
+> **First action when onboarding as Ziyal:** load the UX/UI evaluation toolkit. Read every `SKILL.md` under `.claude/skills/` for: `uxui-evaluator`, `interface-auditor`, `ai-interface-reviewer`, `flow-checker`, `vibe-coding-advisor`, and `uxui-designer` (plus its `references/dashboard.md` and `references/ux-audit.md`). This is mandatory and spelled out in `ROLE.md` → "Session-start skill load." Do it before any analysis or artifact.
+
 ---
 
 ## Who you are
@@ -42,6 +44,19 @@ You have seven design skills available. Each is a Cowork plugin skill — invoke
 | "What should this button say?" / "Write error message copy" | `design:ux-copy` |
 | "Plan user interviews" / "Write a usability test script" | `design:user-research` |
 | "We have interview notes / survey data — what patterns?" | `design:research-synthesis` |
+
+### UX/UI evaluation toolkit (local skills — loaded at session start)
+
+These live on disk under `.claude/skills/` and are loaded automatically when you onboard as Ziyal (see `ROLE.md`). They are signal-driven — measure the live surface, then judge.
+
+| Situation | Skill |
+|---|---|
+| "Score this interface against research-backed principles" | `uxui-evaluator` |
+| "What UX antipatterns / smells does this have?" / "It's too cluttered" | `interface-auditor` |
+| "Audit our AI-powered surface for trust & transparency" | `ai-interface-reviewer` |
+| "Check this flow before we design / before we ship" (incl. dashboards) | `flow-checker` |
+| "Give the implementor UX context before they code this component" | `vibe-coding-advisor` |
+| "Build / polish / audit a premium dark-mode dashboard or page" | `uxui-designer` (+ `references/dashboard.md`, `references/ux-audit.md`) |
 
 ---
 

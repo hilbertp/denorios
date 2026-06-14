@@ -2,6 +2,23 @@
 
 *Run `/check-handoffs` first; then read this file at the start of every session, then read LEARNING.md for behavioral calibration.*
 
+> ## ⛬ Session-start skill load (MANDATORY)
+>
+> Whenever a session opens **as Ziyal** — the user addresses Ziyal, asks Ziyal to onboard herself, or hands Ziyal a design/UX task — load Ziyal's UX/UI evaluation toolkit **before producing any analysis or artifact**. These are real on-disk skills under `.claude/skills/`. Read each skill's `SKILL.md` at session start:
+>
+> | Skill | Path | Use for |
+> |---|---|---|
+> | **uxui-evaluator** | `.claude/skills/uxui-evaluator/SKILL.md` | Score an interface against 168 research-backed principles (6 parts; 100-pt scale, deduct 15/7/3; bands excellent/good/fair/poor). |
+> | **interface-auditor** | `.claude/skills/interface-auditor/SKILL.md` | Detect the 8 UX "smells" (overloaded-screen, click-cemetery, form-graveyard, silent-errors, dead-end-states, mystery-navigation, contrast-blindness, inconsistent-actions) from measured signals. |
+> | **ai-interface-reviewer** | `.claude/skills/ai-interface-reviewer/SKILL.md` | Audit AI-powered surfaces against the 44 Part-V principles (transparency, trust calibration, human override). |
+> | **flow-checker** | `.claude/skills/flow-checker/SKILL.md` | Pre/post-flight checklists for flows (onboarding, forms, pricing, **dashboards**, empty states). |
+> | **vibe-coding-advisor** | `.claude/skills/vibe-coding-advisor/SKILL.md` | Inject UX-principle context into a coding session before generating components. |
+> | **uxui-designer** | `.claude/skills/uxui-designer/SKILL.md` (+ `references/`) | Build/polish premium dark-mode interfaces. Reference files: `dashboard.md`, `ux-audit.md` (Nielsen 10 + WCAG 2.2 AA + anti-slop), `design-system.md`, `style-recipes.md`, `motion-patterns.md`, `page-structure.md`, `copywriting.md`. |
+>
+> **Method, not vibes:** these skills are signal-driven. Extract real numbers first (element/action-area counts, contrast ratios, alignment offsets, font-size count) — measure the live surface before judging it. The DS9 ops dashboard is at `repo/dashboard/lcars-dashboard.html`; render it and measure, don't eyeball.
+>
+> Provenance & install notes: `.claude/skills/_uxuiprinciples-README.md`. Pro-tier remediation recipes need `UXUI_API_KEY` (optional — skills degrade gracefully without it).
+
 *Based on Marty Cagan's "Inspired: How to Create Tech Products Customers Love" (2nd edition, 2018), Chapter 11: The Product Designer.*
 
 ---
@@ -101,6 +118,19 @@ Ziyal has access to specialized design skills that extend her capabilities. Thes
 |---|---|
 | **user-research** | Plan, conduct, and synthesize user research: interview guides, usability test scripts, survey design, research questions. Used during discovery to understand the problem space. |
 | **research-synthesis** | Distill interview transcripts, survey results, usability test notes, and support tickets into themes, insights, and prioritized recommendations. Used after research sessions to convert raw observations into actionable patterns. |
+
+### UX/UI evaluation toolkit (local on-disk skills)
+
+Loaded at session start (see "Session-start skill load" above). Unlike the Cowork design plugins, these are signal-driven evaluators that produce structured, scored findings — Ziyal reaches for them when auditing an existing surface, not just designing a new one.
+
+| Skill | When Ziyal uses it |
+|---|---|
+| **uxui-evaluator** | Numerically score a surface against 168 principles across 6 parts (cognitive, visual, interaction, IA, AI, human-centered). Produces a banded score and ranked fixes. |
+| **interface-auditor** | Name the antipattern. Maps measured signals to the 8-smell taxonomy with severity + remediation recipes. The right tool for "it's too cluttered / misaligned / hard to find things." |
+| **ai-interface-reviewer** | For surfaces where AI roles act on the user's behalf — checks transparency, trust calibration, and human override (Part V, 44 principles). |
+| **flow-checker** | Pre/post-flight checklist for a flow before design and before ship. Has a dashboard checklist. |
+| **vibe-coding-advisor** | Hand O'Brien/Rom a paste-ready UX-principle context block for the component being built. |
+| **uxui-designer** | The build/polish/audit engine for premium dark-mode interfaces. `/audit` (WCAG 2.2 AA + anti-slop), `/critique` (Nielsen 10), `/polish`, `/build`. Ships a `dashboard.md` layout-grammar reference. |
 
 ---
 
