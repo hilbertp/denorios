@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 167,
+  "guardCount": 179,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -532,6 +532,30 @@
       {
         "tag": "slice-99812-ac-2",
         "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99823-ac-1",
+        "file": "regression/gate-merge/j-tests-needed-self-lock.test.js"
+      },
+      {
+        "tag": "slice-99823-ac-2",
+        "file": "regression/gate-merge/j-tests-needed-self-lock.test.js"
+      },
+      {
+        "tag": "slice-99823-ac-3",
+        "file": "regression/gate-merge/j-tests-needed-self-lock.test.js"
+      },
+      {
+        "tag": "slice-99823-ac-4",
+        "file": "regression/gate-merge/j-tests-needed-self-lock.test.js"
+      },
+      {
+        "tag": "slice-99823-ac-5",
+        "file": "regression/gate-merge/j-tests-needed-self-lock.test.js"
+      },
+      {
+        "tag": "slice-99823-ac-6",
+        "file": "regression/gate-merge/j-tests-needed-self-lock.test.js"
       }
     ],
     "lib/tests-needed.js": [
@@ -570,6 +594,30 @@
       {
         "tag": "slice-99822-ac-9",
         "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99823-ac-1",
+        "file": "regression/gate-merge/j-tests-needed-self-lock.test.js"
+      },
+      {
+        "tag": "slice-99823-ac-2",
+        "file": "regression/gate-merge/j-tests-needed-self-lock.test.js"
+      },
+      {
+        "tag": "slice-99823-ac-3",
+        "file": "regression/gate-merge/j-tests-needed-self-lock.test.js"
+      },
+      {
+        "tag": "slice-99823-ac-4",
+        "file": "regression/gate-merge/j-tests-needed-self-lock.test.js"
+      },
+      {
+        "tag": "slice-99823-ac-5",
+        "file": "regression/gate-merge/j-tests-needed-self-lock.test.js"
+      },
+      {
+        "tag": "slice-99823-ac-6",
+        "file": "regression/gate-merge/j-tests-needed-self-lock.test.js"
       }
     ],
     "regression/COVERAGE.lock": [

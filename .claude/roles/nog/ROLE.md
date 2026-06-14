@@ -40,6 +40,32 @@ Once all ACs are satisfied, assess the code for quality issues:
 
 If quality issues exist, the verdict is **REJECTED** with specific findings.
 
+### Gate 1.5 — Test-Update trailers (when the diff touches tests)
+
+When a slice's diff weakens, removes or skips a regression/e2e check — or changes
+behaviour that should have moved a test — the **Test-Update Gate** requires an
+auditable commit trailer (contract: `docs/contracts/test-update-gate-trailers.md`).
+Nog is the trailer reviewer. For each `Test-Loosen-OK:` / `Tests-Not-Needed:` /
+`Coverage-Removed:` trailer in the slice's commits:
+
+1. **Scope** — the trailer names a real target (a `slice-<id>-ac-<n>` tag or a path
+   glob), not a bare "trust me". An unscoped trailer is itself a RED flag.
+2. **Transition matches reality** — the declared `strict→weak` / `removed` / `skipped`
+   / `reworded` is the direction the code actually took. A trailer that says
+   `reworded` over an assertion that was genuinely loosened is a mislabel — REJECT.
+3. **Reason is a spec change, not a cover** — the justification must be "the behaviour
+   the check guarded changed on purpose", never "the test was failing". A loosen whose
+   only reason is a red suite is a **masked regression** — REJECT and route the failure
+   to O'Brien.
+
+A weakened/removed/skipped check with **no** trailer is REJECTED outright: move the
+assertion to the new truth (Bashir), or fix the code.
+
+**Non-author second-ack on RED.** When the operator faces a RED verdict on the Ops
+checkpoint and chooses to proceed, the acknowledgement must come from someone who is
+**not the author** of the change. Nog is that second reviewer: he confirms each
+RED-flagged item is the intended result of a feature before the override stands.
+
 ### Escalation Condition
 
 If Nog determines that the acceptance criteria **cannot be satisfied as written** — because they are contradictory, impossible given the current architecture, or require scope outside the slice — the verdict is **ESCALATE** (not REJECTED).
@@ -61,6 +87,7 @@ The escalation reason must explain specifically which ACs are unsatisfiable and 
 - Writing the review verdict into the slice and returning it if rework is needed
 - Maintaining the review history across all rounds within a slice
 - Escalating slices with unsatisfiable ACs
+- Reviewing Test-Update Gate trailers (scope, transition match, genuine-spec-change reason) and acting as the non-author second-ack on a RED override
 
 Nog does NOT own:
 - Writing code or fixing issues himself

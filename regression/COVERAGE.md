@@ -24,6 +24,16 @@ Every test name carries a `J-<journey>` tag and/or a `slice-<id>-ac-<index>` tag
 
 **Before any full local run:** `rm -rf regression/_test_timeout_suite regression/_test_pass_suite`. Two retired-gate tests under `test/` (not in CI) regenerate a never-resolving test file the CI glob matches; if present, the full run hangs forever.
 
+## The Test-Update Gate (`gate-merge/`)
+
+Beyond guarding behaviour, the suite guards **the tests themselves** against loosen-to-go-green
+(ADR-TEST-UPDATE-GATE; contract: [`docs/contracts/test-update-gate-trailers.md`](../docs/contracts/test-update-gate-trailers.md)).
+
+- **`lib/assert-direction.js`** — signs each assertion change as tightened / reworded / **loosened / removed / skipped**; an unknown idiom fails loud (reads loosened). Locked by `j-tests-needed-direction` (`slice-99820`).
+- **`lib/tests-needed.js`** — the verdict engine: classifies the pinned `merge-base(main,dev)..dev` changeset into CLEAR / NEEDS REVIEW / OVERRIDDEN / **RED FLAG**, honouring only scoped, transition-matched override trailers. Locked by `j-tests-needed-verdict` (`slice-99821`) and the engine self-lock `j-tests-needed-self-lock` (`slice-99823`).
+- **`regression/COVERAGE.lock`** — the source→guard backstop (which slice tags read which BEHAVIOUR source), derived by `scripts/build-coverage-map.js`. Integrity + anti-shrink ratchet: `j-coverage-map-integrity` (`slice-99822`).
+- **Enforcement** — `scripts/tests-needed.js --strict` blocks `promote.yml` on RED (no escape hatch); `ci.yml` runs it advisory on every dev push; the Ops checkpoint shows the banded verdict and defaults to STOP behind a non-author second-ack. Phase wiring: `j-promote-gate-phases`.
+
 ## Journey → files → what they guard
 
 All 14 testable journeys from `docs/e2e-journeys/INDEX.md` (plus the discovered `J-queue-detail-controls`) are covered. Tests run against journey text as specification; product modules are driven through their interfaces (orchestrator `_testSetDirs`/`_testSetProjectDir` hooks, the dashboard server compiled into a tmpdir root, fixture git repos). Live `bridge/` state is never touched.
