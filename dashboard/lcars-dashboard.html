@@ -5280,6 +5280,10 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
   // promote.yml — mechanically it IS a promote dispatch, so it reuses the same
   // optimistic gate-running window + CI-strip polling as RUN GATE & MERGE.
   let _rollbackInFlight = false;
+  // Which action triggered the in-flight gate — drives whether a green/red gate
+  // reads as a merge or a rollback in the confirmation popups. 'merge' | 'rollback'.
+  let _gateContext = 'merge';
+  let _rollbackTargetTag = '';   // "#NNN · hash" of the commit being rolled back
 
   function _rbEsc(s) {
     return String(s == null ? '' : s)
@@ -5474,17 +5478,18 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       }
     }
 
+    const targetTag = _rbEsc(commitTagBySha(mainSha));
     overlay.innerHTML = `<div class="rollback-card" role="dialog" aria-modal="true" aria-label="Confirm rollback of last promotion">
-      <h3>Roll back the last promotion</h3>
-      <p class="rb-sub">Reverts <strong>${shortSha}</strong> — the commit currently at the tip of main.</p>
-      <p class="rb-sub">Adds a <strong>git revert</strong> commit on dev, then re-runs the regression gate. main stays fast-forward-only — nothing is reset or force-pushed, and the gate must pass before main moves.</p>
+      <h3>Roll back the last promotion?</h3>
+      <p class="rb-sub">Rollback target: <strong>${targetTag}</strong> — the commit currently at the tip of main.</p>
+      <p class="rb-sub">Adds a <strong>git revert</strong> on dev, then re-runs the full regression gate. <strong>Main is not changed</strong> until the gate passes — nothing is reset or force-pushed.</p>
       ${errHtml}
-      <div style="font-size:12px;color:#6b7280;margin-bottom:6px;">What will fast-forward onto main:</div>
+      <div style="font-size:12px;color:#6b7280;margin-bottom:6px;">What will fast-forward onto main once the gate is green:</div>
       ${movesHtml}
       ${gotchaHtml}
       <div class="rollback-actions">
         <button class="rb-btn rb-btn-cancel" onclick="closeRollbackOverlay()">Cancel</button>
-        <button class="rb-btn rb-btn-go" id="rollback-confirm-btn" onclick="confirmTopoRollback('${_rbEsc(mainSha)}')" ${confirmDisabled}>Roll back &amp; run gate</button>
+        <button class="rb-btn rb-btn-go" id="rollback-confirm-btn" onclick="confirmTopoRollback('${_rbEsc(mainSha)}')" ${confirmDisabled}>Confirm rollback</button>
       </div>
     </div>`;
     document.body.appendChild(overlay);
@@ -5504,6 +5509,9 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.ok) {
         closeRollbackOverlay();
+        // This gate run is a rollback — its green/red verdict reads as a rollback.
+        _gateContext = 'rollback';
+        _rollbackTargetTag = commitTagBySha(mainSha);
         // Optimistic gate-running — a rollback IS a promote dispatch; reuse the
         // same machinery so the CI strip + button reflect the run immediately.
         _promoteOptimisticUntil = Date.now() + 30000;
@@ -7608,6 +7616,19 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       + `- CI run / report: ${url}`;
   }
 
+  function rollbackFailurePrompt(pr) {
+    const phase = _gateFailingPhase(pr);
+    const url = pr && pr.url ? pr.url : '<see CI run>';
+    return `Rollback regression failed.\n\n`
+      + `Please investigate why the last known good rollback point does not pass the regression suite. `
+      + `Identify whether the failure is caused by test environment drift, missing dependencies, flaky tests, or an actual code regression.\n\n`
+      + `Context:\n`
+      + `- Branch: dev\n`
+      + `- Rollback target: ${_rollbackTargetTag || '<unknown>'}\n`
+      + `- Failed step: ${phase}\n`
+      + `- CI run / report: ${url}`;
+  }
+
   function closeGateFailurePopup() {
     const o = document.getElementById('gate-failure-overlay');
     if (o) o.remove();
@@ -7633,21 +7654,28 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
   function showGateFailurePopup(pr) {
     closeGateFailurePopup();
     const phase = _gateFailingPhase(pr);
-    const title = phase === 'e2e' ? 'Browser e2e suite failed'
+    const isRollback = _gateContext === 'rollback';
+    const title = isRollback ? '⚠ Rollback needs investigation'
+                : phase === 'e2e' ? 'Browser e2e suite failed'
                 : phase === 'fast-forward' ? 'Promotion failed'
                 : 'Regression suite failed';
+    const sub = isRollback
+      ? `dev was reverted, but <strong>regression did not pass</strong>. <strong>Do not continue new work</strong> until this is investigated. Copy this prompt to investigate:`
+      : `The gate stopped before merging — <strong>main was not touched</strong>. There's no automated fix trigger yet, so ask O'Brien to commission a repair slice. Copy this prompt and send it to O'Brien:`;
+    const prompt = isRollback ? rollbackFailurePrompt(pr) : gateFailurePrompt(pr);
+    const copyLabel = isRollback ? 'Copy investigation prompt' : "Copy prompt for O'Brien";
     const overlay = document.createElement('div');
     overlay.className = 'rollback-overlay';
     overlay.id = 'gate-failure-overlay';
     overlay.onclick = (e) => { if (e.target === overlay) closeGateFailurePopup(); };
-    overlay.innerHTML = `<div class="rollback-card" role="dialog" aria-modal="true" aria-label="Gate failed — ask O'Brien to fix">
-      <h3>${_rbEsc(title)}</h3>
-      <p class="rb-sub">The gate stopped before merging — <strong>main was not touched</strong>. There's no automated fix trigger yet, so ask O'Brien to commission a repair slice. Copy this prompt and send it to O'Brien:</p>
-      <pre class="gate-failure-prompt" id="gate-failure-prompt">${_rbEsc(gateFailurePrompt(pr))}</pre>
+    overlay.innerHTML = `<div class="rollback-card" role="dialog" aria-modal="true" aria-label="Gate failed">
+      <h3${isRollback ? ' style="color:#b91c1c"' : ''}>${_rbEsc(title)}</h3>
+      <p class="rb-sub">${sub}</p>
+      <pre class="gate-failure-prompt" id="gate-failure-prompt">${_rbEsc(prompt)}</pre>
       <div class="rollback-actions">
         <button class="rb-btn rb-btn-cancel" onclick="closeGateFailurePopup()">Dismiss</button>
         <button class="rb-btn rb-btn-cancel" onclick="closeGateFailurePopup(); viewRegressionReport();">View report</button>
-        <button class="rb-btn rb-btn-go" id="gate-failure-copy" onclick="copyGateFailurePrompt()">Copy prompt for O'Brien</button>
+        <button class="rb-btn rb-btn-go" id="gate-failure-copy" onclick="copyGateFailurePrompt()">${copyLabel}</button>
       </div>
     </div>`;
     document.body.appendChild(overlay);
@@ -7684,6 +7712,26 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     document.body.appendChild(overlay);
   }
 
+  function showRollbackCleanPopup() {
+    closeMergeSuccessPopup();
+    const tag = _rollbackTargetTag || '';
+    const when = new Date().toLocaleString();
+    const overlay = document.createElement('div');
+    overlay.className = 'rollback-overlay';
+    overlay.id = 'merge-success-overlay';
+    overlay.onclick = (e) => { if (e.target === overlay) closeMergeSuccessPopup(); };
+    overlay.innerHTML = `<div class="rollback-card" role="dialog" aria-modal="true" aria-label="Rollback clean">
+      <h3 style="color:#047857">&#10003; Rollback clean</h3>
+      <p class="rb-sub">dev was reverted to the last known good merge point.${tag ? ` <span style="color:#6b7280">Rollback target: <strong>${_rbEsc(tag)}</strong></span>` : ''}</p>
+      <p class="rb-sub"><strong>Regression passed.</strong></p>
+      <p class="rb-sub" style="color:#9ca3af">${_rbEsc(when)}</p>
+      <div class="rollback-actions">
+        <button class="rb-btn rb-btn-go" onclick="closeMergeSuccessPopup()">Done</button>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+  }
+
   // Fire once, only on a running→success transition observed this session
   // (so it confirms a gate the operator just ran — never pops on a fresh page load).
   function maybeShowMergeSuccess(gh) {
@@ -7694,7 +7742,8 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       const key = `${pr.run_id != null ? pr.run_id : ''}:${pr.head_sha7 || ''}`;
       if (_mergeSuccessShownFor !== key) {
         _mergeSuccessShownFor = key;
-        showMergeSuccessPopup(pr, gh ? gh.promote : null);
+        if (_gateContext === 'rollback') showRollbackCleanPopup();
+        else showMergeSuccessPopup(pr, gh ? gh.promote : null);
       }
     }
     if (status) _prevPromoteStatus = status;
@@ -7790,6 +7839,8 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       try { body = await res.json(); } catch (_) { /* non-JSON error body */ }
 
       if (res.ok && body && body.ok) {
+        // A plain RUN GATE & MERGE — its verdict reads as a merge.
+        _gateContext = 'merge';
         // Optimistically render the gate-running state; the server busted its
         // github TTL cache, so the forced polls below pick up the real run.
         _promoteOptimisticUntil = Date.now() + 30000;
