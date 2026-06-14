@@ -14,6 +14,7 @@ const fs = require('node:fs');
 const { mapPromotePhases } = require(path.resolve(__dirname, '..', '..', 'dashboard', 'server.js'));
 const PROMOTE_YML = path.resolve(__dirname, '..', '..', '.github', 'workflows', 'promote.yml');
 const CI_YML = path.resolve(__dirname, '..', '..', '.github', 'workflows', 'ci.yml');
+const DASHBOARD_SRC = path.resolve(__dirname, '..', '..', 'dashboard', 'lcars-dashboard.html');
 
 const STEP = (name, status, conclusion, startedAt, completedAt) =>
   ({ name, status, conclusion, startedAt, completedAt });
@@ -85,6 +86,42 @@ test('J-promote-gate-phases ac-7 — the Test-Update Gate phase resolves from th
   assert.equal(k['tests-needed'].status, 'failed', 'a RED verdict shows the gate phase as failed');
   assert.equal(k['tests-needed'].duration_s, 2, 'the verdict gate carries its real duration');
   assert.notEqual(k.regression.status, 'passed', 'the suites never read as passed when the verdict failed closed');
+});
+
+test('J-promote-gate-phases ac-9 — the dashboard gate-flow steps consume the SERVER phase keys (no ff/fast-forward drift)', () => {
+  // The gate-flow stepper (renderGateFlow) looks up each suite phase by key in the
+  // server's promote_run.phases. If a dashboard key drifts from the server key, that
+  // step silently stays idle even when the phase ran — exactly the 'ff' vs 'fast-forward'
+  // bug. Lock the contract: every dashboard step key must be a real server phase key.
+  const html = fs.readFileSync(DASHBOARD_SRC, 'utf8');
+  const serverKeys = mapPromotePhases([
+    VERDICT_STEP('completed', 'success'),
+    STEP('Run regression gate (fast node:test suite)', 'completed', 'success'),
+    STEP('Run browser e2e gate (Playwright click-paths)', 'completed', 'success'),
+    STEP('Fast-forward main to the tested commit', 'completed', 'success'),
+  ]).map(p => p.key);
+
+  // The renderGateFlow STEPS array (the suite steps ②③④, identified by its 'Browser e2e' label).
+  const block = html.match(/const STEPS = \[([\s\S]*?Browser e2e[\s\S]*?)\];/);
+  assert.ok(block, 'renderGateFlow STEPS array must exist');
+  const dashKeys = [...block[1].matchAll(/key:\s*'([^']+)'/g)].map(m => m[1]);
+  assert.deepEqual(dashKeys, ['regression', 'e2e', 'ff'], 'gate-flow steps must key on regression/e2e/ff (the server phase keys)');
+  for (const k of dashKeys) {
+    assert.ok(serverKeys.includes(k), `dashboard gate-flow step key '${k}' is not a server phase key — that step would never light up`);
+  }
+});
+
+test('J-promote-gate-phases ac-10 — the failure + success popups fire from the LIVE gate surface (renderGateFlow), not the dead renderCiStrip', () => {
+  // The gate-failure handoff (paste-to-O'Brien) and merge-success confirmation popups
+  // used to be triggered inside renderCiStrip — which no longer renders after the strip
+  // was removed, so they silently stopped firing. They must be driven from renderGateFlow,
+  // the live surface that runs on every branch-state poll.
+  const html = fs.readFileSync(DASHBOARD_SRC, 'utf8');
+  const start = html.indexOf('function renderGateFlow');
+  assert.ok(start !== -1, 'renderGateFlow must exist');
+  const body = html.slice(start, html.indexOf('\n  function ', start + 1));
+  assert.match(body, /maybeShowGateFailurePopup\(gh\)/, 'renderGateFlow must drive the gate-failure handoff popup');
+  assert.match(body, /maybeShowMergeSuccess\(gh\)/, 'renderGateFlow must drive the merge-success confirmation');
 });
 
 test('J-promote-gate-phases ac-8 — the workflows wire the gate: promote ENFORCES (ordered, no escape hatch), ci WARNS (advisory)', () => {

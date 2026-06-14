@@ -3,15 +3,21 @@
 const { test, expect } = require('@playwright/test');
 
 // THE FULL GATE-SUCCESS CLICKTEST — the journey Philipp watched succeed by hand:
-//   held → press RUN GATE → queued → regression running → regression passed →
-//   e2e running → e2e passed → fast-forward → main promoted.
+//   held → press RUN GATE → (Step-1 checkpoint → approve) → queued → regression running →
+//   regression passed → e2e running → e2e passed → fast-forward → main promoted.
 //
 // How (without a real 70s GitHub run or a real merge): the whole dashboard is a pure
 // function of /api/branch-state. So we stub that endpoint with a SEQUENCE of snapshots —
 // the gate's lifecycle — and step through it, forcing the dashboard's own
 // fetchBranchState() poll between steps and asserting the operator-visible UI at each
-// stage. Deterministic, real browser, zero workflow, zero merge. (The gh→phases mapping
-// is unit-tested in j-promote-gate-phases; promote.yml ordering in j-merge-button-pass.)
+// stage. The surface is the gate-flow STEPPER (#gate-flow-steps): ① Update tests →
+// ② Regression → ③ Browser e2e → ④ Fast-forward → origin/main, each step's status shown
+// by its .gflow-{idle,pending,running,passed,failed} class + glyph + duration.
+//
+// Phase keys are the SERVER's real keys (regression / e2e / ff) — using the dashboard's
+// display key instead would let an ff/fast-forward drift bug hide (see j-promote-gate-phases).
+// (The gh→phases mapping is unit-tested in j-promote-gate-phases; promote.yml ordering in
+// j-merge-button-pass.) Deterministic, real browser, zero workflow, zero merge.
 //
 // E2E_SLOWMO=<ms> lengthens the pause between stages so a human can watch it --headed.
 
@@ -20,9 +26,9 @@ const DEV   = 'bbbbbbb';   // the commit being gated + promoted
 const PAUSE = process.env.E2E_SLOWMO ? 1600 : 150;
 
 const phases = (reg, e2e, ff, regDur) => [
-  { key: 'regression',   label: 'regression',   status: reg, duration_s: regDur ?? null },
-  { key: 'e2e',          label: 'e2e',           status: e2e, duration_s: e2e === 'passed' ? 34 : null },
-  { key: 'fast-forward', label: 'fast-forward',  status: ff,  duration_s: ff === 'passed' ? 1 : null },
+  { key: 'regression', label: 'regression',  status: reg, duration_s: regDur ?? null },
+  { key: 'e2e',        label: 'e2e',          status: e2e, duration_s: e2e === 'passed' ? 34 : null },
+  { key: 'ff',         label: 'fast-forward', status: ff,  duration_s: ff === 'passed' ? 1 : null },
 ];
 
 function branchState({ mainSha, ahead, promoteStatus, promoteSha, ph, promoted }) {
@@ -41,7 +47,7 @@ function branchState({ mainSha, ahead, promoteStatus, promoteSha, ph, promoted }
       promote: promoted ? { sha: DEV, age_s: 1 } : { sha: mainSha, age_s: 60 },
       rr: { score: 10, level: 'low', commits: ahead, churn: 40, churn_ins: 30, churn_del: 10, critical_files: [], breakdown: {} },
       ci: { state: 'passing', run_number: 50, url: 'https://example.test/ci/50', head_sha: DEV, updated_at: '2026-06-13T12:00:00.000Z' },
-      promote_run: { status: promoteStatus, run_id: 99, url: 'https://example.test/run/99', head_sha7: promoteSha, updated_at: '2026-06-13T12:30:00.000Z', ph_marker: 1, phases: ph },
+      promote_run: { status: promoteStatus, run_id: 99, url: 'https://example.test/run/99', head_sha7: promoteSha, updated_at: '2026-06-13T12:30:00.000Z', phases: ph },
       error: null,
     },
   };
@@ -63,6 +69,13 @@ test('full gate-success clicktest: held → run gate → regression → e2e → 
     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(LIFECYCLE[cur]) }));
   await page.route('**/api/promote/dispatch', r =>
     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) }));
+  // RUN GATE opens the Step-1 checkpoint, which fetches the gate verdict + the plain-
+  // language test changes; stub them CLEAR/empty so Approve is enabled (the verdict
+  // engine is covered by gate-button + the regression suite, not this journey).
+  await page.route('**/api/tests-needed', r =>
+    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ decision: 'clear', head7: DEV, counts: {} }) }));
+  await page.route('**/api/test-changes', r =>
+    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ anyChange: false }) }));
 
   // Advance to the next lifecycle snapshot and force the dashboard to re-poll.
   async function gateTo(n) {
@@ -72,44 +85,60 @@ test('full gate-success clicktest: held → run gate → regression → e2e → 
   }
 
   await page.goto('/');
-  const regression = page.locator('#ci-strip-regression-text');
-  const promote    = page.locator('#ci-strip-promote-text');
-  const btn        = page.locator('#promote-gate-btn');
+  const steps  = page.locator('#gate-flow-steps');
+  const regStep = steps.locator('.gflow-step', { hasText: 'Regression' });
+  const e2eStep = steps.locator('.gflow-step', { hasText: 'Browser e2e' });
+  const ffStep  = steps.locator('.gflow-step', { hasText: 'Fast-forward' });
+  const caption = page.locator('#gate-flow-caption');
+  const btn     = page.locator('#promote-gate-btn');
 
-  // ── Stage 0 · HELD — nothing gated yet, no green tick ──────────────────────
-  await expect(regression).toContainText('not run in the gate yet');
-  await expect(promote).toContainText('held');
+  // ── Stage 0 · HELD — nothing gated yet, no green tick, stale run not shown current ─
+  await expect(caption).toContainText('RUN GATE');                 // held: press RUN GATE to gate the new commits
+  // No stale green: none of the SUITE steps (②③④) may show passed for a stale run.
+  for (const s of [regStep, e2eStep, ffStep]) await expect(s).not.toHaveClass(/gflow-passed/);
   await expect(btn).toContainText('RUN GATE');
   await expect(btn).toBeEnabled();
   await page.waitForTimeout(PAUSE);
 
-  // ── Press the button ───────────────────────────────────────────────────────
+  // ── Press the button → Step-1 checkpoint → Approve dispatches the gate ──────────
   await btn.click();
+  const approve = page.locator('#utc-approve-btn');
+  await expect(approve).toBeEnabled();
+  await approve.click();
 
-  // ── Stage 1 · QUEUED — the run exists, nothing passed yet ──────────────────
+  // ── Stage 1 · QUEUED — the run exists, nothing passed yet ──────────────────────
   await gateTo(1);
-  await expect(regression).toContainText('queued in the gate');
-  await expect(promote.locator('.gate-phase-passed')).toHaveCount(0); // nothing green yet
+  await expect(regStep).toHaveClass(/gflow-pending/);
+  // Nothing green yet among the suite steps (step ① "Update tests" is the approved precondition).
+  for (const s of [regStep, e2eStep, ffStep]) await expect(s).not.toHaveClass(/gflow-passed/);
 
-  // ── Stage 2 · REGRESSION RUNNING ───────────────────────────────────────────
+  // ── Stage 2 · REGRESSION RUNNING ───────────────────────────────────────────────
   await gateTo(2);
-  await expect(regression).toContainText('running in the gate');
+  await expect(regStep).toHaveClass(/gflow-running/);
 
-  // ── Stage 3 · REGRESSION PASSED (with duration), E2E RUNNING ───────────────
+  // ── Stage 3 · REGRESSION PASSED (with duration), E2E RUNNING ───────────────────
   await gateTo(3);
-  await expect(regression).toContainText('passed in the gate');
-  await expect(regression).toContainText('2s');
-  await expect(promote.locator('.gate-phase-passed', { hasText: 'regression' })).toBeVisible();
-  await expect(promote.locator('.gate-phase-running', { hasText: 'e2e' })).toBeVisible();
+  await expect(regStep).toHaveClass(/gflow-passed/);
+  await expect(regStep).toContainText('2s');
+  await expect(e2eStep).toHaveClass(/gflow-running/);
+  await expect(ffStep).not.toHaveClass(/gflow-passed/);            // fast-forward has NOT happened yet
 
-  // ── Stage 4 · E2E PASSED (34s — proves it really ran), FAST-FORWARD RUNNING ─
+  // ── Stage 4 · E2E PASSED (34s — proves it really ran), FAST-FORWARD RUNNING ─────
   await gateTo(4);
-  await expect(promote.locator('.gate-phase-passed', { hasText: 'e2e' })).toContainText('34s');
-  await expect(promote.locator('.gate-phase-running', { hasText: 'fast-forward' })).toBeVisible();
+  await expect(e2eStep).toHaveClass(/gflow-passed/);
+  await expect(e2eStep).toContainText('34s');
+  await expect(ffStep).toHaveClass(/gflow-running/);              // ④ reflects the real ff phase (ff-key bug guard)
 
-  // ── Stage 5 · PROMOTED — main fast-forwarded, nothing left to gate ─────────
+  // ── Stage 5 · PROMOTED — main fast-forwarded, every step green, nothing left ────
   await gateTo(5);
-  await expect(promote).toContainText('main fast-forwarded');
-  await expect(promote).toContainText(DEV);
+  await expect(caption).toContainText('fast-forwarded to origin/main'); // the success caption
+  await expect(ffStep).toHaveClass(/gflow-passed/);              // the fast-forward step finally lights up green
+  await expect(regStep).toHaveClass(/gflow-passed/);
+  await expect(e2eStep).toHaveClass(/gflow-passed/);
+  // The merge-success popup confirms the promotion and names the tested commit.
+  const success = page.locator('#merge-success-overlay');
+  await expect(success).toBeVisible();
+  await expect(success).toContainText('Merge complete');
+  await expect(success).toContainText(DEV);
   await expect(btn).not.toContainText('GATE RUNNING');
 });

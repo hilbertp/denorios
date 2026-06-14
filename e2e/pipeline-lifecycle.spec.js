@@ -145,6 +145,13 @@ test('a slice travels the whole pipeline: stage → queue → Rom → Nog → hi
       },
     }),
   }));
+  // RUN GATE now opens a Step-1 "Update tests" checkpoint that fetches the gate verdict;
+  // stub it CLEAR so Approve is enabled (the verdict engine itself is covered by
+  // gate-button.spec.js + the regression suite — this lifecycle test only drives through it).
+  await page.route('**/api/tests-needed', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ decision: 'clear', head7: 'bbbbbbb', counts: {} }) }));
+  await page.route('**/api/test-changes', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ anyChange: false }) }));
   let dispatched = false;
   await page.route('**/api/promote/dispatch', async route => {
     dispatched = true;
@@ -157,6 +164,13 @@ test('a slice travels the whole pipeline: stage → queue → Rom → Nog → hi
   await expect(gate).toBeEnabled({ timeout: 10000 });
   await expect(gate).toContainText('RUN GATE');
   await gate.click();
+  // RUN GATE now opens the Step-1 "Update tests" checkpoint (Slice D): the operator
+  // confirms the tests were updated for the dev changes before the suite runs. Approve
+  // is what dispatches the gate.
+  const approve = page.locator('#utc-approve-btn');
+  await expect(approve).toBeVisible();
+  await expect(approve).toBeEnabled();
+  await approve.click();
   // The gate runs the suite on a clean runner before any merge. (The pre-network
   // DISPATCHING blink is asserted in gate-button.spec.js, where it is timing-stable;
   // here it is too brief to catch under --headed slowMo, so assert the running state.)

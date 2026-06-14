@@ -28,7 +28,7 @@ test('report overlay: no run yet → "No regression report yet", not a false pas
     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ markdown: null, updated: null, status: 'none' }) }));
   await page.goto('/');
 
-  await page.locator('#ci-strip-regression-report').click();
+  await page.locator('a.gflow-report').click();
   await expect(page.locator('#regression-coverage-body')).toContainText('No regression report yet');
 });
 
@@ -37,6 +37,6 @@ test('report overlay: a failed /api/regression/report shows "could not load", no
     r.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'read_failed' }) }));
   await page.goto('/');
 
-  await page.locator('#ci-strip-regression-report').click();
+  await page.locator('a.gflow-report').click();
   await expect(page.locator('#regression-coverage-body')).toContainText('Could not load report');
 });

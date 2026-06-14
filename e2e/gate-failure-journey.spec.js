@@ -3,20 +3,22 @@
 const { test, expect } = require('@playwright/test');
 
 // THE UNHAPPY TWIN of gate-success-journey: the operator runs the gate and it FAILS.
-//   held → press RUN GATE → queued → regression running → regression FAILED →
-//   "gate failed", main HELD (not promoted), button returns so you can fix and retry.
+//   held → press RUN GATE → (checkpoint → approve) → queued → regression running →
+//   regression FAILED → "gate failed", main HELD (not promoted), the O'Brien handoff
+//   popup appears, button returns so you can fix and retry.
 // Same scripted-branch-state technique: step through the gate's lifecycle snapshots,
-// forcing the dashboard's own poll, asserting the operator-visible UI at each stage.
-// Deterministic, real browser, zero workflow, zero merge.
+// forcing the dashboard's own poll, asserting the operator-visible UI on the gate-flow
+// stepper (#gate-flow-steps) at each stage. Phase keys are the SERVER's real keys
+// (regression / e2e / ff). Deterministic, real browser, zero workflow, zero merge.
 
 const MAIN0 = 'aaaaaaa';   // main — must NOT move when the gate fails
 const DEV   = 'bbbbbbb';   // the commit being gated
 const PAUSE = process.env.E2E_SLOWMO ? 1600 : 150;
 
 const phases = (reg, e2e, ff, regDur) => [
-  { key: 'regression',   label: 'regression',   status: reg, duration_s: regDur ?? null },
-  { key: 'e2e',          label: 'e2e',           status: e2e, duration_s: e2e === 'passed' ? 34 : null },
-  { key: 'fast-forward', label: 'fast-forward',  status: ff,  duration_s: ff === 'passed' ? 1 : null },
+  { key: 'regression', label: 'regression',  status: reg, duration_s: regDur ?? null },
+  { key: 'e2e',        label: 'e2e',          status: e2e, duration_s: e2e === 'passed' ? 34 : null },
+  { key: 'ff',         label: 'fast-forward', status: ff,  duration_s: ff === 'passed' ? 1 : null },
 ];
 
 function branchState({ mainSha, ahead, promoteStatus, promoteSha, ph }) {
@@ -52,54 +54,65 @@ test('full gate-FAILURE clicktest: held → run gate → regression FAILS → ga
     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(LIFECYCLE[cur]) }));
   await page.route('**/api/promote/dispatch', r =>
     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) }));
+  await page.route('**/api/tests-needed', r =>
+    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ decision: 'clear', head7: DEV, counts: {} }) }));
+  await page.route('**/api/test-changes', r =>
+    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ anyChange: false }) }));
 
   async function gateTo(n) { cur = n; await page.evaluate(() => fetchBranchState()); await page.waitForTimeout(PAUSE); }
 
   await page.goto('/');
-  const regression = page.locator('#ci-strip-regression-text');
-  const promote    = page.locator('#ci-strip-promote-text');
-  const strip      = page.locator('#ci-strip');
-  const btn        = page.locator('#promote-gate-btn');
+  const steps   = page.locator('#gate-flow-steps');
+  const regStep = steps.locator('.gflow-step', { hasText: 'Regression' });
+  const caption = page.locator('#gate-flow-caption');
+  const target  = steps.locator('.gflow-target');
+  const btn     = page.locator('#promote-gate-btn');
 
-  // Stage 0 · HELD
-  await expect(regression).toContainText('not run in the gate yet');
-  await expect(promote).toContainText('held');
+  // Stage 0 · HELD — the gate hasn't run for this dev tip; press RUN GATE.
+  await expect(regStep).not.toHaveClass(/gflow-passed/);
+  await expect(caption).toContainText('RUN GATE');
   await expect(btn).toContainText('RUN GATE');
   await page.waitForTimeout(PAUSE);
 
+  // Press the button → Step-1 checkpoint → Approve dispatches the gate.
   await btn.click();
+  const approve = page.locator('#utc-approve-btn');
+  await expect(approve).toBeEnabled();
+  await approve.click();
 
   // Stage 1 · QUEUED
   await gateTo(1);
-  await expect(regression).toContainText('queued in the gate');
+  await expect(regStep).toHaveClass(/gflow-pending/);
 
   // Stage 2 · REGRESSION RUNNING
   await gateTo(2);
-  await expect(regression).toContainText('running in the gate');
+  await expect(regStep).toHaveClass(/gflow-running/);
 
   // Stage 3 · REGRESSION FAILED — the unhappy ending
   await gateTo(3);
-  // The fix: the regression row reads FAILED (not "not run in the gate yet").
-  await expect(regression).toContainText('failed in the gate');
-  await expect(page.locator('#ci-strip-regression-glyph')).toHaveText('✗');
-  // The promote row flags the gate failure with a deep link to investigate.
-  await expect(promote).toContainText('gate failed');
-  await expect(promote.locator('.gate-phase-failed', { hasText: 'regression' })).toBeVisible();
-  await expect(page.locator('#ci-strip-promote-link')).toHaveAttribute('href', /actions\/runs\/99/);
-  // The whole strip turns red.
-  await expect(strip).toHaveAttribute('data-state', 'fail');
-  // STOP — main was NOT promoted, and control returns so you can fix + retry.
-  await expect(promote).not.toContainText('fast-forwarded');
+  // The regression step reads FAILED (✗), not idle.
+  await expect(regStep).toHaveClass(/gflow-failed/);
+  await expect(regStep.locator('.gflow-glyph')).toHaveText('✗');
+  // The gate flow flags the failure: caption goes red and the target is HELD (not green).
+  await expect(caption.locator('.gflow-cap-fail')).toBeVisible();
+  await expect(caption).toContainText('Stopped');
+  await expect(caption).toContainText('main was not touched');
+  await expect(target).toHaveClass(/gflow-target-held/);
+  // STOP — main was NOT promoted (no success caption), and control returns to fix + retry.
+  await expect(page.locator('.gflow-cap-ok')).toHaveCount(0);
   await expect(btn).toContainText('RUN GATE');
   await expect(btn).toBeEnabled();
 
-  // The journey no longer dead-ends: a popup hands the operator the exact prompt to
-  // send O'Brien, who commissions a repair slice for Rom (no automated trigger yet).
+  // The journey no longer dead-ends: a popup hands the operator the exact prompt to send
+  // O'Brien, who commissions a repair slice for Rom (no automated trigger yet).
   const popup = page.locator('#gate-failure-overlay');
   await expect(popup).toBeVisible();
   await expect(popup).toContainText('Regression suite failed');
-  await expect(popup.locator('#gate-failure-prompt')).toContainText('commission a fix slice for Rom');
-  await expect(popup.locator('#gate-failure-prompt')).toContainText(DEV); // the failed commit
+  await expect(popup).toContainText('commission a repair slice'); // the O'Brien handoff intent
+  const prompt = popup.locator('#gate-failure-prompt');
+  await expect(prompt).toContainText('investigate the failing regression suite');
+  await expect(prompt).toContainText(DEV);          // the failed commit, named for the fix
+  await expect(prompt).toContainText('runs/99');    // deep link to investigate the failed run
   await expect(popup.locator('#gate-failure-copy')).toBeVisible();
 });
 
@@ -111,10 +124,12 @@ test('a failed regression PHASE stops the ticking timer immediately and pops the
   await page.goto('/');
 
   await expect(page.locator('#promote-gate-btn')).not.toContainText('GATE RUNNING'); // no ticking
-  await expect(page.locator('#ci-strip-promote-text')).toContainText('gate failed');
-  await expect(page.locator('#ci-strip-regression-text')).toContainText('failed in the gate');
-  await expect(page.locator('#gate-failure-overlay')).toBeVisible();
-  await expect(page.locator('#gate-failure-prompt')).toContainText('commission a fix slice for Rom');
+  const regStep = page.locator('#gate-flow-steps .gflow-step', { hasText: 'Regression' });
+  await expect(regStep).toHaveClass(/gflow-failed/);
+  await expect(page.locator('#gate-flow-caption')).toContainText('Stopped');
+  const popup = page.locator('#gate-failure-overlay');
+  await expect(popup).toBeVisible();
+  await expect(popup.locator('#gate-failure-prompt')).toContainText('investigate the failing regression suite');
 });
 
 test('the O\'Brien prompt is copyable from the failure popup', async ({ page, context }) => {
@@ -128,6 +143,6 @@ test('the O\'Brien prompt is copyable from the failure popup', async ({ page, co
   await copy.click();
   await expect(copy).toContainText('Copied');
   const clip = await page.evaluate(() => navigator.clipboard.readText());
-  expect(clip).toContain('commission a fix slice for Rom');
+  expect(clip).toContain('investigate the failing regression suite');
   expect(clip).toContain(DEV);
 });

@@ -7472,118 +7472,122 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     const ahead = bs.dev ? (bs.dev.commits_ahead_of_main || 0) : 0;
     const mainTip = bs.main ? bs.main.tip_sha : null;
     const lastMerge = bs.last_merge;
-    const gateStatus = bs.gate ? bs.gate.status : null;
 
-    // Build aria label
     const ariaLabel = `Branch topology: origin/dev ${ahead} commits ahead of origin/main`;
 
-    // Track positions
-    const xStart = 80, xEnd = 840;
-    const mainY = 52, devY = 92;
+    // ── Serpentine layout (Ziyal) ─────────────────────────────────────────────
+    // The dev thread FOLDS instead of overflowing: row 0 runs left→right, row 1
+    // right→left, and so on, so EVERY unmerged commit is shown without a
+    // horizontal scrollbar. Rows are joined by rounded U-bends, keeping one
+    // continuous green ribbon you can read like boustrophedon text. The panel
+    // grows downward by row, never sideways.
+    const VBW   = 920;                  // logical viewBox width (scales to container)
+    const xL    = 76, xR = 844;         // horizontal bounds of a row
+    const COLS  = 10;                   // commits per row before the ribbon folds
+    const span  = COLS > 1 ? (xR - xL) / (COLS - 1) : 0;
+    const rowH  = 58;                   // vertical distance between folded rows
+    const row0Y = 88;                   // baseline of the first dev row
+    const mainX = 86, mainY = 40;       // origin/main anchor dot, top-left
+    const bulge = 22;                   // how far a U-bend bows past the row edge
 
-    // Determine dots to render
-    const mainDots = [];
-    const devDots = [];
+    const n    = commits.length;
+    const rows = Math.max(1, Math.ceil(n / COLS));
+    const H    = row0Y + (rows - 1) * rowH + 44;   // +44 leaves room for hash labels
 
-    // Always show a main dot (the tip or last merge)
-    const mainSha = lastMerge ? lastMerge.sha : (mainTip || null);
-    if (mainSha) {
-      mainDots.push({ sha: mainSha, isMerge: !!lastMerge,
-                      number: lastMerge ? lastMerge.number : (bs.main ? bs.main.number : null) });
+    // Position of dev dot i — serpentine. Even rows L→R, odd rows R→L, columns
+    // aligned to a fixed grid so folds stack cleanly above one another.
+    function devPos(i) {
+      const row = Math.floor(i / COLS);
+      const col = i % COLS;
+      const ltr = (row % 2 === 0);
+      const x   = ltr ? (xL + col * span) : (xR - col * span);
+      const y   = row0Y + row * rowH;
+      return { x, y, row, ltr };
     }
 
-    for (let i = 0; i < commits.length; i++) {
-      devDots.push(commits[i]);
-    }
+    let svg = `<svg viewBox="0 0 ${VBW} ${H}" width="100%" style="height:auto;display:block" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${ariaLabel}">`;
 
-    // Layout: origin/main is BEHIND (left); dev's commits extend AHEAD to the right,
-    // head at the far right. A faint dashed green line shows where main fast-forwards
-    // to on promote; a connector drops from main to the first shown dev commit.
-    const mainX    = 85;
-    const devStart = 185;
-    const devSpacing = devDots.length > 1 ? (xEnd - devStart) / (devDots.length - 1) : 0;
-    const devXAt = (i) => (devDots.length > 1 ? devStart + i * devSpacing : xEnd);
+    // ── Dev ribbon (drawn first, beneath the dots) ────────────────────────────
+    if (n > 0) {
+      const p0 = devPos(0);
+      // Branch down from origin/main into the first (oldest) commit. Dashed when
+      // dev runs past the server ceiling, so the truncation reads honestly.
+      const truncated = ahead > n;
+      const leadDash  = truncated ? ' stroke-dasharray="5 5"' : '';
+      const midY = (mainY + p0.y) / 2;
+      svg += `<path d="M ${mainX} ${mainY} C ${mainX} ${midY}, ${p0.x} ${midY}, ${p0.x} ${p0.y}" `
+           + `fill="none" stroke="var(--branch-dev)" stroke-width="2"${leadDash} />`;
 
-    let svg = `<svg viewBox="0 0 920 140" style="min-width:920px;width:100%;height:140px" role="img" aria-label="${ariaLabel}">`;
+      // Walk the commits: straight runs within a row, bowed U-bends at each fold.
+      let d = `M ${p0.x} ${p0.y}`;
+      for (let i = 1; i < n; i++) {
+        const a = devPos(i - 1);
+        const b = devPos(i);
+        if (a.row === b.row) {
+          d += ` L ${b.x} ${b.y}`;
+        } else {
+          const bx = a.ltr ? (xR + bulge) : (xL - bulge);   // even rows end right
+          d += ` C ${bx} ${a.y}, ${bx} ${b.y}, ${b.x} ${b.y}`;
+        }
+      }
+      svg += `<path d="${d}" fill="none" stroke="var(--branch-dev)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />`;
 
-    // Main track: solid up to its dot (behind, left), then a faint dashed forward path
-    // showing where main fast-forwards to when promoted.
-    svg += `<line x1="20" y1="${mainY}" x2="${mainX}" y2="${mainY}" stroke="var(--branch-main)" stroke-width="2.5" />`;
-    svg += `<line x1="${mainX}" y1="${mainY}" x2="${xEnd}" y2="${mainY}" stroke="var(--branch-main)" stroke-width="1.5" stroke-dasharray="4 6" opacity="0.35" />`;
-
-    // Dev track: branch from main, solid through the commits to the head, dashed after.
-    if (devDots.length > 0) {
-      const dashAttr = ahead > devDots.length ? ' stroke-dasharray="5 4"' : '';
-      svg += `<line x1="${mainX}" y1="${mainY}" x2="${devStart}" y2="${devY}" stroke="var(--branch-dev)" stroke-width="2"${dashAttr} />`;
-      svg += `<line x1="${devStart}" y1="${devY}" x2="${xEnd}" y2="${devY}" stroke="var(--branch-dev)" stroke-width="2.5" />`;
-      svg += `<line x1="${xEnd}" y1="${devY}" x2="900" y2="${devY}" stroke="var(--branch-dev)" stroke-width="2" stroke-dasharray="6 4" />`;
+      // Short dashed tail past the head, in its travel direction — "work continues".
+      const last  = devPos(n - 1);
+      const tailX = last.ltr
+        ? Math.min(last.x + span * 0.7, xR + bulge)
+        : Math.max(last.x - span * 0.7, xL - bulge);
+      svg += `<line x1="${last.x}" y1="${last.y}" x2="${tailX}" y2="${last.y}" stroke="var(--branch-dev)" stroke-width="2" stroke-dasharray="6 4" opacity="0.7" />`;
     } else {
-      svg += `<line x1="${mainX}" y1="${devY}" x2="900" y2="${devY}" stroke="var(--branch-dev)" stroke-width="2" stroke-dasharray="6 4" />`;
+      // Nothing ahead — dev is level with main (just promoted / up to date).
+      svg += `<line x1="${mainX}" y1="${row0Y}" x2="${xR}" y2="${row0Y}" stroke="var(--branch-dev)" stroke-width="2" stroke-dasharray="6 4" opacity="0.5" />`;
     }
 
-    // Main dot — behind, on the left.
-    if (mainDots.length > 0) {
-      const mx = mainX;
-      const md = mainDots[0];
-      if (md.isMerge) {
-        // Merge dot with check
-        const promotedAge = lastMerge && lastMerge.age_s != null ? formatAgeShort(lastMerge.age_s) : '';
-        svg += `<circle cx="${mx}" cy="${mainY}" r="7.5" fill="var(--branch-main)">`;
-        svg += `<title>origin/main: ${(md.sha || '').slice(0, 7)}${promotedAge ? ` — promoted ${promotedAge} ago by the gate` : ''}</title></circle>`;
-        // White check mark
-        svg += `<path d="M${mx - 3} ${mainY} l2 3 l4 -5" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round" />`;
-        // origin/main label + hash above
-        svg += `<text x="${mx}" y="32" text-anchor="middle" font-size="9" font-weight="600" fill="var(--branch-main)">origin/main</text>`;
-        svg += `<text x="${mx}" y="42" text-anchor="middle" font-size="10" font-weight="600" fill="var(--ok)">${commitLabel(md.number, (md.sha || '').slice(0, 7))}${promotedAge ? ` · ${promotedAge}` : ''}</text>`;
-      } else {
-        svg += `<circle cx="${mx}" cy="${mainY}" r="6" fill="var(--branch-main)">`;
-        svg += `<title>origin/main: ${(md.sha || '').slice(0, 7)}</title></circle>`;
-        svg += `<text x="${mx}" y="32" text-anchor="middle" font-size="9" font-weight="600" fill="var(--branch-main)">origin/main</text>`;
-        svg += `<text x="${mx}" y="42" text-anchor="middle" font-size="10" fill="var(--ink-4)">${commitLabel(md.number, (md.sha || '').slice(0, 7))}</text>`;
+    // ── origin/main dot — top-left anchor the ribbon springs from ─────────────
+    {
+      const mainSha    = lastMerge ? lastMerge.sha : (mainTip || null);
+      const isMerge    = !!lastMerge;
+      const num        = lastMerge ? lastMerge.number : (bs.main ? bs.main.number : null);
+      const sha7       = (mainSha || '').slice(0, 7);
+      const promotedAge = lastMerge && lastMerge.age_s != null ? formatAgeShort(lastMerge.age_s) : '';
+      if (mainSha) {
+        svg += `<text x="${mainX}" y="${mainY - 16}" text-anchor="middle" font-size="9" font-weight="600" fill="var(--branch-main)">origin/main</text>`;
+        svg += `<circle cx="${mainX}" cy="${mainY}" r="${isMerge ? 7.5 : 6}" fill="var(--branch-main)">`;
+        svg += `<title>origin/main: ${sha7}${promotedAge ? ` — promoted ${promotedAge} ago by the gate` : ''}</title></circle>`;
+        if (isMerge) {
+          svg += `<path d="M${mainX - 3} ${mainY} l2 3 l4 -5" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round" />`;
+        }
+        svg += `<text x="${mainX}" y="${mainY + 18}" text-anchor="middle" font-size="10" font-weight="${isMerge ? 600 : 400}" fill="${isMerge ? 'var(--ok)' : 'var(--ink-4)'}">${commitLabel(num, sha7)}${promotedAge ? ` · ${promotedAge}` : ''}</text>`;
       }
     }
 
-    // Dev dots — each tooltip carries the commit subject and age, so the
-    // graph answers "what is this commit and how old is it" without leaving
-    // the panel. The head dot shows its age inline next to the hash.
-    for (let i = 0; i < devDots.length; i++) {
-      const dx = devXAt(i);
-      const d = devDots[i];
+    // ── Dev dots — each tooltip carries subject + age so the graph answers
+    // "what is this commit, how old" without leaving the panel. Number sits
+    // above the dot, hash below; the head wears the origin/dev badge.
+    for (let i = 0; i < n; i++) {
+      const d = commits[i];
+      const pos = devPos(i);
       const sha7 = (d.sha || '').slice(0, 7);
-      const sliceId = d.slice_id || '';
-      const isHead = (i === devDots.length - 1);
+      const isHead = (i === n - 1);
       const age = d.age_s != null ? formatAgeShort(d.age_s) : '';
       const subj = d.subject ? _promoteEsc(d.subject) : '';
       const tip = `${isHead ? 'origin/dev' : 'dev'}: ${sha7}${subj ? ` — ${subj}` : ''}${age ? ` · ${age} ago` : ''}`;
 
-      if (isHead) {
-        // HEAD dot — larger, labelled origin/dev
-        svg += `<circle cx="${dx}" cy="${devY}" r="7.5" fill="var(--branch-dev)">`;
-        svg += `<title>${tip}</title></circle>`;
-        // origin/dev badge above
-        svg += `<rect x="${dx - 32}" y="${devY - 28}" width="64" height="14" rx="3" fill="var(--branch-dev)" />`;
-        svg += `<text x="${dx}" y="${devY - 18}" text-anchor="middle" font-size="9" font-weight="700" letter-spacing="0.5" fill="#fff">origin/dev</text>`;
-      } else {
-        svg += `<circle cx="${dx}" cy="${devY}" r="6" fill="var(--branch-dev)">`;
-        svg += `<title>${tip}</title></circle>`;
-      }
-
       // Slice ID annotation (rare) — sits highest so it never collides with the number.
-      if (sliceId) {
-        const sliceY = isHead ? devY - 34 : devY - 28;
-        svg += `<text x="${dx}" y="${sliceY}" text-anchor="middle" font-size="10" font-weight="600" fill="var(--rom)">${sliceId}</text>`;
+      if (d.slice_id) {
+        svg += `<text x="${pos.x}" y="${pos.y - (isHead ? 30 : 26)}" text-anchor="middle" font-size="9" font-weight="600" fill="var(--rom)">${d.slice_id}</text>`;
       }
 
-      // Split the label so it never collides when dev is many commits ahead:
-      // the running number sits ABOVE the dot, the hash BELOW it. Both stay visible.
-      const numTag = fmtCommitNum(d.number);
       if (isHead) {
-        // Head keeps the origin/dev badge above; number · hash below (age in tooltip,
-        // kept off the label so it doesn't crowd the previous commit's hash).
-        svg += `<text x="${dx}" y="115" text-anchor="middle" font-size="10" font-weight="600" fill="var(--ink-4)">${commitLabel(d.number, sha7)}</text>`;
+        svg += `<rect x="${pos.x - 32}" y="${pos.y - 24}" width="64" height="14" rx="3" fill="var(--branch-dev)" />`;
+        svg += `<text x="${pos.x}" y="${pos.y - 14}" text-anchor="middle" font-size="9" font-weight="700" letter-spacing="0.5" fill="#fff">origin/dev</text>`;
+        svg += `<circle cx="${pos.x}" cy="${pos.y}" r="7.5" fill="var(--branch-dev)"><title>${tip}</title></circle>`;
+        svg += `<text x="${pos.x}" y="${pos.y + 20}" text-anchor="middle" font-size="10" font-weight="600" fill="var(--ink-4)">${commitLabel(d.number, sha7)}</text>`;
       } else {
-        if (numTag) svg += `<text x="${dx}" y="${devY - 14}" text-anchor="middle" font-size="10" font-weight="600" fill="#6b7280">${numTag}</text>`;
-        svg += `<text x="${dx}" y="115" text-anchor="middle" font-size="10" fill="var(--ink-4)">${sha7}</text>`;
+        const numTag = fmtCommitNum(d.number);
+        if (numTag) svg += `<text x="${pos.x}" y="${pos.y - 13}" text-anchor="middle" font-size="10" font-weight="600" fill="#6b7280">${numTag}</text>`;
+        svg += `<circle cx="${pos.x}" cy="${pos.y}" r="6" fill="var(--branch-dev)"><title>${tip}</title></circle>`;
+        svg += `<text x="${pos.x}" y="${pos.y + 18}" text-anchor="middle" font-size="10" fill="var(--ink-4)">${sha7}</text>`;
       }
     }
 
@@ -8238,10 +8242,13 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     const cap  = document.getElementById('gate-flow-caption');
     if (!host) return;
 
+    // Keys MUST match the server's promote phase keys (server.js PROMOTE_PHASES):
+    // regression / e2e / ff. The fast-forward phase is keyed 'ff' server-side — looking
+    // it up as 'fast-forward' here left step ④ stuck on idle even after a green promotion.
     const STEPS = [
-      { key: 'regression',   label: 'Regression' },
-      { key: 'e2e',          label: 'Browser e2e' },
-      { key: 'fast-forward', label: 'Fast-forward' },
+      { key: 'regression', label: 'Regression' },
+      { key: 'e2e',        label: 'Browser e2e' },
+      { key: 'ff',         label: 'Fast-forward' },
     ];
     const glyph = { passed: '✓', running: '↻', failed: '✗', skipped: '–', pending: '○', idle: '○' };
 
@@ -8325,6 +8332,14 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
         cap.innerHTML = 'Nothing staged to promote — dev is level with origin/main.';
       }
     }
+
+    // The gate-failure handoff popup (paste-to-O'Brien) and the merge-success
+    // confirmation are part of the LIVE gate surface. Their triggers used to live in
+    // renderCiStrip, which no longer renders (its #ci-strip-* elements were removed in
+    // the redesign), so they silently stopped firing. Drive them here — the gate-flow
+    // stepper that replaced the strip and runs on every branch-state poll.
+    maybeShowGateFailurePopup(gh);
+    maybeShowMergeSuccess(gh);
   }
 
   function renderCiStrip(gh) {

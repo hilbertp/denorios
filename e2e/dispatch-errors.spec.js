@@ -5,7 +5,9 @@ const { test, expect } = require('@playwright/test');
 // Unhappy paths for the RUN GATE button's dispatch: every way POST /api/promote/dispatch
 // can fail must surface a readable error to the operator — and must NOT claim success or
 // move main. Covers 409 nothing_to_promote, 409 gate_already_running, 502 dispatch_failed,
-// and a network error.
+// and a network error. RUN GATE now opens a Step-1 checkpoint; Approve is what dispatches,
+// so each case clicks through the checkpoint, then asserts the error on the live
+// .promote-gate-err slot (the CI strip that used to show it was removed).
 
 const ENABLED = {
   schema_version: 1,
@@ -24,6 +26,22 @@ const ENABLED = {
   },
 };
 
+// The Step-1 checkpoint fetches the verdict (CLEAR ⇒ Approve enabled) + the change list.
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/tests-needed', r =>
+    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ decision: 'clear', head7: 'bbbbbbb', counts: {} }) }));
+  await page.route('**/api/test-changes', r =>
+    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ anyChange: false }) }));
+});
+
+// RUN GATE → checkpoint → Approve (the path that actually dispatches the gate).
+async function approveAndRun(page) {
+  await page.locator('#promote-gate-btn').click();
+  const approve = page.locator('#utc-approve-btn');
+  await expect(approve).toBeEnabled();
+  await approve.click();
+}
+
 const CASES = [
   { name: '409 nothing_to_promote', fulfill: { status: 409, body: { ok: false, error: 'nothing_to_promote' } }, expectText: 'nothing to promote' },
   { name: '409 gate_already_running', fulfill: { status: 409, body: { ok: false, error: 'gate_already_running' } }, expectText: 'gate already running' },
@@ -40,11 +58,12 @@ for (const c of CASES) {
     await page.goto('/');
     const btn = page.locator('#promote-gate-btn');
     await expect(btn).toBeEnabled();
-    await btn.click();
+    await approveAndRun(page);
 
     await expect(page.locator('.promote-gate-err')).toContainText(c.expectText);
-    // It must never read as a started/running gate from a failed dispatch.
-    await expect(page.locator('#ci-strip-promote-text')).not.toContainText('main fast-forwarded');
+    // It must never read as a started/running gate, nor a promotion, from a failed dispatch.
+    await expect(btn).not.toContainText('GATE RUNNING');
+    await expect(page.locator('.gflow-cap-ok')).toHaveCount(0);
   });
 }
 
@@ -56,7 +75,8 @@ test('dispatch error: network failure → "dispatch failed: network error"', asy
   await page.goto('/');
   const btn = page.locator('#promote-gate-btn');
   await expect(btn).toBeEnabled();
-  await btn.click();
+  await approveAndRun(page);
 
   await expect(page.locator('.promote-gate-err')).toContainText('network error');
+  await expect(btn).not.toContainText('GATE RUNNING');
 });

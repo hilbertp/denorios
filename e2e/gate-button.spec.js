@@ -2,15 +2,18 @@
 
 const { test, expect } = require('@playwright/test');
 
-// Journey: the operator presses "RUN GATE & MERGE TO MAIN". We assert ONLY the
-// immediate, pre-network acknowledgement (DISPATCHING…) and the running state — the
-// gate must stay INERT in tests: no real gh dispatch, no real merge.
+// Journey: the operator presses "RUN GATE & MERGE TO MAIN". RUN GATE now opens a Step-1
+// "Update tests" checkpoint; Approve dispatches. We assert the immediate, pre-network
+// acknowledgement (DISPATCHING…) and the running/failed/held states on the gate-flow
+// stepper (#gate-flow-steps) + caption (#gate-flow-caption). The gate stays INERT: no
+// real gh dispatch, no real merge. Phase keys are the SERVER's real keys (regression /
+// e2e / ff) — using the dashboard's display key would let an ff/fast-forward drift hide.
 //
-// Two routes are stubbed so the journey is deterministic and side-effect-free:
-//   • GET /api/branch-state — the real one shells out to git/gh (no .git in the fixture),
-//     so we serve a payload with commits ahead + promote_run idle to ENABLE the button.
-//   • POST /api/promote/dispatch — fulfilled with a fake 200 so the real workflow_dispatch
-//     never runs. A deliberate delay keeps the DISPATCHING… state observable.
+// Routes stubbed for determinism + zero side effects:
+//   • GET /api/branch-state    — serve commits-ahead + promote_run state to drive the UI.
+//   • GET /api/tests-needed     — the checkpoint verdict (CLEAR ⇒ Approve enabled).
+//   • GET /api/test-changes     — the checkpoint's plain-language change list.
+//   • POST /api/promote/dispatch — fake 200 so the real workflow_dispatch never runs.
 
 const AHEAD_BRANCH_STATE = {
   schema_version: 1,
@@ -35,8 +38,23 @@ const AHEAD_BRANCH_STATE = {
   },
 };
 
+// The Step-1 checkpoint fetches these; CLEAR ⇒ Approve enabled, no second-ack needed.
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/tests-needed', r =>
+    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ decision: 'clear', head7: 'bbbbbbb', counts: {} }) }));
+  await page.route('**/api/test-changes', r =>
+    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ anyChange: false }) }));
+});
+
+// RUN GATE → checkpoint → Approve (the path that actually dispatches the gate).
+async function approveAndRun(page) {
+  await page.locator('#promote-gate-btn').click();
+  const approve = page.locator('#utc-approve-btn');
+  await expect(approve).toBeEnabled();
+  await approve.click();
+}
+
 test('RUN GATE acknowledges the click instantly (DISPATCHING → GATE RUNNING) with no real dispatch', async ({ page }) => {
-  // Enable the button deterministically.
   await page.route('**/api/branch-state', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(AHEAD_BRANCH_STATE) }));
 
@@ -55,9 +73,9 @@ test('RUN GATE acknowledges the click instantly (DISPATCHING → GATE RUNNING) w
   await expect(btn).toBeEnabled();
   await expect(btn).toContainText('RUN GATE');
 
-  await btn.click();
+  await approveAndRun(page);
 
-  // Pre-network acknowledgement: the click flips the button before the fetch resolves.
+  // Pre-network acknowledgement: Approve flips the button before the fetch resolves.
   await expect(btn).toContainText('DISPATCHING');
   // After the (stubbed) 200, the optimistic running window holds the button.
   await expect(btn).toContainText('GATE RUNNING', { timeout: 7000 });
@@ -66,15 +84,20 @@ test('RUN GATE acknowledges the click instantly (DISPATCHING → GATE RUNNING) w
   expect(dispatchCalled).toBe(true);
 });
 
-// Watch an IMPERFECT run get flagged: press RUN GATE, the gate runs, then comes
-// back red — and the dashboard VISIBLY flips to a flagged "gate failed" state, stops,
-// and hands control back (Philipp: "on yellow or red, we stop and flag to the user").
-// A "yellow" run (cancelled/timed_out) is normalized to `failure` server-side, so it
-// lands on this same flag path. main must stay untouched; no silent re-promote.
+// Watch an IMPERFECT run get flagged: press RUN GATE, the gate runs, then comes back
+// red — the dashboard VISIBLY flips to a flagged "gate failed" state, stops, and hands
+// control back via the O'Brien handoff popup (Philipp: "on yellow or red, we stop and
+// flag to the user"). A "yellow" run (cancelled/timed_out) is normalized to `failure`
+// server-side, so it lands on this same flag path. main must stay untouched.
 const FAILURE_RUN = {
   status: 'failure', run_id: 77,
   url: 'https://github.com/hilbertp/liberation-of-bajor/actions/runs/77',
   head_sha7: 'bbbbbbb', updated_at: '2026-06-13T12:30:00.000Z',
+  phases: [
+    { key: 'regression', label: 'regression', status: 'failed', duration_s: 2 },
+    { key: 'e2e', label: 'e2e', status: 'skipped', duration_s: null },
+    { key: 'ff', label: 'fast-forward', status: 'skipped', duration_s: null },
+  ],
 };
 const IDLE_RUN = { status: 'idle', run_id: null, url: null, head_sha7: null, updated_at: null };
 
@@ -98,43 +121,29 @@ test('clicking RUN GATE on a run that fails: the dashboard visibly flips to a fl
   await page.goto('/');
   const btn = page.locator('#promote-gate-btn');
   await expect(btn).toContainText('RUN GATE');
-  await btn.click();
+  await approveAndRun(page);
   await expect(btn).toContainText('GATE RUNNING'); // the run is going…
 
   // …then it comes back imperfect — the dashboard FLAGS it, loudly and visibly.
-  const promoteText = page.locator('#ci-strip-promote-text');
-  await expect(promoteText).toContainText('gate failed', { timeout: 12000 });
-  await expect(page.locator('#ci-strip')).toHaveAttribute('data-state', 'fail'); // strip turns red
-  const promoteLink = page.locator('#ci-strip-promote-link');
-  await expect(promoteLink).toBeVisible();
-  await expect(promoteLink).toHaveAttribute('href', /actions\/runs\/77/); // deep link to investigate
+  const caption = page.locator('#gate-flow-caption');
+  await expect(caption.locator('.gflow-cap-fail')).toBeVisible({ timeout: 12000 });
+  await expect(caption).toContainText('main was not touched');
+  // The O'Brien handoff popup pops with a deep link to investigate the failed run.
+  const popup = page.locator('#gate-failure-overlay');
+  await expect(popup).toBeVisible();
+  await expect(popup.locator('#gate-failure-prompt')).toContainText('runs/77');
 
-  // STOP, don't promote: no main fast-forward claimed, and control returns to the operator.
-  await expect(promoteText).not.toContainText('fast-forwarded');
+  // STOP, don't promote: no success caption, and control returns to the operator.
+  await expect(page.locator('.gflow-cap-ok')).toHaveCount(0);
   await expect(btn).toContainText('RUN GATE');
   await expect(btn).toBeEnabled();
   expect(dispatchCount).toBe(1); // exactly one run — the failure never silently re-fired
 });
 
-// The operator must SEE the regression suite run green before main moves. The Promote
-// row renders the gate's phases (regression → e2e → fast-forward) with status + duration,
-// so "regression ✓ 2s" is visible before "e2e ⟳" — not one opaque "gate running" blob.
-const RUNNING_WITH_PHASES = JSON.parse(JSON.stringify(AHEAD_BRANCH_STATE));
-RUNNING_WITH_PHASES.github.promote_run = {
-  status: 'in_progress', run_id: 88, url: 'https://example.test/run/88', head_sha7: 'bbbbbbb',
-  updated_at: '2026-06-13T12:30:00.000Z',
-  phases: [
-    { key: 'regression', label: 'regression', status: 'passed', duration_s: 2 },
-    { key: 'e2e', label: 'e2e', status: 'running', duration_s: null },
-    { key: 'ff', label: 'fast-forward', status: 'pending', duration_s: null },
-  ],
-};
-
 // REGRESSION GUARD for the "it skipped directly to merge" bug: a promote_run that
-// SUCCEEDED for an already-promoted sha is STALE once dev moves ahead. It must NOT
-// read as "main fast-forwarded ✓" with green phases — that hid that the new commits
-// were ungated and made a fresh click snap back to the old success. Dev ahead + a
-// stale success must show "held — press RUN GATE" and keep the button live.
+// SUCCEEDED for an already-promoted sha is STALE once dev moves ahead. It must NOT read
+// as "fast-forwarded ✓" with green phases — that hid that the new commits were ungated.
+// Dev ahead + a stale success must show held ("press RUN GATE") with no stale green.
 const STALE_SUCCESS = JSON.parse(JSON.stringify(AHEAD_BRANCH_STATE)); // main=aaaaaaa, dev=bbbbbbb, ahead 2
 STALE_SUCCESS.github.promote_run = {
   status: 'success', run_id: 70, url: 'https://example.test/run/70',
@@ -152,20 +161,17 @@ test('a stale success (already-promoted sha) does NOT read as merged while dev i
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(STALE_SUCCESS) }));
   await page.goto('/');
 
-  const promote = page.locator('#ci-strip-promote-text');
-  await expect(promote).toContainText('held');                  // the new commits are ungated
-  await expect(promote).toContainText('RUN GATE');
-  await expect(promote).not.toContainText('main fast-forwarded'); // NOT a stale merge claim
-  await expect(promote.locator('.gate-phase')).toHaveCount(0);    // no stale green phases shown as current
+  const steps  = page.locator('#gate-flow-steps');
+  const caption = page.locator('#gate-flow-caption');
+  // Held — the new commits are ungated. The caption says press RUN GATE, not "fast-forwarded".
+  await expect(caption).toContainText('RUN GATE');
+  await expect(caption.locator('.gflow-cap-ok')).toHaveCount(0);
+  // No stale green: none of the suite steps may paint the old run's ✓ as the current gate.
+  for (const name of ['Regression', 'Browser e2e', 'Fast-forward']) {
+    await expect(steps.locator('.gflow-step', { hasText: name })).not.toHaveClass(/gflow-passed/);
+  }
 
-  // The REGRESSION row must NOT show a green pass tick while held — the gate has not
-  // run regression for this promotion, even though a per-push ci.yml run is green.
-  const regression = page.locator('#ci-strip-regression-text');
-  await expect(regression).toContainText('not run in the gate yet');
-  await expect(regression).not.toContainText('passing');
-  await expect(page.locator('#ci-strip-regression-glyph')).not.toHaveText('✓');
-
-  // And the button is live to actually gate the new commits.
+  // The button is live to actually gate the new commits.
   const btn = page.locator('#promote-gate-btn');
   await expect(btn).toContainText('RUN GATE');
   await expect(btn).toBeEnabled();
@@ -182,22 +188,23 @@ test('clicking RUN GATE past a stale success shows GATE RUNNING (optimism is not
 
   const btn = page.locator('#promote-gate-btn');
   await expect(btn).toBeEnabled();
-  await btn.click();
+  await approveAndRun(page);
   // The fix: the stale success must not snap the button back — GATE RUNNING holds.
   await expect(btn).toContainText('GATE RUNNING', { timeout: 7000 });
 
-  // And — the bug Philipp caught — while running past a stale success, the row must
-  // NOT paint the OLD run's all-green phases as the current gate. No passed pills;
+  // And — the bug Philipp caught — while running past a stale success, the stepper must
+  // NOT paint the OLD run's all-green phases as the current gate. No passed suite steps;
   // it waits for the real run to report.
-  const promote = page.locator('#ci-strip-promote-text');
-  await expect(promote).toContainText('gate running');
-  await expect(promote).toContainText('waiting for the phases');
-  await expect(promote.locator('.gate-phase-passed')).toHaveCount(0); // no stale ✓✓✓
+  const steps = page.locator('#gate-flow-steps');
+  for (const name of ['Regression', 'Browser e2e', 'Fast-forward']) {
+    await expect(steps.locator('.gflow-step', { hasText: name })).not.toHaveClass(/gflow-passed/);
+  }
 });
 
-// During a gate run, the REGRESSION row must reflect the GATE's regression step
-// (it starts: queued → running → passed), NOT the already-green per-push ci.yml run —
-// otherwise it reads as "pre-passed / never started" (Philipp's screenshot).
+// During a gate run, the REGRESSION step must reflect the GATE's regression (queued →
+// running → passed), NOT the already-green per-push ci.yml run — otherwise it reads as
+// "pre-passed / never started" (Philipp's screenshot). On the new surface the gate's
+// regression is the stepper step; the per-push run is a clearly separate #gflow-ci line.
 const GATE_REG_RUNNING = JSON.parse(JSON.stringify(AHEAD_BRANCH_STATE)); // dev=bbbbbbb
 GATE_REG_RUNNING.github.ci = { state: 'passing', run_number: 44, url: 'https://example.test/ci/44', head_sha: 'bbbbbbb', updated_at: '2026-06-13T12:00:00.000Z' };
 GATE_REG_RUNNING.github.promote_run = {
@@ -206,32 +213,47 @@ GATE_REG_RUNNING.github.promote_run = {
   phases: [
     { key: 'regression', label: 'regression', status: 'running', duration_s: null },
     { key: 'e2e', label: 'e2e', status: 'pending', duration_s: null },
-    { key: 'fast-forward', label: 'fast-forward', status: 'pending', duration_s: null },
+    { key: 'ff', label: 'fast-forward', status: 'pending', duration_s: null },
   ],
 };
 
-test('during a gate run the REGRESSION row shows the gate step running — not the pre-passed per-push ✓', async ({ page }) => {
+test('during a gate run the REGRESSION step shows the gate step running — not the pre-passed per-push ✓', async ({ page }) => {
   await page.route('**/api/branch-state', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(GATE_REG_RUNNING) }));
   await page.goto('/');
 
-  const regression = page.locator('#ci-strip-regression-text');
-  await expect(regression).toContainText('in the gate');        // it's the gate's regression, running
-  await expect(regression).not.toContainText('run #44');         // NOT the stale per-push green ✓
-  await expect(regression).not.toContainText('passing');
+  const regStep = page.locator('#gate-flow-steps .gflow-step', { hasText: 'Regression' });
+  await expect(regStep).toHaveClass(/gflow-running/);          // it's the gate's regression, running
+  await expect(regStep).not.toContainText('run #44');          // NOT the stale per-push green ✓
+  await expect(regStep).not.toContainText('passing');
+  // The per-push ci.yml run is shown SEPARATELY and clearly labeled — never conflated with the gate.
+  const ci = page.locator('#gflow-ci');
+  await expect(ci).toContainText('Continuous CI');
+  await expect(ci).toContainText('run #44');
 });
 
-test('the Promote row shows the gate phases live — regression passes (with duration) before e2e and the merge', async ({ page }) => {
+const RUNNING_WITH_PHASES = JSON.parse(JSON.stringify(AHEAD_BRANCH_STATE));
+RUNNING_WITH_PHASES.github.promote_run = {
+  status: 'in_progress', run_id: 88, url: 'https://example.test/run/88', head_sha7: 'bbbbbbb',
+  updated_at: '2026-06-13T12:30:00.000Z',
+  phases: [
+    { key: 'regression', label: 'regression', status: 'passed', duration_s: 2 },
+    { key: 'e2e', label: 'e2e', status: 'running', duration_s: null },
+    { key: 'ff', label: 'fast-forward', status: 'pending', duration_s: null },
+  ],
+};
+
+test('the gate-flow stepper shows the phases live — regression passes (with duration) before e2e and the merge', async ({ page }) => {
   await page.route('**/api/branch-state', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(RUNNING_WITH_PHASES) }));
   await page.goto('/');
 
-  const promote = page.locator('#ci-strip-promote-text');
+  const steps = page.locator('#gate-flow-steps');
   // Regression is shown PASSED with its real duration — proof it ran, before e2e/merge.
-  const regression = promote.locator('.gate-phase-passed', { hasText: 'regression' });
-  await expect(regression).toBeVisible();
-  await expect(regression).toContainText('2s');
-  // e2e is shown running; the fast-forward has not happened yet.
-  await expect(promote.locator('.gate-phase-running', { hasText: 'e2e' })).toBeVisible();
-  await expect(promote.locator('.gate-phase-pending', { hasText: 'fast-forward' })).toBeVisible();
+  const regStep = steps.locator('.gflow-step', { hasText: 'Regression' });
+  await expect(regStep).toHaveClass(/gflow-passed/);
+  await expect(regStep).toContainText('2s');
+  // e2e is shown running; the fast-forward has not happened yet (its step is pending).
+  await expect(steps.locator('.gflow-step', { hasText: 'Browser e2e' })).toHaveClass(/gflow-running/);
+  await expect(steps.locator('.gflow-step', { hasText: 'Fast-forward' })).toHaveClass(/gflow-pending/);
 });

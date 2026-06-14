@@ -69,9 +69,17 @@ test('the topology Roll back button opens a preview of what reverts, then dispat
   await expect(card).toContainText('Roll back the last promotion');
   await expect(card.locator('.rb-revert')).toContainText('revert of aaaaaaa'); // main's last promotion
 
-  // Confirm → POST /api/rollback/dispatch (stubbed). Overlay closes; a toast names
-  // the revert and confirms the gate is running (rollback IS a promote dispatch).
+  // Rolling back is a real change to dev, so it now takes an explicit "are you sure"
+  // second step before dispatching. First click ARMS the confirmation (no dispatch yet).
   await card.locator('#rollback-confirm-btn').click();
+  await expect(card.locator('.rb-final-warn')).toContainText('Are you sure');
+  expect(dispatched).toBe(false); // arming alone must not dispatch
+  const reallyBtn = card.locator('#rollback-confirm-btn');
+  await expect(reallyBtn).toContainText('Yes, roll back');
+
+  // Second click → POST /api/rollback/dispatch (stubbed). Overlay closes; a toast names
+  // the revert and confirms the gate is running (rollback IS a promote dispatch).
+  await reallyBtn.click();
   await expect(page.locator('#rollback-overlay')).toHaveCount(0);
   const toast = page.locator('.return-toast');
   await expect(toast).toContainText('revert rev1234'); // the revert commit on dev
