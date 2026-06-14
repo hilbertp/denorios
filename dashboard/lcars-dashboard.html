@@ -5791,6 +5791,20 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
   }
 
   // Bashir's latest regression report — what regressed (routed to O'Brien on failure).
+  let _reportFailPrompt = '';
+  async function copyReportPrompt() {
+    const btn = event && event.target ? event.target : null;
+    try {
+      await navigator.clipboard.writeText(_reportFailPrompt || '');
+      if (btn) btn.textContent = 'Copied ✓';
+    } catch (_) {
+      const el = document.getElementById('report-fail-prompt');
+      if (el) { const r = document.createRange(); r.selectNodeContents(el);
+        const s = window.getSelection(); s.removeAllRanges(); s.addRange(r); }
+      if (btn) btn.textContent = 'Press ⌘C to copy';
+    }
+  }
+
   async function viewRegressionReport() {
     const overlay = document.getElementById('regression-coverage-overlay');
     const body = document.getElementById('regression-coverage-body');
@@ -5809,9 +5823,43 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       const flag = data.status === 'fail' ? '🔴 failing' : data.status === 'pass' ? '🟢 passing' : '';
       document.getElementById('regression-coverage-updated').textContent =
         `regression/LAST-RUN.md — ${flag} · updated ${new Date(data.updated).toLocaleString()}`;
-      body.innerHTML = (typeof renderMd === 'function')
+
+      // Connect the report to the panel: which commit it reflects (#num · hash),
+      // a clear pass/fail line, and a copyable investigation prompt on failure.
+      const bs = _lastBranchState;
+      const devTip = (bs && bs.dev && bs.dev.commits && bs.dev.commits.length)
+        ? bs.dev.commits[bs.dev.commits.length - 1] : null;
+      const testedTag = devTip ? commitLabel(devTip.number, devTip.sha) : '';
+      const statusLine = data.status === 'fail'
+        ? '<span style="color:#b91c1c;font-weight:700">● Failing</span>'
+        : data.status === 'pass' ? '<span style="color:#047857;font-weight:700">● Passing</span>'
+        : '<span style="color:#6b7280">● Unknown</span>';
+      let summary = `<div class="report-summary" style="display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center;padding:10px 12px;margin-bottom:12px;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;font-size:12px">`
+        + `<div>${statusLine}</div>`
+        + (testedTag ? `<div style="color:#6b7280">Tested commit (dev tip): <strong>${escHtml(testedTag)}</strong></div>` : '')
+        + `<div style="color:#9ca3af">Updated ${new Date(data.updated).toLocaleString()}</div>`
+        + `</div>`;
+
+      let promptBlock = '';
+      if (data.status === 'fail') {
+        _reportFailPrompt = `Regression failed.\n\n`
+          + `Investigate the failing regression suite, identify the cause, and propose the smallest safe fix. `
+          + `Do not merge to main until the regression suite passes cleanly.\n\n`
+          + `Context:\n`
+          + `- Branch: dev\n`
+          + `- Tested commit: ${testedTag || '<dev tip>'}\n`
+          + `- Report path: regression/LAST-RUN.md`;
+        promptBlock = `<div style="margin-bottom:12px">`
+          + `<div style="font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Investigation prompt</div>`
+          + `<pre class="gate-failure-prompt" id="report-fail-prompt">${escHtml(_reportFailPrompt)}</pre>`
+          + `<button class="rb-btn rb-btn-go" style="margin-top:6px" onclick="copyReportPrompt()">Copy investigation prompt</button>`
+          + `</div>`;
+      }
+
+      const md = (typeof renderMd === 'function')
         ? renderMd(data.markdown)
         : (typeof marked !== 'undefined' ? marked.parse(data.markdown) : `<pre>${escHtml(data.markdown)}</pre>`);
+      body.innerHTML = summary + promptBlock + md;
     } catch (err) {
       body.innerHTML = `<span class="null-val">Could not load report: ${escHtml(String(err))}</span>`;
     }
