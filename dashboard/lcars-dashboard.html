@@ -7307,6 +7307,17 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     } catch (_) {}
   })();
 
+  // Human-friendly running commit number: #001 … #999 (server-assigned, stable).
+  // Returns '' when no number is available so callers fall back to hash-only.
+  function fmtCommitNum(n) {
+    return (n != null && n !== '') ? '#' + String(n).padStart(3, '0') : '';
+  }
+  // "#017 · 00c0790" — prefer the number, always keep the hash for traceability.
+  function commitLabel(number, sha7) {
+    const tag = fmtCommitNum(number);
+    return (tag ? tag + ' · ' : '') + (sha7 || '');
+  }
+
   function renderTopoSvg(bs) {
     const wrap = document.getElementById('topo-svg-wrap');
     if (!wrap) return;
@@ -7331,7 +7342,8 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     // Always show a main dot (the tip or last merge)
     const mainSha = lastMerge ? lastMerge.sha : (mainTip || null);
     if (mainSha) {
-      mainDots.push({ sha: mainSha, isMerge: !!lastMerge });
+      mainDots.push({ sha: mainSha, isMerge: !!lastMerge,
+                      number: lastMerge ? lastMerge.number : (bs.main ? bs.main.number : null) });
     }
 
     for (let i = 0; i < commits.length; i++) {
@@ -7371,12 +7383,12 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
         svg += `<path d="M${mx - 3} ${mainY} l2 3 l4 -5" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round" />`;
         // origin/main label + hash above
         svg += `<text x="${mx}" y="32" text-anchor="middle" font-size="9" font-weight="600" fill="var(--branch-main)">origin/main</text>`;
-        svg += `<text x="${mx}" y="42" text-anchor="middle" font-size="10" font-weight="600" fill="var(--ok)">${(md.sha || '').slice(0, 7)}${promotedAge ? ` · ${promotedAge}` : ''}</text>`;
+        svg += `<text x="${mx}" y="42" text-anchor="middle" font-size="10" font-weight="600" fill="var(--ok)">${commitLabel(md.number, (md.sha || '').slice(0, 7))}${promotedAge ? ` · ${promotedAge}` : ''}</text>`;
       } else {
         svg += `<circle cx="${mx}" cy="${mainY}" r="6" fill="var(--branch-main)">`;
         svg += `<title>origin/main: ${(md.sha || '').slice(0, 7)}</title></circle>`;
         svg += `<text x="${mx}" y="32" text-anchor="middle" font-size="9" font-weight="600" fill="var(--branch-main)">origin/main</text>`;
-        svg += `<text x="${mx}" y="42" text-anchor="middle" font-size="10" fill="var(--ink-4)">${(md.sha || '').slice(0, 7)}</text>`;
+        svg += `<text x="${mx}" y="42" text-anchor="middle" font-size="10" fill="var(--ink-4)">${commitLabel(md.number, (md.sha || '').slice(0, 7))}</text>`;
       }
     }
 
@@ -7411,8 +7423,8 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
         svg += `<text x="${dx}" y="${sliceY}" text-anchor="middle" font-size="11" font-weight="600" fill="var(--rom)">${sliceId}</text>`;
       }
 
-      // Hash below dot (head also shows its age inline)
-      svg += `<text x="${dx}" y="115" text-anchor="middle" font-size="10" fill="var(--ink-4)">${sha7}${isHead && age ? ` · ${age}` : ''}</text>`;
+      // Number + hash below dot (head also shows its age inline)
+      svg += `<text x="${dx}" y="115" text-anchor="middle" font-size="10" fill="var(--ink-4)">${commitLabel(d.number, sha7)}${isHead && age ? ` · ${age}` : ''}</text>`;
     }
 
     svg += '</svg>';
