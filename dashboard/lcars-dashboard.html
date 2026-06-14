@@ -7484,29 +7484,34 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       devDots.push(commits[i]);
     }
 
-    // Calculate x positions for dev dots
-    const totalDots = Math.max(devDots.length + (mainDots.length ? 1 : 0), 1);
-    const spacing = devDots.length > 0 ? (xEnd - xStart) / Math.max(devDots.length, 1) : 0;
+    // Layout: origin/main is BEHIND (left); dev's commits extend AHEAD to the right,
+    // head at the far right. A faint dashed green line shows where main fast-forwards
+    // to on promote; a connector drops from main to the first shown dev commit.
+    const mainX    = 85;
+    const devStart = 185;
+    const devSpacing = devDots.length > 1 ? (xEnd - devStart) / (devDots.length - 1) : 0;
+    const devXAt = (i) => (devDots.length > 1 ? devStart + i * devSpacing : xEnd);
 
     let svg = `<svg viewBox="0 0 920 140" style="min-width:920px;width:100%;height:140px" role="img" aria-label="${ariaLabel}">`;
 
-    // Main track line
-    svg += `<line x1="20" y1="${mainY}" x2="900" y2="${mainY}" stroke="var(--branch-main)" stroke-width="2.5" />`;
+    // Main track: solid up to its dot (behind, left), then a faint dashed forward path
+    // showing where main fast-forwards to when promoted.
+    svg += `<line x1="20" y1="${mainY}" x2="${mainX}" y2="${mainY}" stroke="var(--branch-main)" stroke-width="2.5" />`;
+    svg += `<line x1="${mainX}" y1="${mainY}" x2="${xEnd}" y2="${mainY}" stroke="var(--branch-main)" stroke-width="1.5" stroke-dasharray="4 6" opacity="0.35" />`;
 
-    // Dev track line
+    // Dev track: branch from main, solid through the commits to the head, dashed after.
     if (devDots.length > 0) {
-      const lastDevX = xStart + (devDots.length - 1) * spacing;
-      svg += `<line x1="20" y1="${devY}" x2="${lastDevX}" y2="${devY}" stroke="var(--branch-dev)" stroke-width="2.5" />`;
-      // Dashed continuation after last dev dot
-      svg += `<line x1="${lastDevX}" y1="${devY}" x2="900" y2="${devY}" stroke="var(--branch-dev)" stroke-width="2" stroke-dasharray="6 4" />`;
+      const dashAttr = ahead > devDots.length ? ' stroke-dasharray="5 4"' : '';
+      svg += `<line x1="${mainX}" y1="${mainY}" x2="${devStart}" y2="${devY}" stroke="var(--branch-dev)" stroke-width="2"${dashAttr} />`;
+      svg += `<line x1="${devStart}" y1="${devY}" x2="${xEnd}" y2="${devY}" stroke="var(--branch-dev)" stroke-width="2.5" />`;
+      svg += `<line x1="${xEnd}" y1="${devY}" x2="900" y2="${devY}" stroke="var(--branch-dev)" stroke-width="2" stroke-dasharray="6 4" />`;
     } else {
-      // No dev commits — entire dev track is dashed
-      svg += `<line x1="20" y1="${devY}" x2="900" y2="${devY}" stroke="var(--branch-dev)" stroke-width="2" stroke-dasharray="6 4" />`;
+      svg += `<line x1="${mainX}" y1="${devY}" x2="900" y2="${devY}" stroke="var(--branch-dev)" stroke-width="2" stroke-dasharray="6 4" />`;
     }
 
-    // Main dot(s)
+    // Main dot — behind, on the left.
     if (mainDots.length > 0) {
-      const mx = devDots.length > 0 ? xEnd : xStart;
+      const mx = mainX;
       const md = mainDots[0];
       if (md.isMerge) {
         // Merge dot with check
@@ -7530,7 +7535,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     // graph answers "what is this commit and how old is it" without leaving
     // the panel. The head dot shows its age inline next to the hash.
     for (let i = 0; i < devDots.length; i++) {
-      const dx = xStart + i * spacing;
+      const dx = devXAt(i);
       const d = devDots[i];
       const sha7 = (d.sha || '').slice(0, 7);
       const sliceId = d.slice_id || '';
