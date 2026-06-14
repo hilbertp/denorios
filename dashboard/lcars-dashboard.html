@@ -3557,6 +3557,64 @@ body.lcars-mode .chain-stage.done.stage-reg  { background:#2a1f08 !important; co
 body.lcars-mode .chain-stage.done.stage-main { background:#111a33 !important; color:#7aa2ff !important; border-color:#2a3d72 !important; }
 body.lcars-mode .chain-stage.pending { background:#1a1a28 !important; color:var(--ink-4) !important; border-color:#33334d !important; }
 body.lcars-mode .chain-link.done { background:#5fd17a !important; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   Ziyal — topology clarity + uniform titles (light mode primary)
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* Uniform panel titles — was 3 styles: topo 13/700/UPPER, active 11/600/UPPER,
+   section 13/600/mixed. Now one treatment. Margins kept per-class (untouched). */
+.topo-panel-title,
+.active-slice-label,
+.section-title {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #374151;
+}
+
+/* Gate sequence: RUN GATE → ① Regression → ② Browser e2e → ③ Fast-forward → main */
+.gate-flow { margin: 12px 0 4px; padding: 12px 14px; border: 1px solid #e5e7eb;
+  border-radius: 10px; background: #f9fafb; }
+.gate-flow-head { font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: #9ca3af; margin-bottom: 9px; }
+.gate-flow-steps { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.gflow-trigger, .gflow-step, .gflow-target {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
+  padding: 5px 10px; border-radius: 7px; border: 1px solid #e5e7eb; background: #fff;
+  color: #374151; white-space: nowrap; }
+.gflow-num { display:inline-flex; align-items:center; justify-content:center;
+  width:16px; height:16px; border-radius:50%; background:#e5e7eb; color:#6b7280;
+  font-size:10px; font-weight:700; }
+.gflow-glyph { font-weight: 700; }
+.gflow-dur { color:#9ca3af; font-weight:500; }
+.gflow-arrow { color:#cbd5e1; font-size:13px; }
+.gflow-trigger { background:#111827; color:#fff; border-color:#111827; }
+.gflow-trigger-run { background:#92400e; border-color:#92400e; }
+.gflow-trigger-fail { background:#991b1b; border-color:#991b1b; }
+.gflow-trigger-done { background:#065f46; border-color:#065f46; }
+.gflow-target { background:#ecfdf5; border-color:#a7f3d0; color:#065f46; }
+.gflow-target-held { background:#fef2f2; border-color:#fecaca; color:#991b1b; }
+.gflow-step.gflow-idle, .gflow-step.gflow-pending { opacity:.7; }
+.gflow-step.gflow-running { border-color:#fcd34d; background:#fffbeb; color:#92400e; }
+.gflow-step.gflow-running .gflow-num { background:#fcd34d; color:#7c2d12; }
+.gflow-step.gflow-running .gflow-glyph { display:inline-block; animation: gflow-spin 1.1s linear infinite; }
+.gflow-step.gflow-passed { border-color:#a7f3d0; background:#ecfdf5; color:#065f46; }
+.gflow-step.gflow-passed .gflow-num { background:#34d399; color:#053b2c; }
+.gflow-step.gflow-failed { border-color:#fecaca; background:#fef2f2; color:#991b1b; }
+.gflow-step.gflow-failed .gflow-num { background:#f87171; color:#450a0a; }
+.gflow-step.gflow-skipped { opacity:.45; }
+.gate-flow-caption { margin-top:10px; font-size:11.5px; line-height:1.5; color:#6b7280; }
+.gflow-cap-fail { color:#991b1b; }
+.gflow-cap-ok { color:#065f46; }
+@keyframes gflow-spin { to { transform: rotate(360deg); } }
+
+/* Minimal LCARS placeholder (full dark polish deferred per Philipp) */
+body.lcars-mode .gate-flow { background:#12121e; border-color:#33334d; }
+body.lcars-mode .gflow-trigger, body.lcars-mode .gflow-step, body.lcars-mode .gflow-target {
+  background:#1a1a28; border-color:#33334d; color:#e7d6ff; }
+body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
 </style>
 
 <div class="dashboard-container">
@@ -3594,6 +3652,12 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
           <span id="topo-foot-rr"></span>
           <span class="topo-foot-stats" id="topo-foot-stats"></span>
           <span id="topo-foot-action"></span>
+        </div>
+        <!-- ── Gate sequence (Ziyal: makes the regression → promote flow explicit) ── -->
+        <div class="gate-flow" id="gate-flow">
+          <div class="gate-flow-head">Gate sequence</div>
+          <div class="gate-flow-steps" id="gate-flow-steps"></div>
+          <div class="gate-flow-caption" id="gate-flow-caption"></div>
         </div>
         <!-- ── CI status strip (slice 315 — supersedes the "auto-promotes on green" caption) ── -->
         <div class="ci-strip" id="ci-strip" data-state="idle">
@@ -7753,6 +7817,66 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
     return `<span class="gate-phases">${parts.join('<span class="gate-phase-arrow">→</span>')}</span>`;
   }
 
+  // ── Gate sequence stepper (Ziyal) ──────────────────────────────────────────
+  // Always-visible explanation of what RUN GATE does, doubling as live progress:
+  //   RUN GATE → ① Regression → ② Browser e2e → ③ Fast-forward → origin/main
+  // Any step fails → STOP, main untouched & flagged. All pass → promoted.
+  // Reflects the real promote_run.phases (status + duration_s) and live elapsed.
+  function renderGateFlow(gh) {
+    const host = document.getElementById('gate-flow-steps');
+    const cap  = document.getElementById('gate-flow-caption');
+    if (!host) return;
+
+    const STEPS = [
+      { key: 'regression',   label: 'Regression' },
+      { key: 'e2e',          label: 'Browser e2e' },
+      { key: 'fast-forward', label: 'Fast-forward' },
+    ];
+    const glyph = { passed: '✓', running: '↻', failed: '✗', skipped: '–', pending: '○', idle: '○' };
+
+    const pr      = gh && gh.promote_run ? gh.promote_run : null;
+    const phases  = _promoteRunStale(gh) ? null : (pr && pr.phases ? pr.phases : null);
+    const running = _gateIsRunning(gh);
+    const failed  = _gatePhaseFailed(gh) || (pr && pr.status === 'failure' && !_promoteRunStale(gh));
+    const success = !!(pr && pr.status === 'success' && !_promoteRunStale(gh));
+    const ahead   = _ghAhead(gh);
+
+    const byKey = {};
+    (phases || []).forEach(p => { byKey[p.key] = p; });
+
+    const arrow = '<span class="gflow-arrow">→</span>';
+    const stepHtml = STEPS.map((s, i) => {
+      const ph = byKey[s.key];
+      const status = ph ? ph.status : 'idle';
+      const dur = ph && ph.duration_s != null ? `<span class="gflow-dur">· ${ph.duration_s}s</span>` : '';
+      return `<span class="gflow-step gflow-${status}">`
+        + `<span class="gflow-num">${i + 1}</span>`
+        + `<span class="gflow-glyph">${glyph[status] || '○'}</span>`
+        + `<span class="gflow-label">${s.label}</span>${dur}</span>`;
+    }).join(arrow);
+
+    const elapsed = running ? _gateElapsedLabel() : '';
+    const trigState = running ? 'run' : failed ? 'fail' : success ? 'done' : 'idle';
+    const trigger = `<span class="gflow-trigger gflow-trigger-${trigState}">RUN GATE${elapsed ? ' · ' + elapsed : ''}</span>`;
+    const target  = `<span class="gflow-target${failed ? ' gflow-target-held' : ''}">origin/main</span>`;
+
+    host.innerHTML = trigger + arrow + stepHtml + arrow + target;
+
+    if (cap) {
+      if (failed) {
+        cap.innerHTML = '<strong class="gflow-cap-fail">Stopped — a step failed. main was not touched and the failure is flagged.</strong>';
+      } else if (running) {
+        cap.innerHTML = 'Running the full suite on a clean runner — <strong>main moves only when every step passes</strong>.';
+      } else if (success) {
+        cap.innerHTML = '<strong class="gflow-cap-ok">All steps passed — fast-forwarded to origin/main.</strong>';
+      } else if (ahead > 0) {
+        cap.innerHTML = 'Press <strong>RUN GATE</strong> to re-run regression on a clean runner. Any step fails → <strong>STOP</strong>, main untouched &amp; flagged. All pass → promoted to origin/main.';
+      } else {
+        cap.innerHTML = 'Nothing staged to promote — dev is level with origin/main.';
+      }
+    }
+  }
+
   function renderCiStrip(gh) {
     const strip       = document.getElementById('ci-strip');
     const regGlyph    = document.getElementById('ci-strip-regression-glyph');
@@ -7997,12 +8121,14 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
       const wrap = document.getElementById('topo-svg-wrap');
       if (wrap) wrap.innerHTML = '';
       renderCiStrip(null);
+      renderGateFlow(null);
       return;
     }
     renderTopoSvg(bs);
     renderTopoFooter(bs);
     renderTopoMini(bs);
     renderCiStrip(bs.github);
+    renderGateFlow(bs.github);
   }
 
   // ── Gate step card animation state (slice 265) ─────────────────────────────
