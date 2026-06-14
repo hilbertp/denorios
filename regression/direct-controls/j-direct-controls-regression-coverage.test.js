@@ -182,7 +182,7 @@ test('J-direct-controls-ops-ui slice-99809-ac-1 — the RUN GATE button acknowle
   assert.match(html, /GATE RUNNING/, 'running button state must exist');
 });
 
-test('J-direct-controls-ops-ui slice-99809-ac-2 — the shipped dashboard explains promote in plain language at every surface (button, rows, header info)', () => {
+test('J-direct-controls-ops-ui slice-99809-ac-2 — the shipped dashboard explains promote in plain language at every surface (button, gate sequence, helper)', () => {
   const html = fs.readFileSync(DASHBOARD_SRC, 'utf8');
 
   // The button explains the consequence of pressing it.
@@ -191,16 +191,19 @@ test('J-direct-controls-ops-ui slice-99809-ac-2 — the shipped dashboard explai
   assert.match(html, /Nothing merges automatically/,
     'button tooltip must state nothing is automatic');
 
-  // The strip header info icon and per-row labels carry explainers.
-  assert.match(html, /class="ci-strip-info" title="/, 'header info icon must exist');
-  assert.match(html, /Feedback only; it never merges anything/,
-    'Regression row must be explained as feedback-only');
-  assert.match(html, /fast-forwards origin\/main to that exact tested commit/,
-    'Promote must be explained as ff-to-tested-commit');
+  // The Gate Sequence caption replaces the old CI-strip rows: it explains, in plain
+  // language, that per-push regression is feedback-only, that any failed step stops
+  // the gate and leaves main untouched, and that all-green promotes to main.
+  assert.match(html, /Regression runs automatically on every push to dev \(feedback only\)/,
+    'gate-sequence caption must explain per-push regression is feedback-only');
+  assert.match(html, /any step fails → <strong>STOP<\/strong>, main untouched/,
+    'gate-sequence caption must explain a failed step stops and leaves main untouched');
+  assert.match(html, /all pass → promoted to origin\/main/,
+    'gate-sequence caption must explain all-green promotes to main');
 
-  // The held state tells the operator what unblocks it instead of jargon.
-  assert.match(html, /nothing reaches main until you press RUN GATE/,
-    'held microcopy must explain the operator gate');
+  // The Merge Pressure helper (header-level info) names the metric honestly.
+  assert.match(html, /it is <strong>not<\/strong> a regression probability/,
+    'merge-pressure helper must state it is not a regression probability');
 });
 
 test('J-direct-controls-ops-ui slice-99810-ac-1 — branch-state enrichment: server exposes run recency, commit subjects/ages, and churn split for the topology panel', () => {
