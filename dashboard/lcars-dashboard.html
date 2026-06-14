@@ -3670,7 +3670,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
             <span class="ci-strip-runner">
               <span class="ci-strip-runner-label">GitHub Actions</span>
               <span class="ci-strip-runner-workflow">ci.yml</span>
-              <span class="ci-strip-info" title="Two independent safety nets:&#10;&#10;REGRESSION — ci.yml runs the full regression suite on every push to dev. Feedback only; it never merges anything.&#10;&#10;PROMOTE — promote.yml runs only when you press RUN GATE &amp; MERGE TO MAIN. It re-runs the full suite on a clean GitHub runner against origin/dev and, only if green, fast-forwards origin/main to that exact tested commit. Red gate = main untouched.">&#9432;</span>
+              <span class="ci-strip-info" title="Regression: tests dev automatically on every push. Gate: re-tests dev on a clean runner, then fast-forwards main only if green.">&#9432;</span>
             </span>
           </div>
           <div class="ci-strip-row" id="ci-strip-regression">
@@ -7437,7 +7437,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       const churn = ghRR.churn != null ? ghRR.churn : 0;
       const nCrit = Array.isArray(ghRR.critical_files) ? ghRR.critical_files.length : 0;
       const tip = `${commits} commits · ${churn} lines churn · ${nCrit} critical files`;
-      rrEl.innerHTML = `<span class="rr-pill ${cls}" title="${tip}">RR ${score}% &middot; ${level}</span>`;
+      rrEl.innerHTML = `<span class="rr-pill ${cls}" title="${tip}">Regression Risk ${score}% &middot; ${level}</span>`;
       return;
     }
 
@@ -7447,7 +7447,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
 
     if (!rr || ahead === 0) {
       // Empty dev or no RR data — show clean pill
-      rrEl.innerHTML = '<span class="rr-pill green">RR 0% &middot; clean</span>';
+      rrEl.innerHTML = '<span class="rr-pill green">Regression Risk 0% &middot; clean</span>';
       return;
     }
 
@@ -7458,7 +7458,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     const sv = Math.round((inputs.surface_volatility || 0) * 100);
     const ac = Math.round((inputs.ac_coverage_gap || 0) * 100);
 
-    const label = pct === 0 ? 'RR 0% &middot; clean' : `RR ${pct}%`;
+    const label = pct === 0 ? 'Regression Risk 0% &middot; clean' : `Regression Risk ${pct}%`;
 
     rrEl.innerHTML = `<span class="rr-pill ${band}">${label}<span class="rr-pill-tooltip">Slice pressure: ${sp}% | Surface volatility: ${sv}% | AC coverage gap: ${ac}%</span></span>`;
   }
@@ -7870,7 +7870,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       } else if (success) {
         cap.innerHTML = '<strong class="gflow-cap-ok">All steps passed — fast-forwarded to origin/main.</strong>';
       } else if (ahead > 0) {
-        cap.innerHTML = 'Press <strong>RUN GATE</strong> to re-run regression on a clean runner. Any step fails → <strong>STOP</strong>, main untouched &amp; flagged. All pass → promoted to origin/main.';
+        cap.innerHTML = 'Regression runs automatically on every push to dev (feedback only). Press <strong>RUN GATE</strong> to re-test on a clean runner — any step fails → <strong>STOP</strong>, main untouched &amp; flagged; all pass → promoted to origin/main.';
       } else {
         cap.innerHTML = 'Nothing staged to promote — dev is level with origin/main.';
       }
