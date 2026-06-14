@@ -494,25 +494,17 @@ test('J-inspect-slice-history slice-901-ac-1 — deriveHistoryOutcome reflects r
   }), 'ON_DEV');
 });
 
-// ── PRODUCT BUG (rule 6): journey steps 4-6 / outcome 2 unmet for the
-//    journey's own precondition state ─────────────────────────────────────────
+// ── Journey steps 4-6 / outcome 2 for the journey's own precondition state ────
 //
-// Finding: journey J-inspect-slice-history steps 4-6 are not met by current
-// dev for a slice in terminal ARCHIVED state. Evidence: with only
-// bridge/queue/901-ARCHIVED.md on disk (full body + Rom DONE Report + Nog
-// Review blocks — the journey's precondition, slice-pipeline §4 row 8),
-// buildSliceInvestigation — and therefore GET /api/slice/901, the endpoint
-// behind the History panel's detail view — returns
-// { prompt: null, report: null, reviews: [] }: every tab renders its
-// placeholder although all artifacts are readable on disk. The function's
-// candidate lists (dashboard/server.js ~lines 507-531) include IN_PROGRESS/
-// QUEUED/STAGED/PARKED/STUCK/DONE/ERROR/ACCEPTED but never ARCHIVED, although
-// getTitleAndGoal (line ~600) and /api/queue/:id/content (line ~1439) both
-// implement the ARCHIVED fallback that slice-pipeline §"Known code
-// divergences" promises for the dashboard server. Verified empirically
-// 2026-06-12 on dev. Do not unskip until the product adds the -ARCHIVED.md
-// candidates to buildSliceInvestigation.
-test.skip('J-inspect-slice-history slice-901-ac-2 — detail tabs surface body, Rom report and Nog verdict for a terminal ARCHIVED slice (PRODUCT BUG: buildSliceInvestigation never reads {id}-ARCHIVED.md)', async () => {
+// For a slice in terminal ARCHIVED state, the single bridge/queue/901-ARCHIVED.md
+// (full body + Rom DONE Report + Nog Review blocks — slice-pipeline §4 row 8) must
+// flow through buildSliceInvestigation → GET /api/slice/901 into the History panel's
+// detail tabs. Previously buildSliceInvestigation's candidate lists covered
+// IN_PROGRESS/QUEUED/STAGED/PARKED/STUCK/DONE/ERROR/ACCEPTED but never ARCHIVED, so
+// every tab rendered its placeholder although the file was readable on disk
+// (getTitleAndGoal and /api/queue/:id/content already had the ARCHIVED fallback).
+// FIXED 2026-06-14: ARCHIVED added to the prompt + terminal candidate lists.
+test('J-inspect-slice-history slice-901-ac-2 — detail tabs surface body, Rom report and Nog verdict for a terminal ARCHIVED slice', async () => {
   const res = await request('GET', '/api/slice/901');
   assert.equal(res.status, 200);
   assert.ok(res.body.prompt, 'Slice body tab must show the archived original body');

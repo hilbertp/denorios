@@ -361,8 +361,12 @@ function _getGitTips() {
       };
     }
 
+    // Ceiling, not a window: the serpentine topology renderer folds every
+    // unmerged commit onto stacked rows, so we send all of them (up to a sane
+    // safety cap). If dev ever runs past the cap the renderer's dashed lead-in
+    // marks the truncation honestly rather than silently showing a partial count.
     const logOut = execFileSync('git',
-      ['log', 'origin/dev', '--not', 'origin/main', '--format=%H %ct %s', '--max-count=10', '--reverse'],
+      ['log', 'origin/dev', '--not', 'origin/main', '--format=%H %ct %s', '--max-count=60', '--reverse'],
       { cwd: REPO_ROOT, encoding: 'utf8', timeout: 5000 }).trim();
     if (logOut) {
       result.dev_commits = logOut.split('\n').filter(Boolean).map(line => {
@@ -1119,20 +1123,24 @@ function buildSliceInvestigation(id, dirs) {
   const q = f => path.join(qDir, f);
   const s = f => path.join(sDir, f);
 
-  // Prompt: earliest available file per precedence
+  // Prompt: earliest available file per precedence. ARCHIVED is the terminal,
+  // single-file state (slice-pipeline §4/§5): the archived .md holds the original
+  // body + all appended blocks, so it is the lowest-precedence fallback — without it
+  // the detail tabs render empty for a terminal ARCHIVED slice even though the file
+  // is on disk (getTitleAndGoal and /api/queue/:id/content already read it).
   const promptFiles = [
     q(`${id}-IN_PROGRESS.md`), q(`${id}-QUEUED.md`), s(`${id}-STAGED.md`),
     q(`${id}-PARKED.md`), q(`${id}-STUCK.md`),
-    q(`${id}-DONE.md`), q(`${id}-ERROR.md`), q(`${id}-ACCEPTED.md`),
+    q(`${id}-DONE.md`), q(`${id}-ERROR.md`), q(`${id}-ACCEPTED.md`), q(`${id}-ARCHIVED.md`),
   ];
   let prompt = null;
   for (const p of promptFiles) {
     if (fs.existsSync(p)) { prompt = extractBody(fs.readFileSync(p, 'utf8')); break; }
   }
 
-  // Report: body of terminal file
+  // Report: body of terminal file (ARCHIVED carries the appended Rom DONE + Nog review).
   const termFiles = [
-    q(`${id}-DONE.md`), q(`${id}-STUCK.md`), q(`${id}-ERROR.md`), q(`${id}-ACCEPTED.md`),
+    q(`${id}-DONE.md`), q(`${id}-STUCK.md`), q(`${id}-ERROR.md`), q(`${id}-ACCEPTED.md`), q(`${id}-ARCHIVED.md`),
   ];
   let report = null;
   for (const p of termFiles) {
