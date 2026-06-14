@@ -21,7 +21,7 @@ const VERDICT_STEP = (status, conclusion, startedAt, completedAt) =>
   STEP('Test-Update Gate (verdict — fail closed on RED)', status, conclusion, startedAt, completedAt);
 const byKey = (phases) => Object.fromEntries(phases.map(p => [p.key, p]));
 
-test('J-promote-gate-phases ac-1 — a green run folds to tests-needed/regression/e2e/ff all passed, in order, with real durations', () => {
+test('J-promote-gate-phases ac-1 — a green run folds to regression/e2e/ff all passed, in order, with real durations', () => {
   const phases = mapPromotePhases([
     STEP('Set up job', 'completed', 'success'),
     VERDICT_STEP('completed', 'success', '2026-06-13T17:06:00Z', '2026-06-13T17:06:01Z'),
@@ -39,7 +39,7 @@ test('J-promote-gate-phases ac-1 — a green run folds to tests-needed/regressio
   assert.equal(k.ff.duration_s, 1, 'fast-forward ~1s');
 });
 
-test('J-promote-gate-phases ac-2 — a live run shows the verdict + regression passed, e2e running, ff pending', () => {
+test('J-promote-gate-phases ac-2 — a live run shows regression passed, e2e running, ff pending', () => {
   const phases = mapPromotePhases([
     VERDICT_STEP('completed', 'success', '2026-06-13T17:06:00Z', '2026-06-13T17:06:01Z'),
     STEP('Run regression gate (fast node:test suite)', 'completed', 'success', '2026-06-13T17:06:02Z', '2026-06-13T17:06:04Z'),
