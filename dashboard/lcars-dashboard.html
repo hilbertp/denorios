@@ -3627,6 +3627,9 @@ body.lcars-mode .gate-flow-foot { border-color:#33334d; color:#b6a4e0; }
   color:#991b1b; border-radius:8px; font-size:12.5px; line-height:1.55; }
 .report-stale-note { margin-bottom:12px; padding:10px 13px; border:1px solid #fde68a; background:#fffbeb;
   color:#92400e; border-radius:8px; font-size:12px; line-height:1.5; }
+.report-source-note { margin-bottom:12px; padding:8px 12px; border:1px solid #e5e7eb; background:#f9fafb;
+  color:#6b7280; border-radius:8px; font-size:11.5px; }
+.report-source-note a { color:#2563eb; font-weight:600; }
 .report-stale-warn a, .report-stale-note a { color:inherit; font-weight:700; }
 .report-stale-warn code, .report-stale-note code { background:rgba(0,0,0,.06); padding:1px 4px; border-radius:4px; }
 .gflow-ci a { color:inherit; text-decoration:underline; }
@@ -5836,8 +5839,11 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
         return;
       }
       const flag = data.status === 'fail' ? '🔴 failing' : data.status === 'pass' ? '🟢 passing' : '';
+      const srcLabel = data.source === 'github'
+        ? `ci.yml run${data.run_number ? ' #' + data.run_number : ''}`
+        : 'regression/LAST-RUN.md (local)';
       document.getElementById('regression-coverage-updated').textContent =
-        `regression/LAST-RUN.md — ${flag} · updated ${new Date(data.updated).toLocaleString()}`;
+        `${srcLabel} — ${flag} · ${new Date(data.updated).toLocaleString()}`;
 
       // Connect the report to the panel: which commit it reflects (#num · hash),
       // a clear pass/fail line, and a copyable investigation prompt on failure.
@@ -5878,7 +5884,11 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       const ciRun = ci && ci.run_number ? `#${ci.run_number}` : '';
       const ciUrl = ci && ci.url ? ci.url : null;
       let banner = '';
-      if (data.status === 'pass' && ci && ci.state === 'failing') {
+      if (data.source === 'github') {
+        // Report is the artifact from the actual run — provenance note, no conflict possible.
+        banner = `<div class="report-source-note">From the live GitHub run${data.run_number ? ` #${data.run_number}` : ''}`
+          + (data.run_url ? ` · <a href="${escHtml(data.run_url)}" target="_blank" rel="noopener">open in GitHub ↗</a>` : '') + `</div>`;
+      } else if (data.status === 'pass' && ci && ci.state === 'failing') {
         banner = `<div class="report-stale-warn">⚠ <strong>This saved report says PASS, but the latest CI run ${escHtml(ciRun)} is FAILING.</strong> `
           + `<code>regression/LAST-RUN.md</code> is written by a local script and is not updated by GitHub runs, so it can lag the live gate/CI. `
           + (ciUrl ? `<a href="${escHtml(ciUrl)}" target="_blank" rel="noopener">Open the live run ↗</a>` : '') + `</div>`;

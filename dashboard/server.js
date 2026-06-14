@@ -406,7 +406,7 @@ function _getGhCi() {
   try {
     const out = execFileSync('gh',
       ['run', 'list', '--workflow=ci.yml', '--branch=dev',
-       '--json=status,conclusion,number,url,headSha,updatedAt', '--limit=1'],
+       '--json=status,conclusion,number,url,headSha,updatedAt,databaseId', '--limit=1'],
       { cwd: REPO_ROOT, encoding: 'utf8', timeout: 15000 }).trim();
     const runs = JSON.parse(out);
     if (runs && runs.length > 0) {
@@ -416,12 +416,50 @@ function _getGhCi() {
       else if (run.conclusion === 'success') state = 'passing';
       else if (run.conclusion === 'failure' || run.conclusion === 'cancelled') state = 'failing';
       else state = 'unknown';
-      result = { state, run_number: run.number, url: run.url, head_sha: run.headSha,
-                 updated_at: run.updatedAt || null };
+      result = { state, run_number: run.number, run_id: run.databaseId ?? null,
+                 url: run.url, head_sha: run.headSha, updated_at: run.updatedAt || null };
     }
   } catch (_) { /* gh not installed or not authenticated — non-fatal */ }
   _ghCiCache = { value: result, fetchedAt: now };
   return result;
+}
+
+// The regression report that reflects the ACTUAL latest GitHub run. ci.yml runs
+// scripts/regression-report.js and uploads regression/LAST-RUN.md as the
+// `regression-report` artifact; we download it for the latest ci.yml run so the
+// dashboard shows the run that really ran — not a stale local file. Cached by
+// run_id (download is slow, and only changes when a new run completes).
+let _regReportCache = { runId: null, value: null, fetchedAt: 0 };
+const REG_REPORT_TTL_MS = 60 * 1000;
+function getGitHubRegressionReport() {
+  const ci = _getGhCi();
+  if (!ci || ci.run_id == null) return null;
+  const runId = ci.run_id;
+  const now = Date.now();
+  if (_regReportCache.runId === runId && _regReportCache.value &&
+      (now - _regReportCache.fetchedAt) < REG_REPORT_TTL_MS) {
+    return _regReportCache.value;
+  }
+  let value = null;
+  let dir = null;
+  try {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'reg-report-'));
+    // Artifacts only exist once a run finishes uploading; on miss this throws → fallback.
+    execFileSync('gh', ['run', 'download', String(runId), '-n', 'regression-report', '-D', dir],
+      { cwd: REPO_ROOT, encoding: 'utf8', timeout: 30000, stdio: ['ignore', 'pipe', 'ignore'] });
+    const f = path.join(dir, 'LAST-RUN.md');
+    if (fs.existsSync(f)) {
+      const markdown = fs.readFileSync(f, 'utf8');
+      const first = markdown.split('\n')[0];
+      const status = /🔴|—\s*FAIL/.test(first) ? 'fail'
+                   : /🟢|—\s*PASS/.test(first) ? 'pass' : 'none';
+      value = { markdown, updated: ci.updated_at || new Date(now).toISOString(),
+                status, source: 'github', run_number: ci.run_number, run_url: ci.url };
+    }
+  } catch (_) { value = null; /* no artifact yet / expired / gh error → caller falls back */ }
+  finally { if (dir) { try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {} } }
+  _regReportCache = { runId, value, fetchedAt: now };
+  return value;
 }
 
 // The three gate phases promote.yml runs, in order, before main moves. Matched by
@@ -2253,10 +2291,18 @@ const server = http.createServer(async (req, res) => {
   // status: 'pass' | 'fail' | 'none', parsed from the report heading.
   if (pathname === '/api/regression/report' && req.method === 'GET') {
     try {
+      // Prefer the report from the ACTUAL latest GitHub run (artifact) so it can't
+      // disagree with the live CI/gate. Fall back to the local file (flagged as such).
+      const fromGithub = getGitHubRegressionReport();
+      if (fromGithub) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(fromGithub));
+        return;
+      }
       const reportPath = path.join(REPO_ROOT, 'regression', 'LAST-RUN.md');
       if (!fs.existsSync(reportPath)) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ markdown: null, updated: null, status: 'none' }));
+        res.end(JSON.stringify({ markdown: null, updated: null, status: 'none', source: 'none' }));
         return;
       }
       const markdown = fs.readFileSync(reportPath, 'utf8');
@@ -2264,7 +2310,7 @@ const server = http.createServer(async (req, res) => {
       const status = /🔴|—\s*FAIL/.test(markdown.split('\n')[0]) ? 'fail'
                    : /🟢|—\s*PASS/.test(markdown.split('\n')[0]) ? 'pass' : 'none';
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ markdown, updated, status }));
+      res.end(JSON.stringify({ markdown, updated, status, source: 'local' }));
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: String(err) }));
