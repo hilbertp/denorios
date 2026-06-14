@@ -217,7 +217,7 @@ GATE_REG_RUNNING.github.promote_run = {
   ],
 };
 
-test('during a gate run the REGRESSION step shows the gate step running — not the pre-passed per-push ✓', async ({ page }) => {
+test('during a gate run the REGRESSION row shows the gate step running — not the pre-passed per-push ✓', async ({ page }) => {
   await page.route('**/api/branch-state', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(GATE_REG_RUNNING) }));
   await page.goto('/');
@@ -243,7 +243,7 @@ RUNNING_WITH_PHASES.github.promote_run = {
   ],
 };
 
-test('the gate-flow stepper shows the phases live — regression passes (with duration) before e2e and the merge', async ({ page }) => {
+test('the Promote row shows the gate phases live — regression passes (with duration) before e2e and the merge', async ({ page }) => {
   await page.route('**/api/branch-state', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(RUNNING_WITH_PHASES) }));
   await page.goto('/');
