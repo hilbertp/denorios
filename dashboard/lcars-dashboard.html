@@ -3595,7 +3595,7 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
   color: #374151;
 }
 
-/* Gate sequence: RUN GATE → ① Update tests → ② Run fast regression → ③ E2E smoke test → ④ Promote → ⑤ merged */
+/* Gate sequence: RUN GATE → ① Update tests → ② Run fast regression → ③ E2E smoke test → ④ Promote */
 .gate-flow { margin: 12px 0 4px; padding: 12px 14px; border: 1px solid #e5e7eb;
   border-radius: 10px; background: #f9fafb; }
 .gate-flow-head { font-size: 10px; font-weight: 700; text-transform: uppercase;
@@ -8309,7 +8309,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
 
   // ── Gate sequence stepper (Ziyal) ──────────────────────────────────────────
   // Always-visible explanation of what RUN GATE does, doubling as live progress:
-  //   RUN GATE → ① Update tests → ② Run fast regression → ③ E2E smoke test → ④ Promote → ⑤ merged
+  //   RUN GATE → ① Update tests → ② Run fast regression → ③ E2E smoke test → ④ Promote
   // Any step fails → STOP, main untouched & flagged. All pass → promoted.
   // Reflects the real promote_run.phases (status + duration_s) and live elapsed.
   function renderGateFlow(gh) {
@@ -8369,12 +8369,9 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     const elapsed = running ? _gateElapsedLabel() : '';
     const trigState = running ? 'run' : failed ? 'fail' : success ? 'done' : 'idle';
     const trigger = `<span class="gflow-trigger gflow-trigger-${trigState}">RUN GATE${elapsed ? ' · ' + elapsed : ''}</span>`;
-    const targetCls = success ? ' gflow-target-ok' : failed ? ' gflow-target-held' : '';
-    const target  = `<span class="gflow-target${targetCls}">`
-      + `<span class="gflow-num">5</span>`
-      + `<span class="gflow-label">merged</span></span>`;
-
-    host.innerHTML = trigger + arrow + updateTestsHtml + arrow + stepHtml + arrow + target;
+    // No trailing "merged" node — a merge is the RESULT of step ④ Promote, not a
+    // separate step. Success/held state is carried by the Promote step + the caption.
+    host.innerHTML = trigger + arrow + updateTestsHtml + arrow + stepHtml;
 
     // Per-push CI (ci.yml) — the automatic check that runs on every push, distinct
     // from the operator gate above. Folded in here so it isn't a redundant panel.

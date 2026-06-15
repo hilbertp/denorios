@@ -65,7 +65,6 @@ test('full gate-FAILURE clicktest: held → run gate → regression FAILS → ga
   const steps   = page.locator('#gate-flow-steps');
   const regStep = steps.locator('.gflow-step', { hasText: 'Regression' });
   const caption = page.locator('#gate-flow-caption');
-  const target  = steps.locator('.gflow-target');
   const btn     = page.locator('#promote-gate-btn');
 
   // Stage 0 · HELD — the gate hasn't run for this dev tip; press RUN GATE.
@@ -93,11 +92,10 @@ test('full gate-FAILURE clicktest: held → run gate → regression FAILS → ga
   // The regression step reads FAILED (✗), not idle.
   await expect(regStep).toHaveClass(/gflow-failed/);
   await expect(regStep.locator('.gflow-glyph')).toHaveText('✗');
-  // The gate flow flags the failure: caption goes red and the target is HELD (not green).
+  // The gate flow flags the failure: the caption goes red and states main was held.
   await expect(caption.locator('.gflow-cap-fail')).toBeVisible();
   await expect(caption).toContainText('Stopped');
   await expect(caption).toContainText('main was not touched');
-  await expect(target).toHaveClass(/gflow-target-held/);
   // STOP — main was NOT promoted (no success caption), and control returns to fix + retry.
   await expect(page.locator('.gflow-cap-ok')).toHaveCount(0);
   await expect(btn).toContainText('RUN GATE');
