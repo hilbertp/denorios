@@ -9,7 +9,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Antonio:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   /* ── CSS variables (kept for JS compatibility, remapped to clean palette) ── */
   :root {
@@ -3491,14 +3491,16 @@ body.lcars-mode {
 }
 body.lcars-mode .dashboard-container { background:#000; }
 
-/* Headings → LCARS amber + the Antonio face */
+/* Headings → LCARS amber + a readable technical mono (IBM Plex Mono).
+   Antonio (condensed display) was unreadable at UI sizes; Plex Mono keeps the
+   "coding" character while staying legible. */
 body.lcars-mode .header-title,
 body.lcars-mode [class*="-title"],
 body.lcars-mode [class*="-label"],
 body.lcars-mode .crew-name {
   color: var(--lcars-amber) !important;
-  font-family: 'Antonio','Oswald',system-ui,sans-serif;
-  letter-spacing: 0.06em;
+  font-family: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  letter-spacing: 0.04em;
 }
 /* Body + dim text → light (defeats the hardcoded greys) */
 body.lcars-mode .header-subtitle,
