@@ -2841,6 +2841,7 @@
   .outcome-max-rounds   { background: #fef3c7; color: #92400e; }
   .outcome-escalated    { background: #dbeafe; color: #1e40af; }
   .outcome-error        { background: var(--err-bg); color: #991b1b; }
+  .outcome-success      { background: var(--ok-bg); color: #166534; }
 
   /* ── PAUSE BUTTON ────────────────────────────────────── */
   /* "View live log" control in the Active Build footer (J-watch-slice-live-log) */
@@ -3557,6 +3558,7 @@ body.lcars-mode [style*="background:#fff"], body.lcars-mode [style*="background:
 body.lcars-mode .outcome-pill { color: var(--ink) !important; }
 body.lcars-mode .outcome-error { color: #ff8a8a !important; }
 body.lcars-mode .outcome-on-dev { color: #93b4ff !important; }
+body.lcars-mode .outcome-success { color: #7be388 !important; }
 body.lcars-mode .gate-health-row, body.lcars-mode .gate-health-row span { color: var(--ink-2) !important; }
 /* Dossier tabs */
 body.lcars-mode .crew-tab { color: var(--ink-3) !important; }
@@ -3938,10 +3940,6 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
         </div>
         <div class="history-list" id="history-list"></div>
         <div id="history-pagination" class="hidden"></div>
-        <div class="history-footer" id="history-footer" style="display:none">
-          <span id="history-footer-count"></span>
-          <a class="history-archive-link" id="history-archive-link" href="#"></a>
-        </div>
       </div>
     </div>
 
@@ -5177,22 +5175,13 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
   }
 
   function outcomeHtml(outcome, row) {
-    // Dev-lifecycle outcomes render as the committed-to-dev \u2192 regression \u2192 on-main chain.
-    if (outcome === 'ON_DEV' || outcome === 'ON_MAIN' || outcome === 'ACCEPTED') {
-      return lifecycleChainHtml(row && row.onMain, row && row.regressionPassed);
-    }
-    switch (outcome) {
-      case 'DEFERRED':
-        return '<span class="outcome-pill outcome-deferred" title="Squash deferred — Bashir gate was running. Will squash to dev when the gate clears.">deferred</span>';
-      case 'MAX_ROUNDS_EXHAUSTED':
-        return '<span class="outcome-pill outcome-max-rounds">max rounds</span>';
-      case 'ESCALATED_TO_OBRIEN':
-        return '<span class="outcome-pill outcome-escalated">escalated</span>';
-      case 'ERROR':
-        return '<span class="outcome-pill outcome-error">error</span>';
-      default:
-        return `<span class="outcome-pill outcome-on-dev">${escHtml(outcome)}</span>`;
-    }
+    // Binary verdict only: did the slice land (success) or fail (error)?
+    // Pipeline position (dev / regression gate / main) lives in the Branch Topology panel,
+    // so the Logbook no longer repeats it. Failure set = isFailureOutcome(); everything
+    // else (ON_DEV, ON_MAIN, ACCEPTED, DEFERRED, ...) counts as success.
+    return isFailureOutcome(outcome)
+      ? '<span class="outcome-pill outcome-error">error</span>'
+      : '<span class="outcome-pill outcome-success">success</span>';
   }
 
   function isFailureOutcome(outcome) {
@@ -5215,8 +5204,6 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       listEl.innerHTML = '<div style="color:#9ca3af;text-align:center;padding:24px 0;font-size:14px">No completed slices yet.</div>';
       pageEl.classList.add('hidden');
       pageEl.innerHTML = '';
-      const ft = document.getElementById('history-footer');
-      if (ft) ft.style.display = 'none';
       return;
     }
 
@@ -5283,27 +5270,6 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     } else {
       pageEl.classList.add('hidden');
       pageEl.innerHTML = '';
-    }
-
-    // History footer: count summary + archive link
-    const footerEl = document.getElementById('history-footer');
-    if (footerEl) {
-      const acceptedCount = cachedHistoryAllRows.filter(r =>
-        r._terminalOutcome === 'ON_DEV' || r._terminalOutcome === 'ACCEPTED'
-      ).length;
-      if (acceptedCount > 0) {
-        footerEl.style.display = '';
-        document.getElementById('history-footer-count').textContent = `${acceptedCount} slices accepted`;
-        const archiveLink = document.getElementById('history-archive-link');
-        if (acceptedCount > 5) {
-          archiveLink.style.display = '';
-          archiveLink.textContent = `Open archive (${acceptedCount - 5} more)`;
-        } else {
-          archiveLink.style.display = 'none';
-        }
-      } else {
-        footerEl.style.display = 'none';
-      }
     }
   }
 
