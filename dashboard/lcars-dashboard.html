@@ -8051,7 +8051,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       return `<p class="rb-sub" style="color:#9ca3af">Couldn't read the test changes${tc && tc.error ? ' (' + _esc(tc.error) + ')' : ''}. Review the diff before approving.</p>`;
     }
     if (!tc.anyChange) {
-      return `<div class="utc-none">✓ No regression or e2e <strong>checks</strong> changed since the last promotion. Nothing to approve — the suite will run the same checks as before.</div>`;
+      return `<div class="utc-none">✓ No test checks changed — re-runs the same suite, then fast-forwards <strong>main</strong>.</div>`;
     }
     let html = '';
     const danger   = (tc.modified || []).filter(m => m.direction === 'loosened' || m.direction === 'skipped');
@@ -8078,11 +8078,11 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
   // The Test-Update Gate verdict bands (ADR-TEST-UPDATE-GATE, Slice D). RED defaults
   // the checkpoint to STOP and demands a second acknowledgement before Approve unlocks.
   const UTC_VERDICTS = {
-    clear:        { glyph: '✓', label: 'CLEAR',        color: '#15803d', bg: 'rgba(22,163,74,.12)',  blurb: 'every behaviour change is corroborated by a test that moved with it — safe to run.' },
-    needs_review: { glyph: '●', label: 'NEEDS REVIEW', color: '#b45309', bg: 'rgba(217,119,6,.12)',  blurb: 'a source changed but no test that reads it moved — glance at the diff, then approve if expected.' },
-    overridden:   { glyph: '◑', label: 'OVERRIDDEN',   color: '#0e7490', bg: 'rgba(8,145,178,.12)',  blurb: 'weakened/removed checks are declared intentional by a trailer — approve if you trust the declaration.' },
-    red_flag:     { glyph: '✗', label: 'RED FLAG',     color: '#b91c1c', bg: 'rgba(220,38,38,.12)',  blurb: 'a check was weakened, removed or skipped, or new behaviour shipped untested. STOP unless a second reviewer confirms each item is intentional.' },
-    unknown:      { glyph: '?', label: 'VERDICT N/A',  color: '#6b7280', bg: 'rgba(107,114,128,.12)', blurb: 'the gate verdict could not be computed — review the full diff before approving.' },
+    clear:        { glyph: '✓', label: 'CLEAR',        color: '#15803d', bg: 'rgba(22,163,74,.12)',  blurb: '' },
+    needs_review: { glyph: '●', label: 'NEEDS REVIEW', color: '#b45309', bg: 'rgba(217,119,6,.12)',  blurb: 'a source changed but no test moved — check the diff.' },
+    overridden:   { glyph: '◑', label: 'OVERRIDDEN',   color: '#0e7490', bg: 'rgba(8,145,178,.12)',  blurb: 'weakened checks declared intentional.' },
+    red_flag:     { glyph: '✗', label: 'RED FLAG',     color: '#b91c1c', bg: 'rgba(220,38,38,.12)',  blurb: 'a check was weakened, removed, or shipped untested.' },
+    unknown:      { glyph: '?', label: 'NO VERDICT',   color: '#6b7280', bg: 'rgba(107,114,128,.12)', blurb: '' },
   };
 
   // Render the verdict chip + pinned SHA. On RED, wire the non-author second-ack that
@@ -8134,15 +8134,14 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     overlay.id = 'update-tests-overlay';
     overlay.onclick = (e) => { if (e.target === overlay) closeUpdateTestsOverlay(); };
     overlay.innerHTML = `<div class="rollback-card" role="dialog" aria-modal="true" aria-label="Step 1 — review test changes before running the gate">
-      <h3>Step 1 — Review the test changes</h3>
-      <div id="utc-verdict" class="utc-verdict"><span class="null-val">Computing the gate verdict…</span></div>
-      <p class="rb-sub">dev is <strong>${ahead} commit${ahead === 1 ? '' : 's'}</strong> ahead of main. The gate tests <strong>intended</strong> behaviour. Here's how the regression &amp; e2e <strong>checks</strong> changed since the last promotion — <strong>approve</strong> only if each change is the intended result of a feature. A removed or loosened check could be hiding a real regression — <strong>stop</strong> and investigate if anything looks off.</p>
-      <div id="update-tests-body" class="utc-body"><span class="null-val">Reading the test changes…</span></div>
+      <h3>Run the gate?</h3>
+      <div id="utc-verdict" class="utc-verdict"><span class="null-val">Checking…</span></div>
+      <div id="update-tests-body" class="utc-body"><span class="null-val">Checking test changes…</span></div>
       <div id="utc-secondack"></div>
       <div class="rollback-actions">
-        <a class="rb-btn rb-btn-cancel" href="${compareUrl}" target="_blank" rel="noopener">See full diff ↗</a>
-        <button class="rb-btn rb-btn-danger" onclick="closeUpdateTestsOverlay()">Stop — don't run</button>
-        <button id="utc-approve-btn" class="rb-btn rb-btn-go" onclick="closeUpdateTestsOverlay(); dispatchPromoteGate();">Approve &amp; run gate</button>
+        <a class="rb-btn rb-btn-cancel" href="${compareUrl}" target="_blank" rel="noopener">See diff ↗</a>
+        <button class="rb-btn rb-btn-cancel" onclick="closeUpdateTestsOverlay()">Cancel</button>
+        <button id="utc-approve-btn" class="rb-btn rb-btn-go" onclick="closeUpdateTestsOverlay(); dispatchPromoteGate();">Run gate</button>
       </div>
     </div>`;
     document.body.appendChild(overlay);
