@@ -228,7 +228,7 @@ test('during a gate run the REGRESSION row shows the gate step running — not t
   await expect(regStep).not.toContainText('passing');
   // The per-push ci.yml run is shown SEPARATELY and clearly labeled — never conflated with the gate.
   const ci = page.locator('#gflow-ci');
-  await expect(ci).toContainText('Continuous CI');
+  await expect(ci).toContainText('Per-push checks');
   await expect(ci).toContainText('run #44');
 });
 
