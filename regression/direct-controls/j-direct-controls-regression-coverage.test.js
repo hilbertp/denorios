@@ -214,6 +214,11 @@ test('J-direct-controls-ops-ui slice-99811-ac-1 — "update tests" is the explic
   assert.match(html, /<span class="gflow-label">Update tests<\/span>/,
     'gate sequence must render an "Update tests" step');
 
+  // "Update tests" only goes green when tests were actually updated; with no test
+  // changes it reads "not req." (grey) — never a ✓ implying work that didn't happen.
+  assert.match(html, /gh \? gh\.tests_changed/, 'step 1 must read the tests_changed signal');
+  assert.match(html, /not req\./, 'step 1 must show "not req." when no test update was needed');
+
   // RUN GATE opens a checkpoint (not a direct dispatch) requiring the operator to
   // confirm the tests were updated before the suite runs.
   assert.match(html, /onclick="confirmUpdateTests\(\)"/,
@@ -251,6 +256,7 @@ test('J-direct-controls-ops-ui slice-99811-ac-2 — the gate surfaces regression
 
   // The checkpoint loads the plain-language changes and lets the operator STOP.
   assert.ok(html.includes("fetch('/api/test-changes')"), 'checkpoint loads the plain-language test changes');
+  assert.ok(server.includes('tests_changed'), 'branch-state surfaces tests_changed so the gate-flow "Update tests" step can read it');
   assert.match(html, /onclick="closeUpdateTestsOverlay\(\)">Cancel</,
     'operator can stop the pipeline right there (Cancel)');
   assert.ok(html.includes('No longer checked'), 'removed checks are surfaced as a masking risk');

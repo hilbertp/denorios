@@ -2948,6 +2948,13 @@ const server = http.createServer(async (req, res) => {
     const gh = getGitHubState();
     base.github = gh;
 
+    // Whether the dev changeset actually touched any regression/e2e check. Drives the
+    // "Update tests" gate step: green ✓ only if tests were really updated, otherwise it
+    // reads "not req." (cached 30s in getTestChanges, so it's cheap on every poll).
+    if (gh && !gh.error) {
+      try { base.github.tests_changed = getTestChanges().anyChange; } catch (_) {}
+    }
+
     // Overlay GitHub tips into the existing main/dev subobjects so the
     // topology renderer picks up real origin SHAs without code changes there.
     if (gh && !gh.error) {

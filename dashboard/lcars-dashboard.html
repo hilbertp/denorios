@@ -8351,16 +8351,30 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     // ✗ here means a loosened/removed/skipped check or untested behaviour stopped the
     // gate before the suites ran. Falls back to the todo/done heuristic when idle.
     const tnPhase = byKey['tests-needed'] || null;
-    const utStatus = tnPhase ? tnPhase.status : ((running || success || failed) ? 'passed' : 'todo');
-    const utGlyphMap = { passed: '✓', running: '↻', failed: '✗', pending: '○', skipped: '–', todo: '○' };
-    // At rest (todo) the step is neutral like ②③④ — no pencil, no yellow. The Test-Update
-    // Gate only colours it once the gate is in flight (running/passed/failed).
-    const utClass = utStatus === 'todo' ? 'gflow-idle' : 'gflow-' + utStatus;
-    const utDur = tnPhase && tnPhase.duration_s != null ? `<span class="gflow-dur">· ${tnPhase.duration_s}s</span>` : '';
-    const updateTestsHtml = `<span class="gflow-step ${utClass} gflow-step-pre" title="Step 1 of the gate: the Test-Update Gate classifies the dev changes and fails closed on a RED verdict (a weakened/removed/skipped check, or new behaviour shipped untested) before the suites run.">`
+    // "Update tests" goes GREEN ✓ only when tests were ACTUALLY updated. When the dev
+    // changeset touched no regression/e2e check, no update was required — show it grey
+    // with "· not req." instead of a ✓ that would imply work that never happened.
+    const testsChanged = gh ? gh.tests_changed : undefined;
+    let utClass, utGlyph, utExtra, utTitle;
+    if (testsChanged === false) {
+      utClass = 'gflow-idle';
+      utGlyph = '–';
+      utExtra = `<span class="gflow-dur">· not req.</span>`;
+      utTitle = 'No regression or e2e check changed in this promotion — no test update was required.';
+    } else {
+      // At rest (todo) the step is neutral like ②③④. The Test-Update Gate only colours it
+      // once the gate is in flight (running/passed/failed).
+      const utStatus = tnPhase ? tnPhase.status : ((running || success || failed) ? 'passed' : 'todo');
+      const utGlyphMap = { passed: '✓', running: '↻', failed: '✗', pending: '○', skipped: '–', todo: '○' };
+      utClass = utStatus === 'todo' ? 'gflow-idle' : 'gflow-' + utStatus;
+      utGlyph = utGlyphMap[utStatus] || '○';
+      utExtra = tnPhase && tnPhase.duration_s != null ? `<span class="gflow-dur">· ${tnPhase.duration_s}s</span>` : '';
+      utTitle = 'Step 1 of the gate: the Test-Update Gate classifies the dev changes and fails closed on a RED verdict (a weakened/removed/skipped check, or new behaviour shipped untested) before the suites run.';
+    }
+    const updateTestsHtml = `<span class="gflow-step ${utClass} gflow-step-pre" title="${utTitle}">`
       + `<span class="gflow-num">1</span>`
-      + `<span class="gflow-glyph">${utGlyphMap[utStatus] || '✎'}</span>`
-      + `<span class="gflow-label">Update tests</span>${utDur}</span>`;
+      + `<span class="gflow-glyph">${utGlyph}</span>`
+      + `<span class="gflow-label">Update tests</span>${utExtra}</span>`;
 
     const stepHtml = STEPS.map((s, i) => {
       const ph = byKey[s.key];
