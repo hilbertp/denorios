@@ -552,17 +552,6 @@
     color: #9ca3af;
   }
 
-  .staged-hint-pill {
-    display: inline-block;
-    margin-top: 8px;
-    padding: 3px 10px;
-    font-size: 12px;
-    font-weight: 500;
-    color: #6b7280;
-    background: var(--bg-hover);
-    border-radius: 999px;
-  }
-
   /* ── Progress block (bottom-anchored) ── */
   .active-slice-progress-block {
     margin-top: auto;
@@ -3811,7 +3800,6 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
           <div class="active-slice-idle-glyph" id="idle-glyph">&#9201;</div>
           <div class="active-slice-idle-primary">Standing by</div>
           <div class="active-slice-idle-secondary">Picks up the next approved slice automatically</div>
-          <div class="staged-hint-pill" id="staged-hint-pill" style="display:none">0 proposed</div>
         </div>
 
         <!-- Progress block: anchored to bottom via margin-top:auto -->
@@ -3845,14 +3833,12 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
         <div class="section-title">Post-Build (Quality Diagnostics) <span class="panel-owner" data-role="nog">Nog</span></div>
         <div class="postbuild-lane" id="nog-lane">
           <div class="postbuild-lane-header">
-            <span class="postbuild-lane-name">Nog &middot; Code Reviewer</span>
             <span class="postbuild-badge" id="nog-badge" style="display:none"></span>
-            <span class="lane-status lane-status-idle" id="nog-lane-status">standing by</span>
           </div>
 
           <!-- Idle state -->
           <div class="nog-idle-state" id="nog-idle-state">
-            <div class="nog-idle-glyph">&#128269;</div>
+            <div class="nog-idle-glyph">&#9201;</div>
             <div class="nog-idle-primary">Standing by</div>
             <div class="nog-idle-secondary">Reviews each slice after Rom delivers it</div>
             <div class="nog-hint-pill">AC pass &middot; lint &middot; readability &middot; naming &middot; anti-patterns &middot; dead code</div>
@@ -4360,8 +4346,6 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     return relevant[relevant.length - 1].event === 'ROM_PAUSED';
   }
 
-  // Staged items count — updated by fetchCombinedQueue()
-  let stagedItemCount = 0;
   // Standing auto-approve: when on, new proposals promote to Approved Work Orders
   // automatically (no manual review). Off by default; persisted per browser.
   let autoApproveOn = false;
@@ -4408,7 +4392,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
         const reason = lastNogReturn.reason || 'No reason provided';
         idleState.style.display = 'flex';
         idleState.innerHTML = `
-          <div class="nog-idle-glyph">&#128269;</div>
+          <div class="nog-idle-glyph">&#9201;</div>
           <div class="nog-idle-primary"><span class="nog-verdict-badge return">NOG_RETURN</span></div>
           <div class="nog-idle-secondary">${escHtml(reason)}</div>
           <div class="nog-hint-pill">Waiting for Rom to complete round ${round + 1}&hellip;</div>`;
@@ -4416,7 +4400,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
         // Normal idle
         idleState.style.display = 'flex';
         idleState.innerHTML = `
-          <div class="nog-idle-glyph">&#128269;</div>
+          <div class="nog-idle-glyph">&#9201;</div>
           <div class="nog-idle-primary">Standing by</div>
           <div class="nog-idle-secondary">Reviews each slice after Rom delivers it</div>
           <div class="nog-hint-pill">AC pass &middot; lint &middot; readability &middot; naming &middot; anti-patterns &middot; dead code</div>`;
@@ -4831,7 +4815,6 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       const primaryEl   = idleEl.querySelector('.active-slice-idle-primary');
       const secondaryEl = idleEl.querySelector('.active-slice-idle-secondary');
       const glyphEl     = document.getElementById('idle-glyph');
-      const pillEl      = document.getElementById('staged-hint-pill');
 
       const lastError = recent && recent.length > 0 && (recent[0].outcome === 'ERROR');
 
@@ -4843,7 +4826,6 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
         primaryEl.style.color = '#f87171';
         secondaryEl.textContent = humanReason(last.reason || last.error_reason || '');
         secondaryEl.style.color = '#fca5a5';
-        pillEl.style.display = 'none';
         renderActiveBriefError(last.id);
       } else {
         if (glyphEl) { glyphEl.textContent = '\u23F1'; glyphEl.style.display = ''; }
@@ -4853,15 +4835,6 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
         secondaryEl.textContent = 'Picks up the next approved slice automatically';
         secondaryEl.style.color = '';
         document.getElementById('active-slice-aside').innerHTML = '';
-
-        // Staged-count hint pill
-        if (stagedItemCount > 0) {
-          pillEl.textContent = `${stagedItemCount} proposed`;
-          pillEl.style.display = '';
-        } else {
-          pillEl.textContent = '0 proposed';
-          pillEl.style.display = '';
-        }
       }
 
       idleEl.style.display = '';
@@ -7285,7 +7258,6 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       const stagedRes = await fetch('/api/bridge/staged');
       if (stagedRes.ok) {
         cachedStagedItems = await stagedRes.json();
-        stagedItemCount = cachedStagedItems.filter(i => i.status !== 'NEEDS_APENDMENT').length;
         if (!dragSrcId && bridgeData) {
           const serverStagedOrder = bridgeData.stagedOrder ? bridgeData.stagedOrder : [];
           const currentStagedIds = cachedStagedItems
