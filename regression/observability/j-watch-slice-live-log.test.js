@@ -12,33 +12,28 @@
  *   and expected outcomes, no formal AC list):
  *     ac-1 ↔ step 1  (Active Build panel shows slice title + elapsed time —
  *                     headless contract: GET /api/bridge active-slice data)
- *     ac-2 ↔ step 2  (orchestrator writes Rom's output to a per-slice log or
- *                     streams it to register.jsonl)               [PRODUCT GAP]
+ *     ac-2 ↔ step 2  (orchestrator tees Rom's output to a per-slice rom log)
  *     ac-3 ↔ step 3  ("View live log" button in the Active Build panel's
- *                     action group)                               [PRODUCT GAP]
- *     ac-4 ↔ steps 4-5 (clicking opens a log view; server serves the
- *                     log content)                                [PRODUCT GAP]
- *     ac-6 ↔ step 6  (new lines appear near real-time)            [PRODUCT GAP]
+ *                     action group, wired to a real handler)
+ *     ac-4 ↔ steps 4-5 (clicking opens a log view; GET /api/log/<id> serves
+ *                     the log content)
+ *     ac-6 ↔ step 6  (new lines appear near real-time via the no-store poll)
  *     ac-9 ↔ expected outcome 5 (logs preserved on disk after the session
  *                     for post-mortem — per-slice per-round naming contract)
  *
- * PRODUCT GAP findings (rule 6 — tests left skipped, never fabricated green):
- *   journey J-watch-slice-live-log steps 4-6 not met by current dev: no log
- *   endpoint in server.js (no /api/log* route exists); viewNogLog() is a
- *   placeholder at dashboard/lcars-dashboard.html:3896 ("Placeholder — future:
- *   open Nog live log viewer"). Additionally:
- *     - step 2: bridge/orchestrator.js invokeRom (line 1990ff) keeps Rom's
- *       stdout in memory only (token extraction / error tails); no per-slice
- *       Rom log file is ever written under bridge/logs/ and no per-line
- *       streaming events go to register.jsonl. Only Nog's reviewer output is
- *       persisted (logs/nog-{id}-round{round}.log, orchestrator.js:3460) and
- *       only once, in the execFile completion callback — not streamed.
- *     - step 3: the Active Build panel action group
- *       (lcars-dashboard.html:3241-3261) contains only Pause/Resume/Abort.
- *       The sole "View live log" anchor lives in the Nog lane's progress
- *       block (line 3334), not the Active Build panel, and is wired to the
- *       placeholder above. The journey's own failure-mode section says:
- *       "File a finding if the button is absent" — this is that finding.
+ * IMPLEMENTED 2026-06-15 (the live-log feature — previously a documented gap):
+ *   - step 2: bridge/orchestrator.js invokeRom opens bridge/logs/rom-<id>.log as
+ *     a write stream and tees Rom's child stdout/stderr to it (stream-json output
+ *     emits one NDJSON event per turn, so the file grows line-by-line).
+ *   - steps 4-5: GET /api/log/<id> in dashboard/server.js serves the recent tail
+ *     (last 400 lines) no-store, 404 when no log exists yet.
+ *   - step 3: the Active Build footer exposes a "View live log" control wired to
+ *     viewLiveLog(), which opens a polling viewer (1.5s) of the endpoint.
+ *
+ *   ac-2/ac-3 assert the orchestrator/dashboard wiring at the source contract
+ *   (LOGS_DIR is __dirname-anchored and the real child is claude -p, not runnable
+ *   here, #99992 — live bridge/logs/ is never touched); ac-4/ac-6 exercise the
+ *   read side against fixture files under the Tier-2 server root.
  *
  * Deliberately NOT asserted here (and why):
  *   - Steps 7-8 (scroll up, Escape/close) and outcome 3 (readable/scrollable):
@@ -68,6 +63,8 @@ const Module = require('node:module');
 const { makeTmpDir, removeTmpDir } = require('../helpers/tmp-dir');
 
 const SERVER_SRC = path.resolve(__dirname, '..', '..', 'dashboard', 'server.js');
+const ORCH_SRC = path.resolve(__dirname, '..', '..', 'bridge', 'orchestrator.js');
+const DASHBOARD_SRC = path.resolve(__dirname, '..', '..', 'dashboard', 'lcars-dashboard.html');
 
 const SLICE_ID = '99777';
 const SLICE_TITLE = 'Implement quantum torpedo telemetry';
@@ -252,67 +249,91 @@ test('J-watch-slice-live-log slice-99777-ac-1 — /api/bridge heartbeat carries 
 });
 
 // ---------------------------------------------------------------------------
-// Step 2 — PRODUCT GAP (rule 6).
-// Finding: journey J-watch-slice-live-log step 2 is not met by current dev:
-// bridge/orchestrator.js invokeRom (line 1990ff) holds Rom's stdout in memory
-// only (token extraction, error stderr tails); it never writes a per-slice Rom
-// log file under bridge/logs/ and never streams log lines to register.jsonl.
-// The only per-slice log written is Nog's (logs/nog-{id}-round{round}.log,
-// orchestrator.js:3460) and only once at process completion.
+// Step 2 — the orchestrator persists Rom's live output to a per-slice log file.
+// invokeRom opens bridge/logs/rom-<id>.log as a write STREAM and tees Rom's
+// child stdout (and stderr) to it, so the file grows as output arrives — the
+// data source the viewer tails. LOGS_DIR is __dirname-anchored and the real
+// child is claude -p (not runnable here), so the wiring is asserted at the
+// source contract; ac-4/ac-6 exercise the read side against fixture files.
 // ---------------------------------------------------------------------------
-test.skip('J-watch-slice-live-log slice-99777-ac-2 — orchestrator persists Rom\'s live output to a per-slice log file or streams it to register.jsonl (PRODUCT GAP: no Rom log path exists)', () => {
-  // When implemented: while {id}-IN_PROGRESS.md exists and Rom's child process
-  // writes stdout, a per-slice log file (e.g. bridge/logs/rom-{id}-*.log) must
-  // exist and grow, OR per-line log events must appear in register.jsonl.
-  assert.fail('unreachable while skipped — step 2 unimplemented in current dev');
+test('J-watch-slice-live-log slice-99777-ac-2 — the orchestrator persists Rom\'s live output to a per-slice log file', () => {
+  const src = fs.readFileSync(ORCH_SRC, 'utf8');
+  // A per-slice rom log path under LOGS_DIR.
+  assert.match(src, /rom-\$\{id\}\.log/, 'invokeRom must target a per-slice rom-<id>.log');
+  // It is a write STREAM (grows incrementally), not a single end-of-run writeFile.
+  assert.match(src, /createWriteStream\(romLogPath/, 'the rom log must be a growing write stream');
+  // Rom's stdout is teed to that stream as data arrives (the live source).
+  assert.match(src, /child\.stdout\.on\('data',[\s\S]{0,200}?romLogStream\.write/,
+    'Rom child stdout must be teed to the rom log as it arrives');
+  // The stream is closed when the run ends so the file is flushed for post-mortem.
+  assert.match(src, /romLogStream\.end\(\)/, 'the rom log stream must be closed on completion');
 });
 
 // ---------------------------------------------------------------------------
-// Step 3 — PRODUCT GAP (rule 6).
-// Finding: journey J-watch-slice-live-log step 3 is not met by current dev:
-// the Active Build panel's action group (dashboard/lcars-dashboard.html:
-// 3241-3261) contains only Pause/Resume/Abort — no "View live log" button.
-// The sole "View live log" anchor in the dashboard lives in the Nog lane's
-// progress block (line 3334) and is wired to the placeholder viewNogLog().
-// The journey's failure-mode section instructs: "File a finding if the
-// button is absent" — this is that finding.
+// Step 3 — the Active Build panel's action group exposes a "View live log"
+// control while Rom is implementing, wired to a REAL handler (viewLiveLog) that
+// opens the log viewer — not the Nog-lane placeholder (viewNogLog).
 // ---------------------------------------------------------------------------
-test.skip('J-watch-slice-live-log slice-99777-ac-3 — Active Build panel action group exposes a "View live log" control while Rom is implementing (PRODUCT GAP: button absent from the panel)', () => {
-  // When implemented: the Active Build panel markup must contain a
-  // "View live log" control in its action group, wired to a real handler.
-  assert.fail('unreachable while skipped — step 3 unimplemented in current dev');
+test('J-watch-slice-live-log slice-99777-ac-3 — the Active Build panel exposes a "View live log" control wired to a real handler', () => {
+  const html = fs.readFileSync(DASHBOARD_SRC, 'utf8');
+  const footer = html.match(/<div class="active-slice-footer"[\s\S]*?<\/div>/);
+  assert.ok(footer, 'the Active Build footer (action group) must exist');
+  assert.match(footer[0], /View live log/, 'the action group must offer a "View live log" control');
+  assert.match(footer[0], /onclick="viewLiveLog\(\)"/, 'the control must be wired to viewLiveLog(), not the Nog placeholder');
+  // viewLiveLog is a real handler that opens a polling viewer of the log endpoint
+  // (the footer wiring above proves it is viewLiveLog, not the viewNogLog placeholder).
+  assert.match(html, /function viewLiveLog\(\)/, 'viewLiveLog() must be defined');
+  assert.match(html, /fetch\('\/api\/log\/'/, 'the viewer must tail the live-log endpoint');
+  assert.match(html, /setInterval\(_liveLogFetch/, 'the viewer must poll so new lines surface in near real-time');
 });
 
 // ---------------------------------------------------------------------------
-// Steps 4-5 + Outcomes 1-2 — PRODUCT GAP (rule 6).
-// Finding: journey J-watch-slice-live-log steps 4-6 not met by current dev:
-// no log endpoint in server.js (no /api/log* route exists anywhere in
-// dashboard/server.js); viewNogLog() placeholder at
-// dashboard/lcars-dashboard.html:3896 ("Placeholder — future: open Nog live
-// log viewer"). Clicking "View live log" does nothing; nothing serves log
-// content to the dashboard.
+// Steps 4-5 + Outcomes 1-2 — clicking "View live log" opens a log view backed
+// by a dashboard log endpoint. GET /api/log/<id> serves the recent log content
+// for the active slice; a slice with no log yet 404s honestly (no false 200).
 // ---------------------------------------------------------------------------
-test.skip('J-watch-slice-live-log slice-99777-ac-4 — clicking "View live log" opens a log view backed by a dashboard log endpoint (PRODUCT GAP: no /api/log* route; viewNogLog() is a stub)', async () => {
-  // When implemented: GET on the log endpoint for an IN_PROGRESS slice must
-  // return 200 with the recent log content (last ~100 lines or a transcript).
+test('J-watch-slice-live-log slice-99777-ac-4 — GET /api/log/<id> serves the active slice log content', async () => {
+  const logsDir = path.join(tmpRoot, 'bridge', 'logs');
+  fs.mkdirSync(logsDir, { recursive: true });
+  const content = 'init: starting build\nassistant: editing server.js\nassistant: Rom working on AC 1\n';
+  fs.writeFileSync(path.join(logsDir, `rom-${SLICE_ID}.log`), content, 'utf8');
+
   const res = await request('GET', `/api/log/${SLICE_ID}`);
-  assert.equal(res.status, 200, 'log endpoint must serve the active slice log');
+  assert.equal(res.status, 200, 'the log endpoint must serve the active slice log');
+  assert.equal(res.body.id, SLICE_ID, 'the response identifies the slice');
+  assert.ok(Array.isArray(res.body.lines), 'the response carries the log lines');
+  assert.match(res.body.text, /Rom working on AC 1/, 'the served content is the real log, not a placeholder');
+  assert.equal(res.body.totalLines, 3, 'the line count reflects the file');
+
+  // A slice with no log yet must 404 honestly — never a false-success 200.
+  const missing = await request('GET', '/api/log/55555');
+  assert.equal(missing.status, 404, 'a slice with no log yet returns 404, not a blank 200');
+  assert.equal(missing.body.error, 'no_log_yet');
 });
 
 // ---------------------------------------------------------------------------
-// Step 6 — PRODUCT GAP (rule 6).
-// Finding: journey J-watch-slice-live-log step 6 is not met by current dev:
-// there is no streaming or polling path for log content at all. Nog's log is
-// written once in the execFile completion callback (orchestrator.js:3474) —
-// after the process exits, never during the run — and Rom's output is never
-// written anywhere, so "new lines appear as Rom's process writes them" has no
-// data source to assert against.
+// Step 6 — new log lines appear in near real-time. The orchestrator tees Rom's
+// stdout to the rom log as it arrives (ac-2); the endpoint reads the file fresh
+// (no-store) per poll, so appending a line and re-polling surfaces it — the
+// viewer's 1.5s poll then renders it without a reload.
 // ---------------------------------------------------------------------------
-test.skip('J-watch-slice-live-log slice-99777-ac-6 — new log lines appear in near real-time while Rom\'s process is running (PRODUCT GAP: logs only written at process completion, never streamed)', () => {
-  // When implemented: appending a line to the live log source and re-polling
-  // the log endpoint must surface the new line (sub-second if event-driven,
-  // up to ~1-2s if file-polling).
-  assert.fail('unreachable while skipped — step 6 unimplemented in current dev');
+test('J-watch-slice-live-log slice-99777-ac-6 — new log lines surface on the next poll (near real-time)', async () => {
+  const logsDir = path.join(tmpRoot, 'bridge', 'logs');
+  fs.mkdirSync(logsDir, { recursive: true });
+  const logPath = path.join(logsDir, `rom-${SLICE_ID}.log`);
+  fs.writeFileSync(logPath, 'assistant: first line\n', 'utf8');
+
+  const before = await request('GET', `/api/log/${SLICE_ID}`);
+  assert.equal(before.status, 200);
+  assert.ok(!before.body.text.includes('SECOND-LIVE-LINE'), 'the new line is not present before Rom writes it');
+
+  // Rom writes more output → the orchestrator appends it to the rom log.
+  fs.appendFileSync(logPath, 'assistant: SECOND-LIVE-LINE appears\n', 'utf8');
+
+  const after = await request('GET', `/api/log/${SLICE_ID}`);
+  assert.equal(after.status, 200);
+  assert.match(after.body.text, /SECOND-LIVE-LINE appears/, 'the appended line must surface on the next poll');
+  assert.ok(after.body.totalLines > before.body.totalLines, 'the line count grows as Rom writes');
 });
 
 // ---------------------------------------------------------------------------

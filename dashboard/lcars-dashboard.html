@@ -2854,6 +2854,25 @@
   .outcome-error        { background: var(--err-bg); color: #991b1b; }
 
   /* ── PAUSE BUTTON ────────────────────────────────────── */
+  /* "View live log" control in the Active Build footer (J-watch-slice-live-log) */
+  .view-live-log-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px; font-size: 13px; font-weight: 500;
+    font-family: system-ui, -apple-system, sans-serif;
+    color: #2563eb; background: var(--bg-subtle);
+    border: 1px solid #bfdbfe; border-radius: 6px; cursor: pointer; margin-right: 8px;
+  }
+  .view-live-log-btn:hover { background: #eff6ff; border-color: #2563eb; }
+  /* Live build log viewer overlay */
+  .live-log-card { max-width: 820px; width: 92vw; }
+  .live-log-id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: #9ca3af; font-weight: 400; }
+  .live-log-meta { font-size: 11.5px; color: #6b7280; margin: 2px 0 8px; }
+  .live-log-body {
+    margin: 0; max-height: 60vh; overflow: auto; white-space: pre-wrap; word-break: break-word;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.5;
+    color: #e5e7eb; background: #0b1020; border: 1px solid #1f2937; border-radius: 8px; padding: 12px 14px;
+  }
+
   .pause-build-btn {
     display: inline-flex;
     align-items: center;
@@ -3791,6 +3810,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
           <!-- Footer: builder + pause button (only during active) -->
           <div class="active-slice-footer" id="active-slice-footer" style="display:none">
             <span class="active-slice-builder">Rom &middot; Backend</span>
+            <button class="view-live-log-btn" onclick="viewLiveLog()" title="Watch Rom's build output stream live while the slice is in progress">&#128221; View live log</button>
             <button class="pause-build-btn" onclick="pauseBuild()">
               &#9208; Pause
             </button>
@@ -4507,6 +4527,68 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
   }
   function stopNogReview() {
     // Placeholder — future: stop Nog review process
+  }
+
+  // ── Live build log viewer (J-watch-slice-live-log) ──────────────────────────
+  // Opens an overlay tailing GET /api/log/<active slice>, polling while open so new
+  // lines from Rom's stream appear in near real-time. Follows the tail unless the
+  // operator has scrolled up to read history.
+  let _liveLogPoll = null;
+  let _liveLogId = null;
+
+  function closeLiveLog() {
+    if (_liveLogPoll) { clearInterval(_liveLogPoll); _liveLogPoll = null; }
+    _liveLogId = null;
+    const o = document.getElementById('live-log-overlay');
+    if (o) o.remove();
+  }
+
+  async function _liveLogFetch() {
+    if (!_liveLogId) return;
+    const pre = document.getElementById('live-log-body');
+    const meta = document.getElementById('live-log-meta');
+    if (!pre) return;
+    const atBottom = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 30;
+    try {
+      const res = await fetch('/api/log/' + encodeURIComponent(_liveLogId), { cache: 'no-store' });
+      const data = await res.json().catch(() => null);
+      if (res.status === 404) {
+        pre.textContent = 'No log yet — Rom has not produced output for this slice.';
+        if (meta) meta.textContent = 'waiting for output…';
+      } else if (data && Array.isArray(data.lines)) {
+        pre.textContent = data.lines.join('\n') || '(empty)';
+        if (meta) meta.textContent = `${data.totalLines || data.lines.length} line${(data.totalLines || data.lines.length) === 1 ? '' : 's'}`
+          + (data.truncated ? ` (showing last ${data.lines.length})` : '')
+          + (data.updated ? ` · updated ${new Date(data.updated).toLocaleTimeString()}` : '');
+      } else {
+        pre.textContent = 'Could not load the live log.';
+      }
+    } catch (_) {
+      if (pre && (!pre.textContent || pre.textContent === 'Loading…')) pre.textContent = 'Could not load the live log.';
+    }
+    if (atBottom && pre.isConnected) pre.scrollTop = pre.scrollHeight; // follow the tail
+  }
+
+  function viewLiveLog() {
+    const id = (_lastBridgeData && _lastBridgeData.heartbeat) ? _lastBridgeData.heartbeat.current_slice : null;
+    if (!id) return;
+    closeLiveLog();
+    _liveLogId = String(id);
+    const overlay = document.createElement('div');
+    overlay.className = 'rollback-overlay';
+    overlay.id = 'live-log-overlay';
+    overlay.onclick = (e) => { if (e.target === overlay) closeLiveLog(); };
+    overlay.innerHTML = `<div class="rollback-card live-log-card" role="dialog" aria-modal="true" aria-label="Rom live build log">
+      <h3>Live build log <span class="live-log-id">slice ${_rbEsc(_liveLogId)}</span></h3>
+      <div class="live-log-meta" id="live-log-meta">loading…</div>
+      <pre class="live-log-body" id="live-log-body" tabindex="0">Loading…</pre>
+      <div class="rollback-actions">
+        <button class="rb-btn rb-btn-go" onclick="closeLiveLog()">Close</button>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+    _liveLogFetch();
+    _liveLogPoll = setInterval(_liveLogFetch, 1500); // near real-time tail while Rom runs
   }
 
   function formatTimeAgo(date) {

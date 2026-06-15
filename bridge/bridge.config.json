@@ -6,7 +6,7 @@
   "logFile": "bridge.log",
   "heartbeatFile": "heartbeat.json",
   "claudeCommand": "claude",
-  "claudeArgs": ["-p", "--output-format", "json", "--permission-mode", "bypassPermissions"],
+  "claudeArgs": ["-p", "--verbose", "--output-format", "stream-json", "--permission-mode", "bypassPermissions"],
   "projectDir": "..",
   "maxRetries": 0,
   "coworkSessionKey": ""

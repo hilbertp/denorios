@@ -18,6 +18,7 @@ const HEARTBEAT    = path.join(REPO_ROOT, 'bridge', 'heartbeat.json');
 const REGISTER     = path.join(REPO_ROOT, 'bridge', 'register.jsonl');
 const STAGED_DIR   = path.join(REPO_ROOT, 'bridge', 'staged');
 const TRASH_DIR    = path.join(REPO_ROOT, 'bridge', 'trash');
+const LOGS_DIR     = path.join(REPO_ROOT, 'bridge', 'logs');
 const DASHBOARD    = path.join(__dirname, 'lcars-dashboard.html');
 const TOKENS_CSS   = path.join(__dirname, 'tokens.css');
 const BRANCH_STATE = path.join(REPO_ROOT, 'bridge', 'state', 'branch-state.json');
@@ -1117,6 +1118,26 @@ function extractRoundSections(body) {
 // ── Slice investigation builder ──────────────────────────────────────────────
 // Returns { id, prompt, report, reviews } for a given slice ID.
 // Accepts optional dirs override for testability: { queueDir, stagedDir }.
+// Live build log (J-watch-slice-live-log): read the per-slice rom log the orchestrator
+// tees while Rom runs (bridge/logs/rom-<id>.log). Returns the last `maxLines` lines so a
+// long build doesn't ship megabytes per poll, plus the byte size + mtime so the viewer
+// can tell whether new output arrived. Returns null when no log exists yet.
+function readRomLog(id, maxLines, dir) {
+  const logsDir = dir || LOGS_DIR;
+  const p = path.join(logsDir, `rom-${id}.log`);
+  let raw;
+  try { raw = fs.readFileSync(p, 'utf8'); } catch (_) { return null; }
+  const max = maxLines || 400;
+  const allLines = raw.split('\n');
+  // Drop a single trailing empty element from a final newline so line counts are honest.
+  if (allLines.length && allLines[allLines.length - 1] === '') allLines.pop();
+  const truncated = allLines.length > max;
+  const lines = truncated ? allLines.slice(allLines.length - max) : allLines;
+  let updated = null;
+  try { updated = fs.statSync(p).mtime.toISOString(); } catch (_) {}
+  return { id: String(id), lines, text: lines.join('\n'), totalLines: allLines.length, truncated, bytes: Buffer.byteLength(raw), updated };
+}
+
 function buildSliceInvestigation(id, dirs) {
   const qDir = (dirs && dirs.queueDir) || QUEUE_DIR;
   const sDir = (dirs && dirs.stagedDir) || STAGED_DIR;
@@ -2319,6 +2340,33 @@ const server = http.createServer(async (req, res) => {
   if (pathname.startsWith('/api/slice/') && req.method === 'GET') {
     res.writeHead(400, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Slice ID must be numeric' }));
+    return;
+  }
+
+  // ── Live build log (J-watch-slice-live-log): tail of bridge/logs/rom-<id>.log ──
+  // no-store so a poll always reflects the file as it grows while Rom runs.
+  const logMatch = pathname.match(/^\/api\/log\/(\d+)$/);
+  if (logMatch && req.method === 'GET') {
+    const id = logMatch[1];
+    try {
+      const log = readRomLog(id);
+      if (!log) {
+        res.writeHead(404, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify({ id, error: 'no_log_yet', lines: [], text: '' }));
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify(log));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: String(err.message || err) }));
+    }
+    return;
+  }
+
+  if (pathname.startsWith('/api/log/') && req.method === 'GET') {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Log slice ID must be numeric' }));
     return;
   }
 

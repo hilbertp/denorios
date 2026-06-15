@@ -25,7 +25,10 @@ const DEFAULTS = {
   logFile: 'bridge.log',
   heartbeatFile: 'heartbeat.json',
   claudeCommand: 'claude',
-  claudeArgs: ['-p', '--permission-mode', 'bypassPermissions', '--output-format', 'json'],
+  // stream-json (+ required --verbose) emits one NDJSON event per turn as Rom works,
+  // so the per-slice rom log grows line-by-line for the live-log viewer; the final
+  // {type:"result"} event still carries usage/session_id (see extractResultObject).
+  claudeArgs: ['-p', '--verbose', '--permission-mode', 'bypassPermissions', '--output-format', 'stream-json'],
   projectDir: '..',
   maxRetries: 0,
 };
@@ -288,37 +291,65 @@ const INPUT_COST_PER_M  = 15.00; // $ per 1M input tokens
 const OUTPUT_COST_PER_M = 75.00; // $ per 1M output tokens
 
 /**
+ * extractResultObject(stdout)
+ *
+ * Returns the object carrying Claude Code's final totals, robust to BOTH output
+ * formats: a single JSON blob (--output-format json) and newline-delimited
+ * stream-json, where the final {type:"result"} event holds usage/session_id/cost.
+ * Returns null if nothing parseable is found (graceful degradation).
+ */
+function extractResultObject(stdout) {
+  const text = String(stdout || '').trim();
+  if (!text) return null;
+  // 1) Whole-blob JSON (legacy --output-format json).
+  try {
+    const d = JSON.parse(text);
+    if (d && typeof d === 'object' && !Array.isArray(d)) return d;
+  } catch (_) { /* not a single blob — try NDJSON below */ }
+  // 2) stream-json NDJSON: prefer the last {type:"result"} event, else the last object.
+  let result = null, lastObj = null;
+  for (const line of text.split('\n')) {
+    const s = line.trim();
+    if (!s) continue;
+    let obj; try { obj = JSON.parse(s); } catch (_) { continue; }
+    if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+      lastObj = obj;
+      if (obj.type === 'result') result = obj;
+    }
+  }
+  return result || lastObj;
+}
+
+/**
  * extractTokenUsage(stdout)
  *
- * Parses Claude Code's --output-format json output and extracts token counts.
- * Falls back gracefully to nulls if the output is not valid JSON or the
- * expected fields are absent (e.g. older Claude Code version).
+ * Extracts token counts from Claude Code's output (json blob or stream-json).
+ * Falls back gracefully to nulls if absent (e.g. older Claude Code version).
  */
 function extractTokenUsage(stdout) {
-  try {
-    const data = JSON.parse(stdout.trim());
-    const usage = data.usage || {};
-    const tokensIn  = typeof usage.input_tokens  === 'number' ? usage.input_tokens  : null;
-    const tokensOut = typeof usage.output_tokens === 'number' ? usage.output_tokens : null;
-    return { tokensIn, tokensOut };
-  } catch (_) {
-    return { tokensIn: null, tokensOut: null };
-  }
+  const usage = (extractResultObject(stdout) || {}).usage || {};
+  return {
+    tokensIn:  typeof usage.input_tokens  === 'number' ? usage.input_tokens  : null,
+    tokensOut: typeof usage.output_tokens === 'number' ? usage.output_tokens : null,
+  };
 }
 
 /**
  * extractSessionId(stdout)
  *
- * Extracts session_id from Claude Code's JSON output.
+ * Extracts session_id from Claude Code's output. With stream-json the id is on
+ * the result event AND the init system event, so fall back to scanning any line.
  * Returns the session ID string or null if unavailable.
  */
 function extractSessionId(stdout) {
-  try {
-    const data = JSON.parse(stdout.trim());
-    return typeof data.session_id === 'string' ? data.session_id : null;
-  } catch (_) {
-    return null;
+  const data = extractResultObject(stdout);
+  if (data && typeof data.session_id === 'string') return data.session_id;
+  for (const line of String(stdout || '').split('\n')) {
+    const s = line.trim();
+    if (!s) continue;
+    try { const o = JSON.parse(s); if (o && typeof o.session_id === 'string') return o.session_id; } catch (_) { /* skip */ }
   }
+  return null;
 }
 
 /**
@@ -2152,6 +2183,13 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
     printProgressTick(Date.now() - pickupTime);
   }, 60000);
 
+  // Live build log: tee Rom's output to a per-slice log file (bridge/logs/rom-<id>.log)
+  // so the operator can watch the build in real time via GET /api/log/<id>. Mirrors the
+  // Nog reviewer log. Best-effort — never fail the run on a log-write error.
+  const romLogPath = path.join(LOGS_DIR, `rom-${id}.log`);
+  let romLogStream = null;
+  try { romLogStream = fs.createWriteStream(romLogPath, { flags: 'w' }); } catch (_) { romLogStream = null; }
+
   const child = execFile(
     config.claudeCommand,
     clauseArgs,
@@ -2164,6 +2202,7 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
     (err, stdout, stderr) => {
       clearInterval(tickInterval);
       clearInterval(inactivityCheck);
+      try { if (romLogStream) romLogStream.end(); } catch (_) {}
 
       // Reset module-level activity state.
       currentLastActivityTs = null;
@@ -2589,15 +2628,18 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
   // Track child process for pause/resume/abort.
   activeChildren.set(String(id), { child, worktreePath });
 
-  // Activity listeners: update lastActivityTs on any stdout/stderr output.
-  // These run in addition to execFile's internal buffering — no conflict.
-  child.stdout.on('data', () => {
+  // Activity listeners: update lastActivityTs on any stdout/stderr output AND tee the
+  // output to the per-slice rom log for the live-log viewer. These run in addition to
+  // execFile's internal buffering — no conflict.
+  child.stdout.on('data', (chunk) => {
     lastActivityTs = Date.now();
     currentLastActivityTs = new Date();
+    try { if (romLogStream) romLogStream.write(chunk); } catch (_) {}
   });
-  child.stderr.on('data', () => {
+  child.stderr.on('data', (chunk) => {
     lastActivityTs = Date.now();
     currentLastActivityTs = new Date();
+    try { if (romLogStream) romLogStream.write('[stderr] ' + chunk); } catch (_) {}
   });
 
   // Inactivity check: every 30s, kill the child if no output for effectiveInactivityMs.

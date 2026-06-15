@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 179,
+  "guardCount": 191,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -136,7 +136,57 @@
         "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
       }
     ],
+    "bridge/orchestrator.js": [
+      {
+        "tag": "slice-99777-ac-1",
+        "file": "regression/observability/j-watch-slice-live-log.test.js"
+      },
+      {
+        "tag": "slice-99777-ac-2",
+        "file": "regression/observability/j-watch-slice-live-log.test.js"
+      },
+      {
+        "tag": "slice-99777-ac-3",
+        "file": "regression/observability/j-watch-slice-live-log.test.js"
+      },
+      {
+        "tag": "slice-99777-ac-4",
+        "file": "regression/observability/j-watch-slice-live-log.test.js"
+      },
+      {
+        "tag": "slice-99777-ac-6",
+        "file": "regression/observability/j-watch-slice-live-log.test.js"
+      },
+      {
+        "tag": "slice-99777-ac-9",
+        "file": "regression/observability/j-watch-slice-live-log.test.js"
+      }
+    ],
     "dashboard/lcars-dashboard.html": [
+      {
+        "tag": "slice-99777-ac-1",
+        "file": "regression/observability/j-watch-slice-live-log.test.js"
+      },
+      {
+        "tag": "slice-99777-ac-2",
+        "file": "regression/observability/j-watch-slice-live-log.test.js"
+      },
+      {
+        "tag": "slice-99777-ac-3",
+        "file": "regression/observability/j-watch-slice-live-log.test.js"
+      },
+      {
+        "tag": "slice-99777-ac-4",
+        "file": "regression/observability/j-watch-slice-live-log.test.js"
+      },
+      {
+        "tag": "slice-99777-ac-6",
+        "file": "regression/observability/j-watch-slice-live-log.test.js"
+      },
+      {
+        "tag": "slice-99777-ac-9",
+        "file": "regression/observability/j-watch-slice-live-log.test.js"
+      },
       {
         "tag": "slice-99808-ac-1",
         "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
