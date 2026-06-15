@@ -3728,7 +3728,6 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
           <span class="topo-foot-stats" id="topo-foot-stats"></span>
           <span id="topo-foot-action"></span>
         </div>
-        <div class="mp-helper">Merge Pressure shows how urgently dev should be validated and merged into main — it is <strong>not</strong> a regression probability.</div>
         <!-- ── Gate sequence (single source for the gate flow + per-push CI) ── -->
         <div class="gate-flow" id="gate-flow">
           <div class="gate-flow-head">Gate sequence</div>
@@ -8231,22 +8230,10 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     // Render RR pill (slice 270 / rewired to github.rr in slice 316)
     renderRRPill(bs);
 
-    const ahead = bs.dev ? (bs.dev.commits_ahead_of_main || 0) : 0;
-    // What the count is made of: churn split and critical-file touches, so the
-    // line carries real information instead of looking identical at any size.
-    const rrInfo = bs.github && bs.github.rr ? bs.github.rr : null;
-    let detail = '';
-    if (ahead > 0 && rrInfo) {
-      const churnTxt = rrInfo.churn_ins != null
-        ? `+${rrInfo.churn_ins} / −${rrInfo.churn_del} lines`
-        : (rrInfo.churn ? `${rrInfo.churn} lines churn` : '');
-      const crit = Array.isArray(rrInfo.critical_files) ? rrInfo.critical_files : [];
-      const critTxt = crit.length
-        ? ` · <span style="cursor:help" title="${_promoteEsc(crit.join('\n'))}">${crit.length} critical file${crit.length !== 1 ? 's' : ''} touched</span>`
-        : '';
-      if (churnTxt || critTxt) detail = ` <span style="color:#9ca3af">· ${churnTxt}${critTxt}</span>`;
-    }
-    statsEl.innerHTML = `<strong>${ahead}</strong> commit${ahead !== 1 ? 's' : ''} ahead of origin/main${detail}`;
+    // The commits-ahead / churn / critical-files line was removed as clutter:
+    // the serpentine graph already shows every commit, and the Merge Pressure
+    // pill already conveys urgency. No need to restate it as prose.
+    statsEl.innerHTML = '';
     // Slice 316: operator-gated promotion button (replaces the passive caption).
     renderPromoteAction(bs);
   }
@@ -8405,7 +8392,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       if (failed) {
         cap.innerHTML = '<strong class="gflow-cap-fail">Stopped — a step failed. main was not touched and the failure is flagged.</strong>';
       } else if (running) {
-        cap.innerHTML = 'Running the full suite on a clean runner — <strong>main moves only when every step passes</strong>.';
+        cap.innerHTML = '';
       } else if (success) {
         cap.innerHTML = '<strong class="gflow-cap-ok">All steps passed — fast-forwarded to origin/main.</strong>';
       } else if (ahead > 0) {
