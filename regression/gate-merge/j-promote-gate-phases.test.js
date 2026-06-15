@@ -101,8 +101,8 @@ test('J-promote-gate-phases ac-9 — the dashboard gate-flow steps consume the S
     STEP('Fast-forward main to the tested commit', 'completed', 'success'),
   ]).map(p => p.key);
 
-  // The renderGateFlow STEPS array (the suite steps ②③④, identified by its 'Browser e2e' label).
-  const block = html.match(/const STEPS = \[([\s\S]*?Browser e2e[\s\S]*?)\];/);
+  // The renderGateFlow STEPS array (the suite steps ②③④, identified by its 'E2E smoke test' label).
+  const block = html.match(/const STEPS = \[([\s\S]*?E2E smoke test[\s\S]*?)\];/);
   assert.ok(block, 'renderGateFlow STEPS array must exist');
   const dashKeys = [...block[1].matchAll(/key:\s*'([^']+)'/g)].map(m => m[1]);
   assert.deepEqual(dashKeys, ['regression', 'e2e', 'ff'], 'gate-flow steps must key on regression/e2e/ff (the server phase keys)');

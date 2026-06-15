@@ -3593,7 +3593,7 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
   color: #374151;
 }
 
-/* Gate sequence: RUN GATE → ① Regression → ② Browser e2e → ③ Fast-forward → main */
+/* Gate sequence: RUN GATE → ① Update tests → ② Run fast regression → ③ E2E smoke test → ④ Promote → ⑤ merged */
 .gate-flow { margin: 12px 0 4px; padding: 12px 14px; border: 1px solid #e5e7eb;
   border-radius: 10px; background: #f9fafb; }
 .gate-flow-head { font-size: 10px; font-weight: 700; text-transform: uppercase;
@@ -8302,7 +8302,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
 
   // ── Gate sequence stepper (Ziyal) ──────────────────────────────────────────
   // Always-visible explanation of what RUN GATE does, doubling as live progress:
-  //   RUN GATE → ① Regression → ② Browser e2e → ③ Fast-forward → origin/main
+  //   RUN GATE → ① Update tests → ② Run fast regression → ③ E2E smoke test → ④ Promote → ⑤ merged
   // Any step fails → STOP, main untouched & flagged. All pass → promoted.
   // Reflects the real promote_run.phases (status + duration_s) and live elapsed.
   function renderGateFlow(gh) {
@@ -8314,9 +8314,9 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     // regression / e2e / ff. The fast-forward phase is keyed 'ff' server-side — looking
     // it up as 'fast-forward' here left step ④ stuck on idle even after a green promotion.
     const STEPS = [
-      { key: 'regression', label: 'Regression' },
-      { key: 'e2e',        label: 'Browser e2e' },
-      { key: 'ff',         label: 'Fast-forward' },
+      { key: 'regression', label: 'Run fast regression' },
+      { key: 'e2e',        label: 'E2E smoke test' },
+      { key: 'ff',         label: 'Promote' },
     ];
     const glyph = { passed: '✓', running: '↻', failed: '✗', skipped: '–', pending: '○', idle: '○' };
 
@@ -8360,7 +8360,9 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     const elapsed = running ? _gateElapsedLabel() : '';
     const trigState = running ? 'run' : failed ? 'fail' : success ? 'done' : 'idle';
     const trigger = `<span class="gflow-trigger gflow-trigger-${trigState}">RUN GATE${elapsed ? ' · ' + elapsed : ''}</span>`;
-    const target  = `<span class="gflow-target${failed ? ' gflow-target-held' : ''}">origin/main</span>`;
+    const target  = `<span class="gflow-target${failed ? ' gflow-target-held' : ''}">`
+      + `<span class="gflow-num">5</span>`
+      + `<span class="gflow-label">merged</span></span>`;
 
     host.innerHTML = trigger + arrow + updateTestsHtml + arrow + stepHtml + arrow + target;
 

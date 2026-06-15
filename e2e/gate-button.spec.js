@@ -167,7 +167,7 @@ test('a stale success (already-promoted sha) does NOT read as merged while dev i
   await expect(caption).toContainText('RUN GATE');
   await expect(caption.locator('.gflow-cap-ok')).toHaveCount(0);
   // No stale green: none of the suite steps may paint the old run's ✓ as the current gate.
-  for (const name of ['Regression', 'Browser e2e', 'Fast-forward']) {
+  for (const name of ['Regression', 'E2E smoke test', 'Promote']) {
     await expect(steps.locator('.gflow-step', { hasText: name })).not.toHaveClass(/gflow-passed/);
   }
 
@@ -196,7 +196,7 @@ test('clicking RUN GATE past a stale success shows GATE RUNNING (optimism is not
   // NOT paint the OLD run's all-green phases as the current gate. No passed suite steps;
   // it waits for the real run to report.
   const steps = page.locator('#gate-flow-steps');
-  for (const name of ['Regression', 'Browser e2e', 'Fast-forward']) {
+  for (const name of ['Regression', 'E2E smoke test', 'Promote']) {
     await expect(steps.locator('.gflow-step', { hasText: name })).not.toHaveClass(/gflow-passed/);
   }
 });
@@ -254,6 +254,6 @@ test('the Promote row shows the gate phases live — regression passes (with dur
   await expect(regStep).toHaveClass(/gflow-passed/);
   await expect(regStep).toContainText('2s');
   // e2e is shown running; the fast-forward has not happened yet (its step is pending).
-  await expect(steps.locator('.gflow-step', { hasText: 'Browser e2e' })).toHaveClass(/gflow-running/);
-  await expect(steps.locator('.gflow-step', { hasText: 'Fast-forward' })).toHaveClass(/gflow-pending/);
+  await expect(steps.locator('.gflow-step', { hasText: 'E2E smoke test' })).toHaveClass(/gflow-running/);
+  await expect(steps.locator('.gflow-step', { hasText: 'Promote' })).toHaveClass(/gflow-pending/);
 });

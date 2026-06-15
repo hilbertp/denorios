@@ -87,8 +87,8 @@ test('full gate-success clicktest: held → run gate → regression → e2e → 
   await page.goto('/');
   const steps  = page.locator('#gate-flow-steps');
   const regStep = steps.locator('.gflow-step', { hasText: 'Regression' });
-  const e2eStep = steps.locator('.gflow-step', { hasText: 'Browser e2e' });
-  const ffStep  = steps.locator('.gflow-step', { hasText: 'Fast-forward' });
+  const e2eStep = steps.locator('.gflow-step', { hasText: 'E2E smoke test' });
+  const ffStep  = steps.locator('.gflow-step', { hasText: 'Promote' });
   const caption = page.locator('#gate-flow-caption');
   const btn     = page.locator('#promote-gate-btn');
 
