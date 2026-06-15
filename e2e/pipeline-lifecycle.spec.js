@@ -107,7 +107,7 @@ test('a slice travels the whole pipeline: stage → queue → Rom → Nog → hi
   bumpHeartbeat();
   await page.reload();
   await expect(page.locator('#nog-lane')).toHaveClass(/nog-lane-active/, { timeout: 10000 });
-  await expect(page.locator('#nog-lane-status')).toContainText('reviewing');
+  await expect(page.locator('.nog-reviewing-pill')).toContainText('reviewing');
 
   // ── Stage 5 · NOG ACCEPTED → MERGED (simulated verdict + squash to main) ────
   // Nog accepts; the slice is squashed/merged and leaves the active lanes. It now
