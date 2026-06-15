@@ -202,9 +202,10 @@ test('J-direct-controls-ops-ui slice-99809-ac-2 — the shipped dashboard explai
   assert.match(html, /all pass → promoted to origin\/main/,
     'gate-sequence caption must explain all-green promotes to main');
 
-  // The Merge Pressure helper (header-level info) names the metric honestly.
-  assert.match(html, /it is <strong>not<\/strong> a regression probability/,
-    'merge-pressure helper must state it is not a regression probability');
+  // The Merge Pressure metric still names itself honestly — the standalone helper
+  // caption was removed as clutter; the disclaimer now rides the pill's tooltip.
+  assert.match(html, /Not a regression probability\./,
+    'merge-pressure tooltip must state it is not a regression probability');
 });
 
 // The crucial process rule: "update tests" is step 1 of the gate — the suites test
@@ -223,7 +224,8 @@ test('J-direct-controls-ops-ui slice-99811-ac-1 — "update tests" is the explic
   assert.match(html, /onclick="confirmUpdateTests\(\)"/,
     'RUN GATE must open the update-tests checkpoint, not dispatch directly');
   assert.match(html, /function confirmUpdateTests\(\)/, 'the checkpoint function must exist');
-  assert.ok(html.includes('Approve &amp; run gate'), 'the checkpoint requires an explicit approval to run');
+  assert.match(html, /id="utc-approve-btn"[^>]*>Run gate</,
+    'the checkpoint requires an explicit approval (Run gate) to dispatch');
 
   // promote.yml runs an "Update tests" step strictly before the regression suite.
   const yml = fs.readFileSync(PROMOTE_YML, 'utf8');
@@ -254,7 +256,8 @@ test('J-direct-controls-ops-ui slice-99811-ac-2 — the gate surfaces regression
 
   // The checkpoint loads the plain-language changes and lets the operator STOP.
   assert.ok(html.includes("fetch('/api/test-changes')"), 'checkpoint loads the plain-language test changes');
-  assert.ok(html.includes("Stop — don't run"), 'operator can stop the pipeline right there');
+  assert.match(html, /onclick="closeUpdateTestsOverlay\(\)">Cancel</,
+    'operator can stop the pipeline right there (Cancel)');
   assert.ok(html.includes('No longer checked'), 'removed checks are surfaced as a masking risk');
   assert.ok(html.includes('Now also checking'), 'added checks are surfaced');
 });
@@ -330,10 +333,11 @@ test('J-direct-controls-ops-ui slice-99810-ac-2 — fast green runs stay visible
   assert.match(html, /ci-strip-row-flash/, 'run-change flash class must be wired');
   assert.match(html, /_ciLastSeenSig/, 'run-change detection state must exist');
 
-  // Topology dots carry subject + age tooltips; footer carries churn split.
+  // Topology dots carry subject + age tooltips; the Merge Pressure pill tooltip
+  // carries churn + critical-file context (the footer stats line was removed as clutter).
   assert.match(html, /d\.subject \? _promoteEsc\(d\.subject\)/, 'dot tooltips must carry commit subjects');
-  assert.match(html, /churn_ins/, 'footer must use the churn split');
-  assert.match(html, /critical file/, 'footer must surface critical-file touches');
+  assert.match(html, /\$\{churn\} lines churn/, 'the merge-pressure tooltip must surface churn');
+  assert.match(html, /critical file/, 'the merge-pressure tooltip must surface critical-file touches');
 });
 
 test('J-direct-controls-ops-ui slice-99808-ac-3 — the shipped dashboard wires the Bashir crew card: active, clickable, opens the crew dossier (coverage now lives in his Artifacts tab)', () => {
