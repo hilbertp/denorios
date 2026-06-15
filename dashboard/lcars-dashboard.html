@@ -3613,8 +3613,13 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
 .gflow-trigger-run  { background:#fffbeb; color:#92400e; border-color:#fcd34d; }
 .gflow-trigger-fail { background:#fef2f2; color:#991b1b; border-color:#fecaca; }
 .gflow-trigger-done { background:#ecfdf5; color:#065f46; border-color:#a7f3d0; }
-.gflow-target { background:#ecfdf5; border-color:#a7f3d0; color:#065f46; }
-.gflow-target-held { background:#fef2f2; border-color:#fecaca; color:#991b1b; }
+/* At rest the target is neutral, like the idle steps; colour appears only when the
+   gate actually finishes — green on a real promotion, red when held by a failure. */
+.gflow-target { opacity:.7; }
+.gflow-target-ok   { background:#ecfdf5; border-color:#a7f3d0; color:#065f46; opacity:1; }
+.gflow-target-ok   .gflow-num { background:#34d399; color:#053b2c; }
+.gflow-target-held { background:#fef2f2; border-color:#fecaca; color:#991b1b; opacity:1; }
+.gflow-target-held .gflow-num { background:#f87171; color:#450a0a; }
 .gflow-step.gflow-idle, .gflow-step.gflow-pending { opacity:.7; }
 .gflow-step.gflow-running { border-color:#fcd34d; background:#fffbeb; color:#92400e; }
 .gflow-step.gflow-running .gflow-num { background:#fcd34d; color:#7c2d12; }
@@ -8339,8 +8344,10 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     // gate before the suites ran. Falls back to the todo/done heuristic when idle.
     const tnPhase = byKey['tests-needed'] || null;
     const utStatus = tnPhase ? tnPhase.status : ((running || success || failed) ? 'passed' : 'todo');
-    const utGlyphMap = { passed: '✓', running: '↻', failed: '✗', pending: '○', skipped: '–', todo: '✎' };
-    const utClass = utStatus === 'todo' ? 'gflow-step-todo' : 'gflow-' + utStatus;
+    const utGlyphMap = { passed: '✓', running: '↻', failed: '✗', pending: '○', skipped: '–', todo: '○' };
+    // At rest (todo) the step is neutral like ②③④ — no pencil, no yellow. The Test-Update
+    // Gate only colours it once the gate is in flight (running/passed/failed).
+    const utClass = utStatus === 'todo' ? 'gflow-idle' : 'gflow-' + utStatus;
     const utDur = tnPhase && tnPhase.duration_s != null ? `<span class="gflow-dur">· ${tnPhase.duration_s}s</span>` : '';
     const updateTestsHtml = `<span class="gflow-step ${utClass} gflow-step-pre" title="Step 1 of the gate: the Test-Update Gate classifies the dev changes and fails closed on a RED verdict (a weakened/removed/skipped check, or new behaviour shipped untested) before the suites run.">`
       + `<span class="gflow-num">1</span>`
@@ -8360,7 +8367,8 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     const elapsed = running ? _gateElapsedLabel() : '';
     const trigState = running ? 'run' : failed ? 'fail' : success ? 'done' : 'idle';
     const trigger = `<span class="gflow-trigger gflow-trigger-${trigState}">RUN GATE${elapsed ? ' · ' + elapsed : ''}</span>`;
-    const target  = `<span class="gflow-target${failed ? ' gflow-target-held' : ''}">`
+    const targetCls = success ? ' gflow-target-ok' : failed ? ' gflow-target-held' : '';
+    const target  = `<span class="gflow-target${targetCls}">`
       + `<span class="gflow-num">5</span>`
       + `<span class="gflow-label">merged</span></span>`;
 
