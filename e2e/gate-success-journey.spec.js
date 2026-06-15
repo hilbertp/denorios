@@ -93,7 +93,7 @@ test('full gate-success clicktest: held → run gate → regression → e2e → 
   const btn     = page.locator('#promote-gate-btn');
 
   // ── Stage 0 · HELD — nothing gated yet, no green tick, stale run not shown current ─
-  await expect(caption).toContainText('RUN GATE');                 // held: press RUN GATE to gate the new commits
+  await expect(page.locator('.gflow-trigger')).toContainText('RUN GATE'); // held: the gate trigger prompts RUN GATE
   // No stale green: none of the SUITE steps (②③④) may show passed for a stale run.
   for (const s of [regStep, e2eStep, ffStep]) await expect(s).not.toHaveClass(/gflow-passed/);
   await expect(btn).toContainText('RUN GATE');

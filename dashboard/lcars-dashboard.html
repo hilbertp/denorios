@@ -8397,7 +8397,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       } else if (success) {
         cap.innerHTML = '<strong class="gflow-cap-ok">All steps passed — fast-forwarded to origin/main.</strong>';
       } else if (ahead > 0) {
-        cap.innerHTML = '<strong>Step 1 — update the regression &amp; e2e tests</strong> to match the behaviour you changed on dev, then press <strong>RUN GATE</strong>. The suites test <em>intended</em> behaviour, so stale tests fail by design. Any later step fails → <strong>STOP</strong>, main untouched &amp; flagged; all pass → promoted to origin/main.';
+        cap.innerHTML = '';
       } else {
         cap.innerHTML = 'Nothing staged to promote — dev is level with origin/main.';
       }

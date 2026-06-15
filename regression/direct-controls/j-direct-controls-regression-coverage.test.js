@@ -192,15 +192,10 @@ test('J-direct-controls-ops-ui slice-99809-ac-2 — the shipped dashboard explai
   assert.match(html, /Nothing merges automatically/,
     'button tooltip must state nothing is automatic');
 
-  // The Gate Sequence caption replaces the old CI-strip rows: it leads with updating
-  // the tests, then explains that a failed step stops the gate (main untouched) and
-  // all-green promotes to main.
-  assert.match(html, /Step 1 — update the regression &amp; e2e tests/,
-    'gate-sequence caption must lead with updating the tests');
-  assert.match(html, /step fails → <strong>STOP<\/strong>, main untouched/,
-    'gate-sequence caption must explain a failed step stops and leaves main untouched');
-  assert.match(html, /all pass → promoted to origin\/main/,
-    'gate-sequence caption must explain all-green promotes to main');
+  // The idle gate-sequence caption (the "Step 1 — update the tests…" teaching block)
+  // was removed as clutter: the numbered stepper and RUN GATE trigger already convey
+  // the flow. The failure/success captions remain (asserted in the gate-button/journey
+  // e2e specs) — they report what happened, they don't teach.
 
   // The Merge Pressure metric still names itself honestly — the standalone helper
   // caption was removed as clutter; the disclaimer now rides the pill's tooltip.
