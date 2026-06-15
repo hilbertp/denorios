@@ -89,7 +89,6 @@ test('full gate-success clicktest: held → run gate → regression → e2e → 
   const regStep = steps.locator('.gflow-step', { hasText: 'Regression' });
   const e2eStep = steps.locator('.gflow-step', { hasText: 'E2E smoke test' });
   const ffStep  = steps.locator('.gflow-step', { hasText: 'Promote' });
-  const caption = page.locator('#gate-flow-caption');
   const btn     = page.locator('#promote-gate-btn');
 
   // ── Stage 0 · HELD — nothing gated yet, no green tick, stale run not shown current ─
@@ -131,7 +130,6 @@ test('full gate-success clicktest: held → run gate → regression → e2e → 
 
   // ── Stage 5 · PROMOTED — main fast-forwarded, every step green, nothing left ────
   await gateTo(5);
-  await expect(caption).toContainText('fast-forwarded to origin/main'); // the success caption
   await expect(ffStep).toHaveClass(/gflow-passed/);              // the fast-forward step finally lights up green
   await expect(regStep).toHaveClass(/gflow-passed/);
   await expect(e2eStep).toHaveClass(/gflow-passed/);

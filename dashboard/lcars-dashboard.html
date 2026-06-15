@@ -8422,7 +8422,8 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       } else if (running) {
         cap.innerHTML = '';
       } else if (success) {
-        cap.innerHTML = '<strong class="gflow-cap-ok">All steps passed — fast-forwarded to origin/main.</strong>';
+        // Redundant — the all-green steps + the merge-success popup already say it.
+        cap.innerHTML = '';
       } else if (ahead > 0) {
         cap.innerHTML = '';
       } else {
