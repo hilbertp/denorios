@@ -2063,52 +2063,6 @@
   .queue-state-badge.state-error            { background: var(--err-bg); color: var(--err); border-color: var(--err-border); }
   .queue-state-badge.state-needs-apendment  { background: #fef3c7; color: #92400e; border-color: var(--warn-border); }
 
-  /* ── GATE HEALTH (slice 260) ─────────────────────────────── */
-  .gate-health-section {
-    max-width: 1296px;
-    margin: 0 auto 24px auto;
-  }
-  .gate-health-panel {
-    background: var(--bg-panel);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 16px 20px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-  }
-  .gate-health-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 12px;
-  }
-  .gate-health-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 10px;
-    border-radius: 99px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    background: var(--ok-bg);
-    color: #166534;
-    border: 1px solid var(--ok-border);
-  }
-  .gate-health-pill.yellow { background: var(--warn-bg); color: #92400e; border-color: var(--warn-border); }
-  .gate-health-pill.red    { background: var(--err-bg); color: #991b1b; border-color: var(--err-border); }
-  .gate-health-pill-dot {
-    width: 6px; height: 6px; border-radius: 50%;
-    background: currentColor; flex-shrink: 0;
-  }
-  .gate-health-mutex-label { font-size: 12px; color: #6b7280; }
-  .gate-health-details { margin-bottom: 10px; }
-  .gate-health-row { font-size: 12px; color: #374151; margin-bottom: 2px; }
-  .gate-health-key { color: #6b7280; margin-right: 4px; }
-  .gate-health-events-title { font-size: 11px; font-weight: 600; color: #6b7280; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
-  .gate-events-list { font-size: 12px; color: #374151; font-family: ui-monospace, monospace; }
-  .gate-events-list .gate-evt { margin-bottom: 2px; }
-  .gate-events-list .gate-evt-ts { color: #9ca3af; margin-right: 6px; }
-
   /* ── BRANCH TOPOLOGY PANEL (slice 262) ────────────────────── */
   .topo-row {
     display: grid;
@@ -3559,7 +3513,6 @@ body.lcars-mode .outcome-pill { color: var(--ink) !important; }
 body.lcars-mode .outcome-error { color: #ff8a8a !important; }
 body.lcars-mode .outcome-on-dev { color: #93b4ff !important; }
 body.lcars-mode .outcome-success { color: #7be388 !important; }
-body.lcars-mode .gate-health-row, body.lcars-mode .gate-health-row span { color: var(--ink-2) !important; }
 /* Dossier tabs */
 body.lcars-mode .crew-tab { color: var(--ink-3) !important; }
 body.lcars-mode .crew-tab.active { color: var(--lcars-amber) !important; border-bottom-color: var(--lcars-amber) !important; }
@@ -3944,28 +3897,6 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     </div>
 
   </div>
-
-  <!-- ── GATE HEALTH PANEL (slice 260) ────────────────────────────────── -->
-  <section class="gate-health-section" id="gate-health-section">
-    <div class="section-title">Gate Health</div>
-    <div class="gate-health-panel" id="gate-health-panel">
-      <div class="gate-health-header">
-        <span class="gate-health-pill" id="gate-health-pill">
-          <span class="gate-health-pill-dot"></span>
-          <span id="gate-health-pill-label">OK</span>
-        </span>
-        <span class="gate-health-mutex-label" id="gate-mutex-label">Mutex: absent</span>
-      </div>
-      <div class="gate-health-details" id="gate-health-details">
-        <div class="gate-health-row"><span class="gate-health-key">Heartbeat:</span> <span id="gate-hb-val">--</span></div>
-        <div class="gate-health-row"><span class="gate-health-key">Last lock cycle:</span> <span id="gate-lock-val">--</span></div>
-      </div>
-      <div class="gate-health-events" id="gate-health-events">
-        <div class="gate-health-events-title">Recent gate events</div>
-        <div id="gate-events-list" class="gate-events-list"><span class="null-val">Loading...</span></div>
-      </div>
-    </div>
-  </section>
 
   <!-- ── CREW ROSTER ──────────────────────────────────────────────────── -->
   <section class="crew-roster">
@@ -6287,6 +6218,29 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       } else if (w && orchStatus !== 'down') {
         tipLines.push(`<span class="health-tooltip-meta">idle · ${w.processedTotal} slices processed</span>`);
       }
+
+      // Gate liveness — folded in from the retired Gate Health panel. Operator-facing
+      // bit only (idle vs a run in progress). Raw lock/heartbeat telemetry stays at
+      // /api/gate-health for debugging; the heartbeat age is meaningless in the
+      // GitHub-CI gate model, so we don't surface it.
+      try {
+        const gres = await fetch('/api/gate-health');
+        if (gres.ok) {
+          const g = await gres.json();
+          const gDot = g.color === 'green' ? 'up' : g.color === 'yellow' ? 'stale' : 'down';
+          let gState = 'idle';
+          if (g.mutex && g.mutex.present) {
+            const since = g.mutex.started_ts ? ` · since ${new Date(g.mutex.started_ts).toLocaleTimeString()}` : '';
+            gState = `running${since}`;
+          }
+          tipLines.push(
+            `<span class="health-tooltip-label">Gate</span>` +
+            `<span class="health-tooltip-dot ${gDot}"></span>` +
+            `${gState}`
+          );
+        }
+      } catch (_) { /* gate-health unreachable — omit the gate line */ }
+
       tooltip.innerHTML = tipLines.join('<br>');
     }
 
@@ -6298,54 +6252,6 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
   startElapsedTick();
   updateServicesPanel();
   setInterval(updateServicesPanel, 15000);
-
-  // ── Gate Health panel (slice 260) ─────────────────────────────────────────
-  async function updateGateHealth() {
-    try {
-      const res = await fetch('/api/gate-health');
-      if (!res.ok) return;
-      const data = await res.json();
-
-      const pill = document.getElementById('gate-health-pill');
-      const pillLabel = document.getElementById('gate-health-pill-label');
-      const mutexLabel = document.getElementById('gate-mutex-label');
-      const hbVal = document.getElementById('gate-hb-val');
-      const lockVal = document.getElementById('gate-lock-val');
-      const eventsList = document.getElementById('gate-events-list');
-
-      if (pill) {
-        pill.className = 'gate-health-pill' + (data.color === 'green' ? '' : ' ' + data.color);
-        if (pillLabel) pillLabel.textContent = data.color === 'green' ? 'OK' : data.color === 'yellow' ? 'WARN' : 'ALERT';
-      }
-      if (mutexLabel) {
-        mutexLabel.textContent = data.mutex.present
-          ? 'Mutex: held since ' + new Date(data.mutex.started_ts).toLocaleTimeString()
-          : 'Mutex: absent';
-      }
-      if (hbVal) {
-        if (!data.heartbeat.exists) hbVal.textContent = 'absent';
-        else if (data.heartbeat.age_ms != null) hbVal.textContent = Math.round(data.heartbeat.age_ms / 1000) + 's ago';
-        else hbVal.textContent = 'unknown';
-      }
-      if (lockVal) {
-        lockVal.textContent = data.last_lock_cycle_duration_ms != null
-          ? data.last_lock_cycle_duration_ms + 'ms'
-          : '--';
-      }
-      if (eventsList) {
-        if (data.recent_events.length === 0) {
-          eventsList.innerHTML = '<span class="null-val">(no gate events)</span>';
-        } else {
-          eventsList.innerHTML = data.recent_events.map(e => {
-            const ts = e.ts ? e.ts.slice(11, 19) : '';
-            return `<div class="gate-evt"><span class="gate-evt-ts">${esc(ts)}</span>${esc(e.event || '')}</div>`;
-          }).join('');
-        }
-      }
-    } catch (_) { /* gate-health fetch failed — leave panel as-is */ }
-  }
-  updateGateHealth();
-  setInterval(updateGateHealth, 15000);
 
   // ── Combined Queue panel ─────────────────────────────────────────────────────
   // Merges staged items and accepted (PENDING) items into one list.
