@@ -7570,7 +7570,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     // continuous green ribbon you can read like boustrophedon text. The panel
     // grows downward by row, never sideways.
     const VBW   = 920;                  // logical viewBox width (scales to container)
-    const xL    = 76, xR = 844;         // horizontal bounds of a row
+    const xL    = 130, xR = 844;        // horizontal bounds of a row (left margin leaves room for the origin/main branch)
     const COLS  = 10;                   // commits per row before the ribbon folds
     const span  = COLS > 1 ? (xR - xL) / (COLS - 1) : 0;
     const rowH  = 58;                   // vertical distance between folded rows
@@ -7598,13 +7598,13 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     // ── Dev ribbon (drawn first, beneath the dots) ────────────────────────────
     if (n > 0) {
       const p0 = devPos(0);
-      // Branch down from origin/main into the first (oldest) commit. Dashed when
-      // dev runs past the server ceiling, so the truncation reads honestly.
-      const truncated = ahead > n;
-      const leadDash  = truncated ? ' stroke-dasharray="5 5"' : '';
-      const midY = (mainY + p0.y) / 2;
-      svg += `<path d="M ${mainX} ${mainY} C ${mainX} ${midY}, ${p0.x} ${midY}, ${p0.x} ${p0.y}" `
-           + `fill="none" stroke="var(--branch-dev)" stroke-width="2"${leadDash} />`;
+      // First edge: origin/main → the oldest shown commit. Always DASHED (it can
+      // span commits we don't draw) and routed as a rounded "L" that stays clear of
+      // the first commit's number label — straight down under origin/main, round the
+      // corner, then right along the baseline (which passes UNDER the labels).
+      const cr = 10;
+      svg += `<path d="M ${mainX} ${mainY} L ${mainX} ${p0.y - cr} Q ${mainX} ${p0.y} ${mainX + cr} ${p0.y} L ${p0.x} ${p0.y}" `
+           + `fill="none" stroke="var(--branch-dev)" stroke-width="2" stroke-dasharray="5 5" stroke-linecap="round" />`;
 
       // Walk the commits: straight runs within a row, bowed U-bends at each fold.
       let d = `M ${p0.x} ${p0.y}`;
@@ -7639,6 +7639,9 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       const sha7       = (mainSha || '').slice(0, 7);
       const promotedAge = lastMerge && lastMerge.age_s != null ? formatAgeShort(lastMerge.age_s) : '';
       if (mainSha) {
+        // Give origin/main a visible branch length — a horizontal stub into the dot,
+        // so it reads as a branch rather than a lone node.
+        svg += `<line x1="18" y1="${mainY}" x2="${mainX}" y2="${mainY}" stroke="var(--branch-main)" stroke-width="2.5" stroke-linecap="round" />`;
         svg += `<text x="${mainX}" y="${mainY - 16}" text-anchor="middle" font-size="9" font-weight="600" fill="var(--branch-main)">origin/main</text>`;
         svg += `<circle cx="${mainX}" cy="${mainY}" r="${isMerge ? 7.5 : 6}" fill="var(--branch-main)">`;
         svg += `<title>origin/main: ${sha7}${promotedAge ? ` — promoted ${promotedAge} ago by the gate` : ''}</title></circle>`;
