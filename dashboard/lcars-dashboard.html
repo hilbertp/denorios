@@ -2165,6 +2165,17 @@
     color: var(--ink-4);
     cursor: not-allowed;
   }
+  /* In flight: not clickable, but must read as ALIVE (amber, pulsing) — not disabled-grey. */
+  .promote-gate-btn.promote-gate-running,
+  .promote-gate-btn.promote-gate-running:disabled {
+    background: var(--warn-bg);
+    border-color: var(--warn-border);
+    color: var(--warn);
+    cursor: default;
+    opacity: 1;
+    animation: gflow-pulse 1.6s ease-in-out infinite;
+  }
+  .promote-gate-btn .gate-spin { display:inline-block; animation: gflow-spin 1.1s linear infinite; margin-right:5px; }
   .promote-gate-err {
     font-size: 11px;
     font-weight: 500;
@@ -2406,6 +2417,7 @@
     position: relative;
     margin-right: 8px;
   }
+  .rr-pill-label { text-align: center; line-height: 1.2; }
   .rr-pill.green  { background: var(--ok-bg); color: var(--ok); border: 1px solid var(--ok-border); }
   .rr-pill.amber  { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-border); }
   .rr-pill.red    { background: var(--err-bg); color: var(--err); border: 1px solid var(--err-border); }
@@ -3541,6 +3553,11 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
   color: #374151;
 }
 
+/* DS9 lore tags (e.g. "(Infirmary)", "(Quark's Ledger)") — shown only in the
+   LCARS dark skin; hidden in the default white/professional mode. */
+.lore-tag { display: none; }
+body.lcars-mode .lore-tag { display: inline; }
+
 /* Gate sequence: RUN GATE → ① Update tests → ② Run fast regression → ③ E2E smoke test → ④ Promote */
 .gate-flow { margin: 12px 0 4px; padding: 12px 14px; border: 1px solid #e5e7eb;
   border-radius: 10px; background: #f9fafb; }
@@ -3674,7 +3691,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
   <div class="topo-row">
     <div class="topo-panel" id="topo-panel">
       <div class="topo-panel-head">
-        <span class="topo-panel-title">Branch Topology (Infirmary) <span class="panel-owner" data-role="bashir">Bashir</span></span>
+        <span class="topo-panel-title">Branch Topology<span class="lore-tag"> (Infirmary)</span> <span class="panel-owner" data-role="bashir">QA Engineer</span></span>
         <button class="topo-collapse-btn" id="topo-collapse-btn" onclick="toggleTopoCollapse()" aria-label="Toggle branch topology panel">&#9662;</button>
       </div>
       <div class="topo-panel-body" id="topo-panel-body">
@@ -3724,7 +3741,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
 
         <!-- Header row: label left, timer right -->
         <div class="active-slice-header">
-          <div class="active-slice-label">Active Build (Workshop) <span class="panel-owner" data-role="rom">Rom</span></div>
+          <div class="active-slice-label">Active Build<span class="lore-tag"> (Workshop)</span> <span class="panel-owner" data-role="rom">Full-Stack Engineer</span></div>
           <div class="active-slice-timer" id="active-timer-block" style="display:none">
             <div class="active-slice-timer-value" id="mission-elapsed">0m 00s</div>
             <div class="active-slice-timer-label">elapsed</div>
@@ -3748,7 +3765,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
           <div id="blocked-title" class="active-slice-title"></div>
           <div class="blocked-idle-indicator">
             <span class="blocked-dot"></span>
-            <span id="blocked-label">Blocked &middot; Waiting for Nog</span>
+            <span id="blocked-label">Blocked &middot; Waiting for Jordan</span>
           </div>
         </div>
 
@@ -3763,8 +3780,8 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
         <div class="active-slice-progress-block" id="active-slice-progress-block">
           <!-- Footer: builder + pause button (only during active) -->
           <div class="active-slice-footer" id="active-slice-footer" style="display:none">
-            <span class="active-slice-builder">Rom &middot; Backend</span>
-            <button class="view-live-log-btn" onclick="viewLiveLog()" title="Watch Rom's build output stream live while the slice is in progress">&#128221; View live log</button>
+            <span class="active-slice-builder" data-role="rom">Full-Stack Engineer &middot; Backend</span>
+            <button class="view-live-log-btn" onclick="viewLiveLog()" title="Watch the build output stream live while the slice is in progress">&#128221; View live log</button>
             <button class="pause-build-btn" onclick="pauseBuild()">
               &#9208; Pause
             </button>
@@ -3787,7 +3804,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     <!-- POST-BUILD PIPELINE -->
     <div class="panel-postbuild">
       <div class="postbuild-panel" id="postbuild-panel">
-        <div class="section-title">Post-Build (Quality Diagnostics) <span class="panel-owner" data-role="nog">Nog</span></div>
+        <div class="section-title">Post-Build<span class="lore-tag"> (Quality Diagnostics)</span> <span class="panel-owner" data-role="nog">Peer-Review</span></div>
         <div class="postbuild-lane" id="nog-lane">
           <div class="postbuild-lane-header">
             <span class="postbuild-badge" id="nog-badge" style="display:none"></span>
@@ -3797,7 +3814,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
           <div class="nog-idle-state" id="nog-idle-state">
             <div class="nog-idle-glyph">&#9201;</div>
             <div class="nog-idle-primary">Standing by</div>
-            <div class="nog-idle-secondary">Reviews each slice after Rom delivers it</div>
+            <div class="nog-idle-secondary">Reviews each slice once the build completes</div>
             <div class="nog-hint-pill">AC pass &middot; lint &middot; readability &middot; naming &middot; anti-patterns &middot; dead code</div>
           </div>
 
@@ -3807,7 +3824,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
             <!-- Header row -->
             <div class="nog-running-header">
               <div>
-                <span style="font-size:12px;font-weight:700;color:#111827;margin-right:6px">Nog</span>
+                <span class="role-person-label" data-role="nog" style="font-size:12px;font-weight:700;color:#111827;margin-right:6px">Jordan</span>
                 <span class="nog-running-subtitle" id="nog-round-label">Dual-gate review · round 1 of 5</span>
               </div>
               <span class="nog-reviewing-pill">reviewing</span>
@@ -3870,11 +3887,11 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     <div class="panel-queue">
       <div class="queue-panel">
         <div class="queue-panel-header">
-          <div class="section-title">Engineering Queue <span class="panel-owner" data-role="obrien">O'Brien</span></div>
+          <div class="section-title">Backlog Queue <span class="panel-owner" data-role="obrien">Dev Lead</span></div>
           <span class="queue-info-icon" title="Approval order = build order. First accepted = first built. Drag to reprioritize.">(i)</span>
         </div>
         <div id="queue-list">
-          <div class="queue-empty">Engineering Queue is clear.</div>
+          <div class="queue-empty">Backlog Queue is clear.</div>
         </div>
       </div>
     </div>
@@ -3882,7 +3899,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     <!-- HISTORY -->
     <div class="panel-history">
       <div class="slice-history" style="margin-bottom:0">
-        <div class="section-title">History (Logbook) <span class="panel-owner" data-role="obrien">O'Brien</span></div>
+        <div class="section-title">History<span class="lore-tag"> (Logbook)</span> <span class="panel-owner" data-role="obrien">Dev Lead</span></div>
         <div class="history-table-header">
           <span class="col-chevron"></span>
           <span class="col-id">#</span>
@@ -3902,69 +3919,69 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
 
   <!-- ── CREW ROSTER ──────────────────────────────────────────────────── -->
   <section class="crew-roster">
-    <div class="section-title">Crew</div>
+    <div class="section-title">Roles Manifest</div>
     <div class="crew-grid">
 
-      <div class="crew-card active crew-card-clickable" onclick="openCrewMenu(event, 'sisko')" title="New / resume conversation · inspect role">
+      <div class="crew-card active crew-card-clickable" data-role="sisko" onclick="openCrewMenu(event, 'sisko')" title="New / resume conversation · inspect role">
         <div class="crew-number">01</div>
-        <div class="crew-name">Sisko</div>
+        <div class="crew-name">Morgan</div>
         <div class="crew-role">Product Manager</div>
         <span class="crew-badge badge-active">active</span>
         <div class="crew-function">Owns the product vision, shapes bets, and approves what gets built.</div>
       </div>
 
-      <div class="crew-card active crew-card-clickable" onclick="openCrewMenu(event, 'ziyal')" title="New / resume conversation · inspect role">
+      <div class="crew-card active crew-card-clickable" data-role="ziyal" onclick="openCrewMenu(event, 'ziyal')" title="New / resume conversation · inspect role">
         <div class="crew-number">02</div>
-        <div class="crew-name">Ziyal</div>
+        <div class="crew-name">Riley</div>
         <div class="crew-role">UX Specialist</div>
         <span class="crew-badge badge-active">active</span>
-        <div class="crew-function">Lo-fi wireframes and written specs. Output is optimised for fast stakeholder sign-off, not visual polish. Hands off to O'Brien with zero ambiguity.</div>
+        <div class="crew-function">Lo-fi wireframes and written specs. Output is optimised for fast stakeholder sign-off, not visual polish. Hands off to the dev lead with zero ambiguity.</div>
       </div>
 
-      <div class="crew-card active crew-card-clickable" onclick="openCrewMenu(event, 'obrien')" title="New / resume conversation · inspect role">
+      <div class="crew-card active crew-card-clickable" data-role="obrien" onclick="openCrewMenu(event, 'obrien')" title="New / resume conversation · inspect role">
         <div class="crew-number">03</div>
-        <div class="crew-name">Chief O'Brien</div>
-        <div class="crew-role">Tech Lead</div>
+        <div class="crew-name">Alex</div>
+        <div class="crew-role">Dev Lead</div>
         <span class="crew-badge badge-active">active</span>
         <div class="crew-function">Sequences the queue, directs delivery, writes slices, and owns the dev process.</div>
       </div>
 
-      <div class="crew-card active crew-card-clickable" onclick="openCrewMenu(event, 'rom')" title="New / resume conversation · inspect role">
+      <div class="crew-card active crew-card-clickable" data-role="rom" onclick="openCrewMenu(event, 'rom')" title="New / resume conversation · inspect role">
         <div class="crew-number">04</div>
-        <div class="crew-name">Rom</div>
-        <div class="crew-role">Backend Implementor</div>
+        <div class="crew-name">Sam</div>
+        <div class="crew-role">Full-Stack Engineer</div>
         <span class="crew-badge badge-active">active</span>
         <div class="crew-function">Builds accepted features end-to-end. Owns the watcher, relay, and server.</div>
       </div>
 
-      <div class="crew-card active crew-card-clickable" onclick="openCrewMenu(event, 'nog')" title="New / resume conversation · inspect role">
+      <div class="crew-card active crew-card-clickable" data-role="nog" onclick="openCrewMenu(event, 'nog')" title="New / resume conversation · inspect role">
         <div class="crew-number">05</div>
-        <div class="crew-name">Nog</div>
-        <div class="crew-role">Evaluator</div>
+        <div class="crew-name">Jordan</div>
+        <div class="crew-role">Peer-Review</div>
         <span class="crew-badge badge-active">active</span>
-        <div class="crew-function">Evaluates Rom's output against acceptance criteria before it ships.</div>
+        <div class="crew-function">Evaluates the implementer's output against acceptance criteria before it ships.</div>
       </div>
 
-      <div class="crew-card active crew-card-clickable" onclick="openCrewMenu(event, 'bashir')" title="New / resume conversation · inspect role">
+      <div class="crew-card active crew-card-clickable" data-role="bashir" onclick="openCrewMenu(event, 'bashir')" title="New / resume conversation · inspect role">
         <div class="crew-number">06</div>
-        <div class="crew-name">Bashir</div>
+        <div class="crew-name">Priya</div>
         <div class="crew-role">QA Engineer</div>
         <span class="crew-badge badge-active">active</span>
-        <div class="crew-function">Writes and runs the journey regression suite that gates promotion to main. Coverage overview lives in his Artifacts tab.</div>
+        <div class="crew-function">Writes and runs the journey regression suite that gates promotion to main. Coverage overview lives in the Artifacts tab.</div>
       </div>
 
-      <div class="crew-card active crew-card-clickable" onclick="openCrewMenu(event, 'dax')" title="New / resume conversation · inspect role">
+      <div class="crew-card active crew-card-clickable" data-role="dax" onclick="openCrewMenu(event, 'dax')" title="New / resume conversation · inspect role">
         <div class="crew-number">07</div>
-        <div class="crew-name">Dax</div>
+        <div class="crew-name">Taylor</div>
         <div class="crew-role">Architect</div>
         <span class="crew-badge badge-active">active</span>
         <div class="crew-function">Holds the system architecture. Consulted on structural decisions and long-range design.</div>
       </div>
 
-      <div class="crew-card active crew-card-clickable" onclick="openCrewMenu(event, 'worf')" title="New / resume conversation · inspect role">
+      <div class="crew-card active crew-card-clickable" data-role="worf" onclick="openCrewMenu(event, 'worf')" title="New / resume conversation · inspect role">
         <div class="crew-number">08</div>
-        <div class="crew-name">Worf</div>
-        <div class="crew-role">DevOps / Release Engineer</div>
+        <div class="crew-name">Chris</div>
+        <div class="crew-role">Release Engineer</div>
         <span class="crew-badge badge-active">active</span>
         <div class="crew-function">Owns how code moves — branches, CI/CD, feature flags, locks, and the merge ceremony. Builds the gate; Philipp presses the button.</div>
       </div>
@@ -3975,7 +3992,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
   <!-- ── COST CENTER ─────────────────────────────────────────────────────── -->
   <section class="cost-center" id="cost-center">
     <div class="cost-center-header" onclick="toggleCostCenter()">
-      <div class="section-title">Economics (Quark's Ledger)</div>
+      <div class="section-title">Economics<span class="lore-tag"> (Quark's Ledger)</span></div>
       <span class="cost-center-toggle" id="cost-center-toggle">▾</span>
     </div>
     <div class="cost-center-body" id="cost-center-body">
@@ -3998,8 +4015,8 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       </table>
       <div class="ledger-note">
         <strong>Input</strong> and <strong>Output</strong> are tracked per role. <strong>Context</strong> (cache reuse) and
-        <strong>Thinking</strong> tokens aren't recorded yet — the orchestrator captures only input+output, and only Rom &amp;
-        Nog report usage automatically (interactive roles aren't instrumented). Wire those up to fill the empty columns.
+        <strong>Thinking</strong> tokens aren't recorded yet — the orchestrator captures only input+output, and only the
+        implementer &amp; reviewer report usage automatically (interactive roles aren't instrumented). Wire those up to fill the empty columns.
       </div>
       <div class="cost-center-updated" id="cost-center-updated"></div>
     </div>
@@ -4100,7 +4117,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
 <div class="stop-confirm-overlay" id="stop-confirm-overlay" style="display:none">
   <div class="stop-confirm-dialog">
     <div class="stop-confirm-title" id="stop-confirm-title">Stop build?</div>
-    <div class="stop-confirm-body" id="stop-confirm-body">Rom's current work will be preserved but the slice returns to pending.</div>
+    <div class="stop-confirm-body" id="stop-confirm-body">The current work will be preserved but the slice returns to pending.</div>
     <div class="stop-confirm-actions">
       <button class="btn stop-confirm-btn stop-confirm-btn-cancel" onclick="hideStopConfirm()">Keep Building</button>
       <button class="btn btn-stop stop-confirm-btn stop-confirm-btn-confirm" onclick="confirmStopBuild()">Confirm Stop</button>
@@ -4120,8 +4137,8 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     </div>
     <div class="inv-tabs">
       <button class="inv-tab active" data-tab="prompt" onclick="switchInvTab('prompt')">Prompt</button>
-      <button class="inv-tab" data-tab="report" onclick="switchInvTab('report')">Rom Report</button>
-      <button class="inv-tab" data-tab="review" onclick="switchInvTab('review')">Nog Review</button>
+      <button class="inv-tab" data-tab="report" onclick="switchInvTab('report')">Build Report</button>
+      <button class="inv-tab" data-tab="review" onclick="switchInvTab('review')">Peer Review</button>
     </div>
     <div class="inv-body">
       <div id="inv-pane-prompt" class="inv-pane active"></div>
@@ -4146,7 +4163,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     incomplete_metrics: 'Incomplete metrics in report',
     invalid_slice:      'Invalid slice',
     signal:             'Killed by signal',
-    nog_escalation:     'Escalated by Nog',
+    nog_escalation:     'Escalated by review',
   };
 
   function humanReason(raw) {
@@ -4326,14 +4343,14 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
           <div class="nog-idle-glyph">&#9201;</div>
           <div class="nog-idle-primary"><span class="nog-verdict-badge return">NOG_RETURN</span></div>
           <div class="nog-idle-secondary">${escHtml(reason)}</div>
-          <div class="nog-hint-pill">Waiting for Rom to complete round ${round + 1}&hellip;</div>`;
+          <div class="nog-hint-pill">Waiting for ${personName('rom')} to complete round ${round + 1}&hellip;</div>`;
       } else {
         // Normal idle
         idleState.style.display = 'flex';
         idleState.innerHTML = `
           <div class="nog-idle-glyph">&#9201;</div>
           <div class="nog-idle-primary">Standing by</div>
-          <div class="nog-idle-secondary">Reviews each slice after Rom delivers it</div>
+          <div class="nog-idle-secondary">Reviews each slice once the build completes</div>
           <div class="nog-hint-pill">AC pass &middot; lint &middot; readability &middot; naming &middot; anti-patterns &middot; dead code</div>`;
       }
       return;
@@ -4477,7 +4494,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       const res = await fetch('/api/log/' + encodeURIComponent(_liveLogId), { cache: 'no-store' });
       const data = await res.json().catch(() => null);
       if (res.status === 404) {
-        pre.textContent = 'No log yet — Rom has not produced output for this slice.';
+        pre.textContent = 'No log yet — no build output for this slice yet.';
         if (meta) meta.textContent = 'waiting for output…';
       } else if (data && Array.isArray(data.lines)) {
         pre.textContent = data.lines.join('\n') || '(empty)';
@@ -4502,7 +4519,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     overlay.className = 'rollback-overlay';
     overlay.id = 'live-log-overlay';
     overlay.onclick = (e) => { if (e.target === overlay) closeLiveLog(); };
-    overlay.innerHTML = `<div class="rollback-card live-log-card" role="dialog" aria-modal="true" aria-label="Rom live build log">
+    overlay.innerHTML = `<div class="rollback-card live-log-card" role="dialog" aria-modal="true" aria-label="Live build log">
       <h3>Live build log <span class="live-log-id">slice ${_rbEsc(_liveLogId)}</span></h3>
       <div class="live-log-meta" id="live-log-meta">loading…</div>
       <pre class="live-log-body" id="live-log-body" tabindex="0">Loading…</pre>
@@ -4618,7 +4635,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       const round = getRound(mission.id);
       document.getElementById('blocked-id-badge').textContent = `Slice ${escHtml(mission.id)}`;
       document.getElementById('blocked-title').textContent = mission.title || '\u2014';
-      document.getElementById('blocked-label').textContent = `Blocked \u00b7 Waiting for Nog \u2014 #${escHtml(mission.id)} in review round R${round}`;
+      document.getElementById('blocked-label').textContent = `Blocked \u00b7 Waiting for ${personName('nog')} \u2014 #${escHtml(mission.id)} in review round R${round}`;
 
     } else if (activeStageKey && mission) {
       blockedEl.style.display = 'none';
@@ -4647,10 +4664,10 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
         if (heartbeat.status === 'processing') {
           const elapsedSecs = heartbeat.slice_elapsed_seconds ?? 0;
           if (elapsedSecs < 5 && !heartbeat.firstOutputAt) {
-            statusEl.textContent = 'Invoking Rom \u2014 waiting for first response\u2026';
+            statusEl.textContent = `Invoking ${personName('rom')} \u2014 waiting for first response\u2026`;
             statusEl.style.color = '#f59e42';
           } else {
-            statusEl.textContent = `Rom building round ${round} \u00b7 ${fmtElapsed(elapsedSecs)}`;
+            statusEl.textContent = `${personName('rom')} building round ${round} \u00b7 ${fmtElapsed(elapsedSecs)}`;
             statusEl.style.color = '#6b7280';
           }
         } else {
@@ -4779,7 +4796,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     const titleEl = document.getElementById('stop-confirm-title');
     const bodyEl  = document.getElementById('stop-confirm-body');
     titleEl.textContent = `Stop #${currentMission.id} \u2014 ${currentMission.title || 'Untitled'}?`;
-    bodyEl.textContent  = "Rom's current work will be preserved but the slice returns to pending.";
+    bodyEl.textContent  = "The current work will be preserved but the slice returns to pending.";
     overlay.style.display = '';
   }
 
@@ -6136,12 +6153,51 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     if (e.target === e.currentTarget) closeCrewDossier();
   });
 
+  // ── Role identity (single source of truth) ──────────────────────────────────
+  // White mode shows neutral first names + role titles; the LCARS dark skin keeps
+  // the DS9 crew. Internal keys (data-role, from/to, CSS) stay unchanged.
+  const ROLE = {
+    sisko:  { lore: 'Sisko',   name: 'Morgan', white: 'Product Manager',     lcarsRole: 'Product Manager' },
+    ziyal:  { lore: 'Ziyal',   name: 'Riley',  white: 'UX Specialist',       lcarsRole: 'UX Specialist' },
+    obrien: { lore: "O'Brien", name: 'Alex',   white: 'Dev Lead',            lcarsRole: 'Tech Lead' },
+    rom:    { lore: 'Rom',     name: 'Sam',    white: 'Full-Stack Engineer', lcarsRole: 'Backend Implementor' },
+    nog:    { lore: 'Nog',     name: 'Jordan', white: 'Peer-Review',         lcarsRole: 'Evaluator' },
+    bashir: { lore: 'Bashir',  name: 'Priya',  white: 'QA Engineer',         lcarsRole: 'QA Engineer' },
+    dax:    { lore: 'Dax',     name: 'Taylor', white: 'Architect',           lcarsRole: 'Architect' },
+    worf:   { lore: 'Worf',    name: 'Chris',  white: 'Release Engineer',    lcarsRole: 'DevOps / Release Engineer' },
+    leeta:  { lore: 'Leeta',   name: 'Robin',  white: 'Designer',            lcarsRole: 'Designer' },
+  };
+  function lcarsOn() { return document.body.classList.contains('lcars-mode'); }
+  // person label: first name in white, character in LCARS
+  function personName(key) { const r = ROLE[key]; return r ? (lcarsOn() ? r.lore : r.name) : key; }
+  // owner chip on panels: role title in white, character in LCARS
+  function ownerChip(key) { const r = ROLE[key]; return r ? (lcarsOn() ? r.lore : r.white) : key; }
+  // role-title line: white title vs original LCARS role text
+  function roleTitle(key) { const r = ROLE[key]; return r ? (lcarsOn() ? r.lcarsRole : r.white) : key; }
+  // Re-paint every theme-aware label. Runs on load and on every theme toggle.
+  function applyRoleLabels() {
+    document.querySelectorAll('.panel-owner[data-role]').forEach(el => {
+      if (ROLE[el.dataset.role]) el.textContent = ownerChip(el.dataset.role);
+    });
+    document.querySelectorAll('.crew-card[data-role]').forEach(el => {
+      const k = el.dataset.role; if (!ROLE[k]) return;
+      const n = el.querySelector('.crew-name'); if (n) n.textContent = personName(k);
+      const r = el.querySelector('.crew-role'); if (r) r.textContent = roleTitle(k);
+    });
+    document.querySelectorAll('.role-person-label[data-role]').forEach(el => {
+      if (ROLE[el.dataset.role]) el.textContent = personName(el.dataset.role);
+    });
+    const b = document.querySelector('.active-slice-builder[data-role]');
+    if (b && ROLE[b.dataset.role]) b.innerHTML = personName(b.dataset.role) + ' &middot; Backend';
+  }
+
   // ── LCARS mode (dark alternate skin) ────────────────────────────────────────
   function toggleLcarsMode(on) {
     document.body.classList.toggle('lcars-mode', on);
     try { localStorage.setItem('ds9-lcars-mode', on ? '1' : '0'); } catch (_) {}
     const t = document.getElementById('lcars-toggle');
     if (t) t.checked = on;
+    applyRoleLabels();
   }
   (function initLcarsMode() {
     let on = false;
@@ -6149,6 +6205,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     document.body.classList.toggle('lcars-mode', on);
     const t = document.getElementById('lcars-toggle');
     if (t) t.checked = on;
+    applyRoleLabels();
   })();
 
   // ── Services panel ───────────────────────────────────────────────────────────
@@ -6457,14 +6514,14 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
           +   '<span>Proposed Improvement'
           +     (autoApproveOn ? ' <span class="auto-approve-active">&middot; promoting automatically</span>' : '')
           +   '</span>'
-          +   '<label class="auto-approve-toggle" title="Auto-approve: when ON, every new proposal is promoted straight to Approved Work Orders with no manual review — this dispatches builds to Rom automatically.">'
+          +   '<label class="auto-approve-toggle" title="Auto-approve: when ON, every new proposal is promoted straight to Approved Work Orders with no manual review — this dispatches builds to the implementer automatically.">'
           +     `<input type="checkbox" ${autoApproveOn ? 'checked' : ''} onchange="toggleAutoApprove(this.checked)">`
           +     '<span class="auto-approve-track"><span class="auto-approve-thumb"></span></span>'
           +     '<span class="auto-approve-text">Auto-approve</span>'
           +   '</label>'
           + '</div>';
     if (stagedRows.length === 0) {
-      html += '<div class="queue-empty-card">No proposed improvements yet. O\'Brien proposes new work here.</div>';
+      html += '<div class="queue-empty-card">No proposed improvements yet. The dev lead proposes new work here.</div>';
     } else {
       html += stagedRows.map(row => renderQueueRow(row, {})).join('');
     }
@@ -6525,7 +6582,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       if (approvalEvents.length > 0) {
         const ev = approvalEvents[approvalEvents.length - 1];
         const ts = ev.ts ? new Date(ev.ts).toLocaleString() : '';
-        const approver = ev.approver || ev.actor || "O'Brien";
+        const approver = ev.approver || ev.actor || personName('obrien');
         metaParts.push(`<span class="queue-expand-meta-item"><span class="queue-expand-meta-label">Approved</span> ${escHtml(approver)} &middot; ${escHtml(ts)}</span>`);
       }
       if (frontmatter.from) metaParts.push(`<span class="queue-expand-meta-item"><span class="queue-expand-meta-label">From</span> ${escHtml(frontmatter.from)}</span>`);
@@ -6896,7 +6953,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     } else {
       container.innerHTML = `
         <button class="slice-action-btn slice-action-save" onclick="sliceDetailSave()">Save edits</button>
-        <button class="slice-action-btn slice-action-return-stage" onclick="sliceDetailReturnToStage()">Return to O'Brien</button>
+        <button class="slice-action-btn slice-action-return-stage" onclick="sliceDetailReturnToStage()">Return to Dev Lead</button>
         <div class="slice-detail-actions-spacer"></div>
         <button class="slice-action-btn" onclick="sliceDetailUnapprove()">Un-approve</button>
         <button class="slice-action-btn slice-action-destructive" onclick="sliceDetailRemove()">Remove from queue</button>
@@ -6920,7 +6977,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
 
   async function sliceDetailRefine() {
     if (!sliceDetailState) return;
-    const note = prompt("Refinement note for O'Brien:");
+    const note = prompt("Refinement note for the dev lead:");
     if (note == null) return;
     try {
       const res = await fetch(`/api/bridge/staged/${sliceDetailState.id}/amend`, {
@@ -6970,7 +7027,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
 
   async function sliceDetailReturnToStage() {
     if (!sliceDetailState) return;
-    if (!confirm(`Return slice #${sliceDetailState.id} to O'Brien for revision?`)) return;
+    if (!confirm(`Return slice #${sliceDetailState.id} to the dev lead for revision?`)) return;
     try {
       const res = await fetch(`/api/queue/${sliceDetailState.id}/return-to-stage`, { method: 'POST' });
       if (res.ok) {
@@ -7309,16 +7366,13 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     } catch (_) {}
   }
 
-  const LEDGER_ROLE_NAMES = { obrien: "O'Brien", sisko: 'Sisko', ziyal: 'Ziyal', rom: 'Rom',
-    nog: 'Nog', bashir: 'Bashir', dax: 'Dax', worf: 'Worf', leeta: 'Leeta' };
-
   function renderCostCenter(data) {
     const tbody = document.getElementById('cost-center-tbody');
     if (!tbody) return;
 
     let rows = '';
     for (const row of data.by_role) {
-      const name = LEDGER_ROLE_NAMES[row.role] || (row.role.charAt(0).toUpperCase() + row.role.slice(1));
+      const name = ROLE[row.role] ? personName(row.role) : (row.role.charAt(0).toUpperCase() + row.role.slice(1));
       const noSpend = (row.input == null && row.output == null && row.cost_usd == null);
       rows += `<tr${noSpend ? ' class="ledger-row-empty"' : ''}>
         <td>${name}</td>
@@ -7563,7 +7617,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       const churn = ghRR.churn != null ? ghRR.churn : 0;
       const nCrit = Array.isArray(ghRR.critical_files) ? ghRR.critical_files.length : 0;
       const tip = `${MERGE_PRESSURE_TIP}\n${commits} commits · ${churn} lines churn · ${nCrit} critical files.`;
-      rrEl.innerHTML = `<span class="rr-pill ${mp.cls}" title="${tip}">Merge Pressure ${score}% &middot; ${mp.band}</span>`;
+      rrEl.innerHTML = `<span class="rr-pill ${mp.cls}" title="${tip}"><span class="rr-pill-label">Merge Pressure<br>${score}% &middot; ${mp.band}</span></span>`;
       return;
     }
 
@@ -7573,7 +7627,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
 
     if (!rr || ahead === 0) {
       // Empty dev or no RR data — show low-pressure pill
-      rrEl.innerHTML = `<span class="rr-pill mp-low" title="${MERGE_PRESSURE_TIP}">Merge Pressure 0% &middot; low</span>`;
+      rrEl.innerHTML = `<span class="rr-pill mp-low" title="${MERGE_PRESSURE_TIP}"><span class="rr-pill-label">Merge Pressure<br>0% &middot; low</span></span>`;
       return;
     }
 
@@ -7585,7 +7639,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     const ac = Math.round((inputs.ac_coverage_gap || 0) * 100);
 
     const mpb = mergePressureBand(pct);
-    const label = `Merge Pressure ${pct}% &middot; ${mpb.band}`;
+    const label = `<span class="rr-pill-label">Merge Pressure<br>${pct}% &middot; ${mpb.band}</span>`;
 
     rrEl.innerHTML = `<span class="rr-pill ${mpb.cls}" title="${MERGE_PRESSURE_TIP}">${label}<span class="rr-pill-tooltip">Slice pressure: ${sp}% | Surface volatility: ${sv}% | AC coverage gap: ${ac}%</span></span>`;
   }
@@ -7733,9 +7787,9 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
                 : 'Regression suite failed';
     const sub = isRollback
       ? `dev was reverted, but <strong>regression did not pass</strong>. <strong>Do not continue new work</strong> until this is investigated. Copy this prompt to investigate:`
-      : `The gate stopped before merging — <strong>main was not touched</strong>. There's no automated fix trigger yet, so ask O'Brien to commission a repair slice. Copy this prompt and send it to O'Brien:`;
+      : `The gate stopped before merging — <strong>main was not touched</strong>. There's no automated fix trigger yet, so ask the dev lead to commission a repair slice. Copy this prompt and send it to the dev lead:`;
     const prompt = isRollback ? rollbackFailurePrompt(pr) : gateFailurePrompt(pr);
-    const copyLabel = isRollback ? 'Copy investigation prompt' : "Copy prompt for O'Brien";
+    const copyLabel = isRollback ? 'Copy investigation prompt' : "Copy prompt for dev lead";
     const overlay = document.createElement('div');
     overlay.className = 'rollback-overlay';
     overlay.id = 'gate-failure-overlay';
@@ -7861,7 +7915,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       label = 'DISPATCHING&#8230;';
     } else if (running) {
       const el = _gateElapsedLabel();
-      label = 'GATE RUNNING' + (el ? ' &middot; ' + el : '&#8230;');
+      label = '<span class="gate-spin">&#8635;</span>GATE RUNNING' + (el ? ' &middot; ' + el : '&#8230;');
     } else {
       label = 'RUN GATE &amp; MERGE TO MAIN';
     }
@@ -7878,7 +7932,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
         '&#8635; Roll back' +
         '</button>';
     }
-    html += '<button type="button" class="promote-gate-btn" id="promote-gate-btn"' +
+    html += '<button type="button" class="promote-gate-btn' + (running ? ' promote-gate-running' : '') + '" id="promote-gate-btn"' +
       ' aria-label="Run regression gate and promote dev to main"' +
       ` title="${_promoteEsc(PROMOTE_BTN_TITLE)}"` +
       ' onclick="confirmUpdateTests()"' + (enabled ? '' : ' disabled') + '>' +
@@ -8225,9 +8279,29 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       + `<span class="gflow-glyph">${utGlyph}</span>`
       + `<span class="gflow-label">Update tests</span>${utExtra}</span>`;
 
+    // Setup phase: the initial 40-50s on the runner (checkout, npm install, playwright install).
+    // Show it as "running" if the gate is in flight but no regression phase has started yet.
+    // This gives visibility into why there's a wait before the actual test suites run.
+    const regressionPhase = byKey['regression'];
+    const setupStarted = regressionPhase && regressionPhase.status !== 'idle' && regressionPhase.status !== 'pending';
+    const setupHtml = running && !setupStarted
+      ? `<span class="gflow-step gflow-running gflow-step-setup">`
+        + `<span class="gflow-num">0</span>`
+        + `<span class="gflow-glyph">↻</span>`
+        + `<span class="gflow-label">Loading pipeline</span>`
+        + `<span class="gflow-dur">· dependencies</span></span>`
+      : '';
+
+    // While the gate is IN FLIGHT, the first not-yet-finished step is the CURRENT one.
+    // Show it running (spinner + pulse) even before GitHub reports that exact step as
+    // in_progress — so the gaps between phases aren't a dead grey nothing. Exactly one
+    // suite step is "active" at any moment.
+    const _terminal = (st) => st === 'passed' || st === 'failed' || st === 'skipped';
+    let _activeAssigned = setupHtml ? true : false;  // Setup already has the active indicator
     const stepHtml = STEPS.map((s, i) => {
       const ph = byKey[s.key];
-      const status = ph ? ph.status : 'idle';
+      let status = ph ? ph.status : 'idle';
+      if (running && !_activeAssigned && !_terminal(status)) { status = 'running'; _activeAssigned = true; }
       const dur = ph && ph.duration_s != null ? `<span class="gflow-dur">· ${ph.duration_s}s</span>` : '';
       return `<span class="gflow-step gflow-${status}">`
         + `<span class="gflow-num">${i + 2}</span>`
@@ -8236,11 +8310,10 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     }).join(arrow);
 
     const elapsed = running ? _gateElapsedLabel() : '';
-    const trigState = running ? 'run' : failed ? 'fail' : success ? 'done' : 'idle';
-    const trigger = `<span class="gflow-trigger gflow-trigger-${trigState}">RUN GATE${elapsed ? ' · ' + elapsed : ''}</span>`;
     // No trailing "merged" node — a merge is the RESULT of step ④ Promote, not a
     // separate step. Success/held state is carried by the Promote step + the caption.
-    host.innerHTML = trigger + arrow + updateTestsHtml + arrow + stepHtml;
+    const separator = setupHtml && stepHtml ? arrow : '';
+    host.innerHTML = updateTestsHtml + arrow + setupHtml + separator + stepHtml;
 
     // Per-push CI (ci.yml) — the automatic check that runs on every push, distinct
     // from the operator gate above. Folded in here so it isn't a redundant panel.
