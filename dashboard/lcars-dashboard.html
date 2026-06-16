@@ -8280,23 +8280,21 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       + `<span class="gflow-label">Update tests</span>${utExtra}</span>`;
 
     // Setup phase: the initial 40-50s on the runner (checkout, npm install, playwright install).
-    // Show it as "running" if the gate is in flight but no regression phase has started yet.
-    // This gives visibility into why there's a wait before the actual test suites run.
+    // Always visible as the first step; shows "running" while dependencies load, "passed" once regression starts.
     const regressionPhase = byKey['regression'];
     const setupStarted = regressionPhase && regressionPhase.status !== 'idle' && regressionPhase.status !== 'pending';
-    const setupHtml = running && !setupStarted
-      ? `<span class="gflow-step gflow-running gflow-step-setup">`
-        + `<span class="gflow-glyph">⚙</span>`
-        + `<span class="gflow-label">Loading pipeline</span>`
-        + `<span class="gflow-dur">· dependencies</span></span>`
-      : '';
+    const setupStatus = running && !setupStarted ? 'running' : setupStarted ? 'passed' : 'idle';
+    const setupHtml = `<span class="gflow-step gflow-${setupStatus} gflow-step-setup">`
+      + `<span class="gflow-glyph">${setupStatus === 'running' ? '↻' : setupStatus === 'passed' ? '✓' : '○'}</span>`
+      + `<span class="gflow-label">Loading pipeline</span>`
+      + `<span class="gflow-dur">· dependencies</span></span>`;
 
     // While the gate is IN FLIGHT, the first not-yet-finished step is the CURRENT one.
     // Show it running (spinner + pulse) even before GitHub reports that exact step as
     // in_progress — so the gaps between phases aren't a dead grey nothing. Exactly one
     // suite step is "active" at any moment.
     const _terminal = (st) => st === 'passed' || st === 'failed' || st === 'skipped';
-    let _activeAssigned = setupHtml ? true : false;  // Setup already has the active indicator
+    let _activeAssigned = setupStatus === 'running' ? true : false;  // Setup is active if still loading
     const stepHtml = STEPS.map((s, i) => {
       const ph = byKey[s.key];
       let status = ph ? ph.status : 'idle';
