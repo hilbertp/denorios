@@ -69,7 +69,6 @@ test('full gate-FAILURE clicktest: held → run gate → regression FAILS → ga
 
   // Stage 0 · HELD — the gate hasn't run for this dev tip; press RUN GATE.
   await expect(regStep).not.toHaveClass(/gflow-passed/);
-  await expect(page.locator('.gflow-trigger')).toContainText('RUN GATE');
   await expect(btn).toContainText('RUN GATE');
   await page.waitForTimeout(PAUSE);
 

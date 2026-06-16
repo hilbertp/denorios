@@ -19,8 +19,10 @@ test('the ledger shows a per-role row with real spend', async ({ page }) => {
   const panel = page.locator('#cost-center');
   await expect(panel).toBeVisible();
 
-  // Rom's row reflects the seeded DONE event (4200 in / 1500 out, $0.42).
-  const romRow = panel.locator('#cost-center-tbody tr', { hasText: 'rom' });
+  // Rom's row reflects the seeded DONE event (4200 in / 1500 out, $0.42). The ledger
+  // labels rows by the mode-aware person name — "Sam" in light mode (default), "Rom" in
+  // the LCARS skin — so we match the light-mode human name here.
+  const romRow = panel.locator('#cost-center-tbody tr', { hasText: 'Sam' });
   await expect(romRow).toBeVisible({ timeout: 10000 });
   await expect(romRow).toContainText('0.42');
 });

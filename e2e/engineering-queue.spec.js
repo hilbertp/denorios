@@ -29,7 +29,7 @@ test('a Proposed Improvement is shown and can be approved into Approved Work Ord
 test('the section labels are the DS9 names, not Queue/Stage', async ({ page }) => {
   await expect(page.locator('.queue-section-label', { hasText: 'Approved Work Orders' })).toBeVisible();
   await expect(page.locator('.queue-section-label', { hasText: 'Proposed Improvement' })).toBeVisible();
-  await expect(page.locator('.section-title', { hasText: 'Engineering Queue' })).toBeVisible();
+  await expect(page.locator('.section-title', { hasText: 'Backlog Queue' })).toBeVisible();
 });
 
 test('standing Auto-approve promotes every proposal automatically', async ({ page }) => {

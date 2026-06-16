@@ -8,8 +8,12 @@ const { test, expect } = require('@playwright/test');
 
 test.beforeEach(async ({ page }) => { await page.goto('/'); });
 
+// Crew cards are selected by their stable data-role key (display names are mode-dependent:
+// human in light mode, DS9 in LCARS). The toast/command keep the role key, so the
+// assertions below hold in either skin.
+
 test('crew tile → New conversation shows the claude command in a toast', async ({ page }) => {
-  await page.locator('.crew-card', { hasText: 'Sisko' }).click();
+  await page.locator('.crew-card[data-role="sisko"]').click();
   const menu = page.locator('#crew-menu');
   await expect(menu).toBeVisible();
 
@@ -27,7 +31,7 @@ test('crew tile → New conversation shows the claude command in a toast', async
 });
 
 test('crew tile → Resume offers a resume command (or a clean no-prior fallback)', async ({ page }) => {
-  await page.locator('.crew-card', { hasText: 'Dax' }).click();
+  await page.locator('.crew-card[data-role="dax"]').click();
   await page.locator('#crew-menu').getByText('Resume last conversation').click();
 
   const toast = page.locator('.crew-toast').last();

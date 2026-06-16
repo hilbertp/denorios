@@ -348,11 +348,21 @@ test('J-direct-controls-ops-ui slice-99808-ac-3 — the shipped dashboard wires 
   // every crew card now opens the crew menu (New / Resume conversation · Inspect role),
   // and Bashir's coverage overview moved into his Artifacts tab. The
   // /api/regression/coverage endpoint stays for back-compat (asserted in ac-1/ac-2).
-  const cardMatch = html.match(/<div class="crew-card ([^"]*)"[^>]*onclick="openCrewMenu\(event, 'bashir'\)"[^>]*>([\s\S]{0,400}?)Bashir/);
-  assert.ok(cardMatch, "the Bashir crew card must be clickable and open the crew menu (onclick=\"openCrewMenu(event, 'bashir')\")");
+  //
+  // Crew identity is mode-dependent (ROLE map): the card shows the neutral HUMAN name
+  // in light mode (Priya) and the DS9 CHARACTER (Bashir) only in the LCARS skin. So the
+  // card is matched by its stable data-role key — never the display name — and we assert
+  // the light-mode human label here plus the LCARS lore name in the ROLE map below.
+  const cardMatch = html.match(/<div class="crew-card ([^"]*)"[^>]*data-role="bashir"[^>]*onclick="openCrewMenu\(event, 'bashir'\)"[^>]*>([\s\S]{0,400}?)<\/div>\s*<\/div>/);
+  assert.ok(cardMatch, "the Bashir crew card must be keyed by data-role=\"bashir\" and open the crew menu (onclick=\"openCrewMenu(event, 'bashir')\")");
   assert.match(cardMatch[1], /\bactive\b/, 'the card must be active — planned cards have pointer-events: none');
   assert.match(cardMatch[1], /\bcrew-card-clickable\b/, 'the card must carry crew-card-clickable');
   assert.doesNotMatch(cardMatch[1], /\bplanned\b/, 'the card must not be planned/inert');
+  // Light mode: the card shows the neutral human name.
+  assert.match(cardMatch[2], /Priya/, "the card's light-mode label must be the human name (Priya)");
+  // LCARS mode: the DS9 character name is the source of truth in the ROLE identity map.
+  assert.match(html, /bashir:\s*\{[^}]*lore:\s*'Bashir'[^}]*name:\s*'Priya'/,
+    "the ROLE identity map must carry the DS9 lore name (Bashir, shown in LCARS) and the human name (Priya, shown in light mode)");
 
   // The crew menu + dossier overlay exist, and "Inspect role" opens the dossier.
   assert.match(html, /id="crew-menu"/, 'the crew action menu markup must exist');

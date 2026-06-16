@@ -163,8 +163,8 @@ test('a stale success (already-promoted sha) does NOT read as merged while dev i
 
   const steps  = page.locator('#gate-flow-steps');
   const caption = page.locator('#gate-flow-caption');
-  // Held — the new commits are ungated. The gate trigger still says RUN GATE; no success caption.
-  await expect(page.locator('.gflow-trigger')).toContainText('RUN GATE');
+  // Held — the new commits are ungated. The gate trigger (button) still says RUN GATE; no success caption.
+  await expect(page.locator('#promote-gate-btn')).toContainText('RUN GATE');
   await expect(caption.locator('.gflow-cap-ok')).toHaveCount(0);
   // No stale green: none of the suite steps may paint the old run's ✓ as the current gate.
   for (const name of ['Regression', 'E2E smoke test', 'Promote']) {

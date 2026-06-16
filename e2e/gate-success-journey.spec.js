@@ -92,7 +92,7 @@ test('full gate-success clicktest: held → run gate → regression → e2e → 
   const btn     = page.locator('#promote-gate-btn');
 
   // ── Stage 0 · HELD — nothing gated yet, no green tick, stale run not shown current ─
-  await expect(page.locator('.gflow-trigger')).toContainText('RUN GATE'); // held: the gate trigger prompts RUN GATE
+  await expect(page.locator('#promote-gate-btn')).toContainText('RUN GATE'); // held: the gate trigger (button) prompts RUN GATE
   // No stale green: none of the SUITE steps (②③④) may show passed for a stale run.
   for (const s of [regStep, e2eStep, ffStep]) await expect(s).not.toHaveClass(/gflow-passed/);
   await expect(btn).toContainText('RUN GATE');
@@ -105,9 +105,11 @@ test('full gate-success clicktest: held → run gate → regression → e2e → 
   await expect(approve).toBeEnabled();
   await approve.click();
 
-  // ── Stage 1 · QUEUED — the run exists, nothing passed yet ──────────────────────
+  // ── Stage 1 · QUEUED — run exists; the first suite step reads as the CURRENT one ──
+  // In flight the first not-yet-finished step shows active (running) even before GitHub
+  // reports that exact step in_progress, so the setup window isn't a dead grey gap.
   await gateTo(1);
-  await expect(regStep).toHaveClass(/gflow-pending/);
+  await expect(regStep).toHaveClass(/gflow-running/);
   // Nothing green yet among the suite steps (step ① "Update tests" is the approved precondition).
   for (const s of [regStep, e2eStep, ffStep]) await expect(s).not.toHaveClass(/gflow-passed/);
 
