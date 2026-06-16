@@ -2049,6 +2049,25 @@
     transition: opacity 200ms ease, max-height 200ms ease, padding 200ms ease;
   }
 
+  /* ── Slice-move layout animation (View Transitions API) ──────────────────────
+     The vanilla analog of Motion's layoutId shared-element transition: a slice
+     card GLIDES between Proposed and Approved instead of fading out-then-in.
+     view-transition-names are set in JS only during queueAccept/queueUnapprove,
+     so idle renders and the 5s poll never animate. Chromium/Brave native; degrades
+     to an instant move where the API is absent or the user prefers reduced motion. */
+  ::view-transition-group(*) {
+    animation-duration: 340ms;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  /* Only the moving cards animate — never cross-fade the whole (polling) page. */
+  ::view-transition-old(root),
+  ::view-transition-new(root) { animation: none; }
+  @media (prefers-reduced-motion: reduce) {
+    ::view-transition-group(*),
+    ::view-transition-old(*),
+    ::view-transition-new(*) { animation: none !important; }
+  }
+
   .queue-state-badge {
     display: inline-block;
     padding: 1px 7px;
@@ -6413,7 +6432,19 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       .sort((a, b) => parseInt(b.id, 10) - parseInt(a.id, 10))
       .map(b => ({ ...b, rowState: 'ERROR', isApendment: false }));
 
-    return [...stagedRows, ...needsAmendRows, ...apendmentRows2, ...queuedRows, ...inProgressRows, ...doneRows, ...errorRows];
+    // One card per slice id. A slice that has advanced past STAGED must not also render
+    // as a proposed card — during the approve reconcile the staged and bridge caches
+    // refresh at slightly different times, so the same id can briefly land in both
+    // sections. The final dedupe also guards against any same-state double. This was
+    // previously masked by the transient .row-exiting class; the slice-move glide
+    // removes that, so the invariant is enforced here instead.
+    const advancedIds = new Set(
+      [...apendmentRows2, ...queuedRows, ...inProgressRows, ...doneRows, ...errorRows].map(r => String(r.id))
+    );
+    const proposedRows = [...stagedRows, ...needsAmendRows].filter(r => !advancedIds.has(String(r.id)));
+    const ordered = [...proposedRows, ...apendmentRows2, ...queuedRows, ...inProgressRows, ...doneRows, ...errorRows];
+    const seenIds = new Set();
+    return ordered.filter(r => { const k = String(r.id); if (seenIds.has(k)) return false; seenIds.add(k); return true; });
   }
 
   function renderQueueRow(row, opts) {
@@ -6648,22 +6679,53 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     }
   }
 
+  // ── Slice-move layout animation (View Transitions) ───────────────────────────
+  // Glide a queue card between the Proposed and Approved sections like Motion's
+  // shared-element (layoutId) transition: name the live cards, move the node, and the
+  // browser tweens it across. Degrades to an instant move when the API is missing or
+  // the user prefers reduced motion. Called ONLY by the approve/unapprove action — the
+  // background poll re-render never animates (it just rebuilds the list directly).
+  function _vtAnimAvailable() {
+    return typeof document.startViewTransition === 'function'
+      && !(typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+  function _glideQueueMove(id, target) {            // target: 'approved' | 'proposed'
+    const list = document.getElementById('queue-list');
+    const row  = list && list.querySelector(`.queue-row[data-id="${id}"]`);
+    const wrap = row && row.closest('.queue-row-wrap');
+    if (!list || !wrap) return;
+    const move = () => {
+      if (target === 'approved') {
+        const divider = list.querySelector('.queue-section-divider');     // end of Approved
+        if (divider) list.insertBefore(wrap, divider); else list.appendChild(wrap);
+      } else {
+        const label = list.querySelector('.queue-section-label-row');     // top of Proposed
+        if (label && label.nextSibling) list.insertBefore(wrap, label.nextSibling);
+        else list.appendChild(wrap);
+      }
+    };
+    if (!_vtAnimAvailable()) { move(); return; }
+    // Name every card: the moved one morphs across, the rest reflow smoothly. Cleared
+    // after (the reconcile re-render also drops them — names never persist on idle rows).
+    const tagged = Array.from(list.querySelectorAll('.queue-row[data-id]'));
+    tagged.forEach(el => { el.style.viewTransitionName = 'queue-card-' + el.getAttribute('data-id'); });
+    try {
+      document.startViewTransition(move).finished.finally(() => {
+        tagged.forEach(el => { el.style.viewTransitionName = ''; });
+      });
+    } catch (_) { move(); }
+  }
+
   // ── Accept / Unaccept actions ───────────────────────────────────────────────
+  // POST first (the approve is a fast local file move), then glide the card from
+  // Proposed → Approved and reconcile from the server. No optimistic-rollback needed.
   async function queueAccept(id) {
-    // Exit animation on the staged row
-    const rowEl = document.querySelector(`.queue-row[data-id="${id}"]`);
-    if (rowEl) {
-      const wrap = rowEl.closest('.queue-row-wrap');
-      if (wrap) wrap.style.overflow = 'hidden';
-      rowEl.classList.add('row-exiting');
-    }
-    await new Promise(r => setTimeout(r, 260));
     try {
       const res = await fetch('/api/bridge/staged/' + id + '/approve', { method: 'POST' });
       if (res.ok) {
+        _glideQueueMove(id, 'approved');
         if (!cachedQueueOrder.includes(id)) cachedQueueOrder = [...cachedQueueOrder, id];
         cachedStagedOrder = cachedStagedOrder.filter(sid => sid !== id);
-        _pendingEnterIds.add(id);
         fetchCombinedQueue();
         fetchBridge();
       }
@@ -6699,28 +6761,21 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     }
   }
 
+  // POST first; on success glide the card Approved -> Proposed and reconcile. The 409
+  // path leaves the card in Approved and shows the "already picked up" note.
   async function queueUnapprove(id) {
     const rowEl = document.querySelector(`.queue-row[data-id="${id}"]`);
-    if (rowEl) {
-      const wrap = rowEl.closest('.queue-row-wrap');
-      if (wrap) wrap.style.overflow = 'hidden';
-      rowEl.classList.add('row-exiting');
-    }
-    await new Promise(r => setTimeout(r, 260));
     try {
       const res = await fetch(`/api/slice/${id}/unapprove`, { method: 'POST' });
       if (res.ok) {
+        _glideQueueMove(id, 'proposed');
         cachedQueueOrder = cachedQueueOrder.filter(oid => oid !== id);
         if (!cachedStagedOrder.includes(id)) cachedStagedOrder = [...cachedStagedOrder, id];
-        _pendingEnterIds.add(id);
         fetchCombinedQueue();
         fetchBridge();
       } else if (res.status === 409) {
         // Already picked up by orchestrator — show inline message
         if (rowEl) {
-          rowEl.classList.remove('row-exiting');
-          const wrap2 = rowEl.closest('.queue-row-wrap');
-          if (wrap2) wrap2.style.overflow = '';
           const actionsEl = rowEl.querySelector('.queue-row-actions');
           if (actionsEl) {
             const msg = document.createElement('span');
@@ -6731,13 +6786,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
           }
         }
       }
-    } catch (_) {
-      if (rowEl) {
-        rowEl.classList.remove('row-exiting');
-        const wrap3 = rowEl.closest('.queue-row-wrap');
-        if (wrap3) wrap3.style.overflow = '';
-      }
-    }
+    } catch (_) {}
   }
 
   function queueReject(id) {

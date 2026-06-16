@@ -1267,13 +1267,20 @@ function _getMtimeMs(filePath) {
 function getCachedBridgeData() {
   const regMtime = _getMtimeMs(REGISTER);
   const hbMtime  = _getMtimeMs(HEARTBEAT);
+  // buildBridgeData also reads the queue + staged dirs, so the cache must invalidate
+  // when those change directly (a file moved/removed without a register/heartbeat write —
+  // e.g. an external edit). Without these keys the bridge view can serve stale queue state.
+  const qMtime = _getMtimeMs(QUEUE_DIR);
+  const sMtime = _getMtimeMs(STAGED_DIR);
   if (_bridgeDataCache.value !== null &&
       _bridgeDataCache.regMtime === regMtime &&
-      _bridgeDataCache.hbMtime === hbMtime) {
+      _bridgeDataCache.hbMtime === hbMtime &&
+      _bridgeDataCache.qMtime === qMtime &&
+      _bridgeDataCache.sMtime === sMtime) {
     return _bridgeDataCache.value;
   }
   const value = buildBridgeData();
-  _bridgeDataCache = { regMtime, hbMtime, value };
+  _bridgeDataCache = { regMtime, hbMtime, qMtime, sMtime, value };
   return value;
 }
 
