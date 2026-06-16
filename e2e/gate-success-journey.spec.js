@@ -86,6 +86,7 @@ test('full gate-success clicktest: held → run gate → regression → e2e → 
 
   await page.goto('/');
   const steps  = page.locator('#gate-flow-steps');
+  const setupStep = steps.locator('.gflow-step', { hasText: 'Loading pipeline' });
   const regStep = steps.locator('.gflow-step', { hasText: 'Regression' });
   const e2eStep = steps.locator('.gflow-step', { hasText: 'E2E smoke test' });
   const ffStep  = steps.locator('.gflow-step', { hasText: 'Promote' });
@@ -105,12 +106,13 @@ test('full gate-success clicktest: held → run gate → regression → e2e → 
   await expect(approve).toBeEnabled();
   await approve.click();
 
-  // ── Stage 1 · QUEUED — run exists; the first suite step reads as the CURRENT one ──
-  // In flight the first not-yet-finished step shows active (running) even before GitHub
-  // reports that exact step in_progress, so the setup window isn't a dead grey gap.
+  // ── Stage 1 · QUEUED — run exists but no suite step has started; the "Loading
+  // pipeline · dependencies" step is the CURRENT one (the ~40-50s runner setup window:
+  // checkout, npm install, Playwright browser), so the gap isn't a dead grey nothing.
   await gateTo(1);
-  await expect(regStep).toHaveClass(/gflow-running/);
-  // Nothing green yet among the suite steps (step ① "Update tests" is the approved precondition).
+  await expect(setupStep).toHaveClass(/gflow-running/);
+  // The suite steps haven't started — none running, none green yet.
+  for (const s of [regStep, e2eStep, ffStep]) await expect(s).not.toHaveClass(/gflow-running/);
   for (const s of [regStep, e2eStep, ffStep]) await expect(s).not.toHaveClass(/gflow-passed/);
 
   // ── Stage 2 · REGRESSION RUNNING ───────────────────────────────────────────────
