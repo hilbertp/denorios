@@ -111,7 +111,8 @@ test('a slice travels the whole pipeline: stage → queue → Rom → Nog → hi
 
   // ── Stage 5 · NOG ACCEPTED → MERGED (simulated verdict + squash to main) ────
   // Nog accepts; the slice is squashed/merged and leaves the active lanes. It now
-  // belongs to History with the full dev → reg → main lifecycle chain.
+  // belongs to History with a success outcome verdict (pipeline position dev/reg/main
+  // lives in the Branch Topology panel since ff14af9, not the Logbook).
   writeJson(rt('bridge', 'nog-active.json'), {});
   appendRegister([
     { ts: new Date().toISOString(), event: 'NOG_DECISION', id: ID, verdict: 'ACCEPTED' },
@@ -121,10 +122,7 @@ test('a slice travels the whole pipeline: stage → queue → Rom → Nog → hi
   await page.reload();
   const historyRow = page.locator('.history-row', { hasText: 'Pipeline lifecycle' });
   await expect(historyRow).toBeVisible({ timeout: 10000 });
-  const chain = historyRow.locator('.outcome-chain');
-  await expect(chain.locator('.chain-stage.stage-dev.done')).toBeVisible();
-  await expect(chain.locator('.chain-stage.stage-reg.done')).toBeVisible();
-  await expect(chain.locator('.chain-stage.stage-main.done')).toBeVisible();
+  await expect(historyRow.locator('.outcome-pill.outcome-success')).toBeVisible();
 
   // ── Stage 6 · RUN THE REGRESSION GATE BEFORE MERGING (real UI, inert dispatch) ─
   // The operator's gate: re-run the suite on a clean runner, then fast-forward.
