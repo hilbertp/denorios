@@ -134,3 +134,30 @@ test('J-tests-needed slice-99821-ac-14 — transition mapping + glob matching', 
   assert.ok(!scriptsGlob.test(nested));
   assert.ok(dashGlob.test(deep));
 });
+
+// An untagged e2e test is keyed by its prose TITLE (spaces), which the single-token
+// Test-Loosen-OK grammar can't name — so renaming one produced a RED that no trailer
+// could clear. A FILE-PATH override declares the intentional change by file.
+const proseCheck = (file, direction) => ({ file, tag: 'a merged slice appears in the logbook with its dev → reg → main lifecycle chain', area: 'e2e', kind: direction === 'removed' ? 'removed' : 'modified', direction });
+
+test('J-tests-needed slice-99821-ac-18 — a removed untagged e2e check + matching FILE-PATH Test-Loosen-OK → OVERRIDDEN', () => {
+  const t = noTrailers(); t.loosenOk = [{ target: 'e2e/history-logbook.spec.js', transition: 'removed', reason: 'renamed when the Logbook outcome column became a single success/error pill (ff14af9); assertion relocated, coverage preserved' }];
+  const r = decide({ behaviourFiles: [], checks: [proseCheck('e2e/history-logbook.spec.js', 'removed')], trailers: t });
+  assert.equal(r.decision, 'overridden');
+  assert.equal(r.removedUndeclared.length, 0);
+  assert.equal(r.overridden.length, 1);
+});
+
+test('J-tests-needed slice-99821-ac-19 — a FILE-PATH override with the WRONG transition does NOT clear it → RED FLAG', () => {
+  const t = noTrailers(); t.loosenOk = [{ target: 'e2e/history-logbook.spec.js', transition: 'skipped', reason: 'mislabelled transition' }];
+  const r = decide({ behaviourFiles: [], checks: [proseCheck('e2e/history-logbook.spec.js', 'removed')], trailers: t });
+  assert.equal(r.decision, 'red_flag');
+  assert.equal(r.mismatchedOverride, true);
+});
+
+test('J-tests-needed slice-99821-ac-20 — a FILE-PATH override for a DIFFERENT file does not clear it → RED FLAG', () => {
+  const t = noTrailers(); t.loosenOk = [{ target: 'e2e/some-other.spec.js', transition: 'removed', reason: 'wrong file' }];
+  const r = decide({ behaviourFiles: [], checks: [proseCheck('e2e/history-logbook.spec.js', 'removed')], trailers: t });
+  assert.equal(r.decision, 'red_flag');
+  assert.equal(r.removedUndeclared.length, 1);
+});
