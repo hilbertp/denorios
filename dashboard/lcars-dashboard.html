@@ -8292,14 +8292,26 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     // While the gate is IN FLIGHT, the first not-yet-finished step is the CURRENT one.
     // Show it running (spinner + pulse) even before GitHub reports that exact step as
     // in_progress — so the gaps between phases aren't a dead grey nothing. Exactly one
-    // suite step is "active" at any moment.
+    // suite step is "active" at any moment. Running steps show elapsed time.
     const _terminal = (st) => st === 'passed' || st === 'failed' || st === 'skipped';
     let _activeAssigned = setupStatus === 'running' ? true : false;  // Setup is active if still loading
+    let _priorDuration = 0;  // Track cumulative duration of completed phases for elapsed calculation
     const stepHtml = STEPS.map((s, i) => {
       const ph = byKey[s.key];
       let status = ph ? ph.status : 'idle';
       if (running && !_activeAssigned && !_terminal(status)) { status = 'running'; _activeAssigned = true; }
-      const dur = ph && ph.duration_s != null ? `<span class="gflow-dur">· ${ph.duration_s}s</span>` : '';
+
+      let dur = '';
+      if (ph && ph.duration_s != null) {
+        dur = `<span class="gflow-dur">· ${ph.duration_s}s</span>`;
+        _priorDuration += ph.duration_s;
+      } else if (status === 'running' && _gateClientStartedAt) {
+        // Show elapsed time for currently running phase
+        const totalElapsed = Math.max(0, Math.floor((Date.now() - _gateClientStartedAt) / 1000));
+        const phaseElapsed = Math.max(0, totalElapsed - _priorDuration);
+        dur = `<span class="gflow-dur">· ${phaseElapsed}s</span>`;
+      }
+
       return `<span class="gflow-step gflow-${status}">`
         + `<span class="gflow-num">${i + 2}</span>`
         + `<span class="gflow-glyph">${glyph[status] || '○'}</span>`
