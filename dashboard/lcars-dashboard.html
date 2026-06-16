@@ -8280,11 +8280,12 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       + `<span class="gflow-label">Update tests</span>${utExtra}</span>`;
 
     // Setup phase: the initial 40-50s on the runner (checkout, npm install, playwright install).
-    // Always visible as the first step; shows "running" while dependencies load, "passed" once regression starts.
+    // Step 2; shows "running" while dependencies load, "passed" once regression starts.
     const regressionPhase = byKey['regression'];
     const setupStarted = regressionPhase && regressionPhase.status !== 'idle' && regressionPhase.status !== 'pending';
     const setupStatus = running && !setupStarted ? 'running' : setupStarted ? 'passed' : 'idle';
     const setupHtml = `<span class="gflow-step gflow-${setupStatus} gflow-step-setup">`
+      + `<span class="gflow-num">2</span>`
       + `<span class="gflow-glyph">${setupStatus === 'running' ? '↻' : setupStatus === 'passed' ? '✓' : '○'}</span>`
       + `<span class="gflow-label">Loading pipeline</span>`
       + `<span class="gflow-dur">· dependencies</span></span>`;
@@ -8313,7 +8314,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       }
 
       return `<span class="gflow-step gflow-${status}">`
-        + `<span class="gflow-num">${i + 2}</span>`
+        + `<span class="gflow-num">${i + 3}</span>`
         + `<span class="gflow-glyph">${glyph[status] || '○'}</span>`
         + `<span class="gflow-label">${s.label}</span>${dur}</span>`;
     }).join(arrow);
