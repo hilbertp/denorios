@@ -81,7 +81,34 @@ jobs:
           TESTED_SHA="$(git rev-parse HEAD)"
           echo "TESTED_SHA=$TESTED_SHA" >> "$GITHUB_ENV"
           echo "Running regression suite against dev@$TESTED_SHA"
-          node --test 'regression/**/*.test.js'
+          mkdir -p bridge/state
+          node --test 'regression/**/*.test.js' 2>&1 | tee bridge/state/regression-stdout.log
+
+      # Turn this gate run into Bashir's readable report and publish it as the
+      # `regression-report` artifact — the SAME artifact ci.yml uploads — so the
+      # dashboard's Regression Coverage panel reflects THIS promotion's run, not
+      # only the last per-push ci.yml run. if: always() so a red gate still reports.
+      - name: Regression report
+        if: always()
+        # Feedback only — must NEVER fail the job (this is the merge gate; a cosmetic
+        # report error must not block a promotion). Every command is failure-swallowed.
+        run: |
+          node scripts/regression-report.js --from-log || true
+          if [ -f regression/LAST-RUN.md ]; then
+            {
+              echo "## Bashir's Regression Report";
+              echo "";
+              cat regression/LAST-RUN.md;
+            } >> "$GITHUB_STEP_SUMMARY" || true
+          fi
+
+      - name: Upload regression report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-report
+          path: regression/LAST-RUN.md
+          if-no-files-found: ignore
 
       # The expensive browser click-paths are part of the merge gate, not just
       # per-push feedback: main does not move unless these are green too. Same job,

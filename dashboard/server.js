@@ -429,41 +429,91 @@ function _getGhCi() {
   return result;
 }
 
-// The regression report that reflects the ACTUAL latest GitHub run. ci.yml runs
-// scripts/regression-report.js and uploads regression/LAST-RUN.md as the
-// `regression-report` artifact; we download it for the latest ci.yml run so the
-// dashboard shows the run that really ran — not a stale local file. Cached by
-// run_id (download is slow, and only changes when a new run completes).
+// The regression report that reflects the ACTUAL latest GATE run. Both ci.yml
+// (per-push, early warning) AND promote.yml (the operator-gated merge gate) run
+// Bashir's suite and upload regression/LAST-RUN.md as the `regression-report`
+// artifact. We pick the NEWEST completed run across BOTH workflows on dev and
+// download its report, so the panel reflects the run the operator just triggered
+// — a promotion included — not only the last push run. (Before this, the panel was
+// pinned to ci.yml and froze at the last push whenever a promote ran since.)
+//
+// Listed newest-first; the newest run that actually carries the artifact wins, so
+// a promote from before report-upload (or an expired artifact) is skipped in favour
+// of the next real report rather than silently dropping to the stale local file.
+const REPORT_WORKFLOWS = { 'CI': 'ci.yml', 'Promote dev to main': 'promote.yml' };
+let _reportRunsCache = { value: null, fetchedAt: 0 };
+function _latestReportRuns() {
+  const now = Date.now();
+  if (_reportRunsCache.fetchedAt > 0 && now - _reportRunsCache.fetchedAt < GH_TTL_MS) {
+    return _reportRunsCache.value;
+  }
+  let runs = [];
+  try {
+    const out = execFileSync('gh',
+      ['run', 'list', '--branch=dev', '--limit=15',
+       '--json=status,conclusion,number,url,headSha,updatedAt,databaseId,workflowName'],
+      { cwd: REPO_ROOT, encoding: 'utf8', timeout: 15000 }).trim();
+    runs = (JSON.parse(out) || [])
+      .filter(r => REPORT_WORKFLOWS[r.workflowName] && r.status === 'completed' && r.databaseId != null)
+      .map(r => ({
+        run_id: r.databaseId,
+        run_number: r.number,
+        url: r.url || null,
+        updated_at: r.updatedAt || null,
+        state: r.conclusion === 'success' ? 'passing'
+             : (r.conclusion === 'failure' || r.conclusion === 'cancelled') ? 'failing' : 'unknown',
+        workflow: REPORT_WORKFLOWS[r.workflowName],
+      }))
+      // Newest-first by completion time. Missing timestamp (can't occur for a
+      // completed run, but be explicit) sorts oldest rather than relying on the
+      // Date.parse(0) → year-2000 coincidence.
+      .sort((a, b) => {
+        const ta = Date.parse(a.updated_at), tb = Date.parse(b.updated_at);
+        return (Number.isNaN(tb) ? 0 : tb) - (Number.isNaN(ta) ? 0 : ta);
+      });
+  } catch (_) { /* gh missing/unauthenticated — non-fatal, caller falls back to local */ }
+  _reportRunsCache = { value: runs, fetchedAt: now };
+  return runs;
+}
+
 let _regReportCache = { runId: null, value: null, fetchedAt: 0 };
 const REG_REPORT_TTL_MS = 60 * 1000;
 function getGitHubRegressionReport() {
-  const ci = _getGhCi();
-  if (!ci || ci.run_id == null) return null;
-  const runId = ci.run_id;
+  const candidates = _latestReportRuns();
+  if (!candidates.length) return null;
+  const newestId = candidates[0].run_id;
   const now = Date.now();
-  if (_regReportCache.runId === runId && _regReportCache.value &&
+  // Cache against the newest run id: a fresh ci/promote run changes it and busts
+  // the cache; otherwise re-use it (the download is slow and the report is stable).
+  if (_regReportCache.runId === newestId && _regReportCache.value &&
       (now - _regReportCache.fetchedAt) < REG_REPORT_TTL_MS) {
     return _regReportCache.value;
   }
   let value = null;
-  let dir = null;
-  try {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'reg-report-'));
-    // Artifacts only exist once a run finishes uploading; on miss this throws → fallback.
-    execFileSync('gh', ['run', 'download', String(runId), '-n', 'regression-report', '-D', dir],
-      { cwd: REPO_ROOT, encoding: 'utf8', timeout: 30000, stdio: ['ignore', 'pipe', 'ignore'] });
-    const f = path.join(dir, 'LAST-RUN.md');
-    if (fs.existsSync(f)) {
-      const markdown = fs.readFileSync(f, 'utf8');
-      const first = markdown.split('\n')[0];
-      const status = /🔴|—\s*FAIL/.test(first) ? 'fail'
-                   : /🟢|—\s*PASS/.test(first) ? 'pass' : 'none';
-      value = { markdown, updated: ci.updated_at || new Date(now).toISOString(),
-                status, source: 'github', run_number: ci.run_number, run_url: ci.url };
-    }
-  } catch (_) { value = null; /* no artifact yet / expired / gh error → caller falls back */ }
-  finally { if (dir) { try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {} } }
-  _regReportCache = { runId, value, fetchedAt: now };
+  for (const run of candidates.slice(0, 4)) {
+    let dir = null;
+    try {
+      dir = fs.mkdtempSync(path.join(os.tmpdir(), 'reg-report-'));
+      // Artifacts exist only once a run finished uploading; on miss this throws → next candidate.
+      execFileSync('gh', ['run', 'download', String(run.run_id), '-n', 'regression-report', '-D', dir],
+        { cwd: REPO_ROOT, encoding: 'utf8', timeout: 30000, stdio: ['ignore', 'pipe', 'ignore'] });
+      const f = path.join(dir, 'LAST-RUN.md');
+      if (fs.existsSync(f)) {
+        const markdown = fs.readFileSync(f, 'utf8');
+        const first = markdown.split('\n')[0];
+        const status = /🔴|—\s*FAIL/.test(first) ? 'fail'
+                     : /🟢|—\s*PASS/.test(first) ? 'pass' : 'none';
+        value = { markdown, updated: run.updated_at || new Date(now).toISOString(),
+                  status, source: 'github', run_number: run.run_number,
+                  run_url: run.url, workflow: run.workflow };
+        break;
+      }
+    } catch (_) { /* no artifact on this run → try the next candidate */ }
+    finally { if (dir) { try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {} } }
+  }
+  // Cache against the newest id even on miss, so we don't re-attempt downloads each
+  // request within the TTL; a brand-new run changes newestId and busts it.
+  _regReportCache = { runId: newestId, value, fetchedAt: now };
   return value;
 }
 

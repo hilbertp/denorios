@@ -5848,7 +5848,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
       }
       const flag = data.status === 'fail' ? '🔴 failing' : data.status === 'pass' ? '🟢 passing' : '';
       const srcLabel = data.source === 'github'
-        ? `ci.yml run${data.run_number ? ' #' + data.run_number : ''}`
+        ? `${data.workflow || 'ci.yml'} run${data.run_number ? ' #' + data.run_number : ''}`
         : 'regression/LAST-RUN.md (local)';
       document.getElementById('regression-coverage-updated').textContent =
         `${srcLabel} — ${flag} · ${new Date(data.updated).toLocaleString()}`;
