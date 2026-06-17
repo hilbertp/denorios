@@ -2775,6 +2775,31 @@ function hasMergedEvent(id, regFile) {
   return false;
 }
 
+// Gate-flow sibling of hasMergedEvent: has this slice already been squashed onto dev?
+// In the dev→main gate model SLICE_SQUASHED_TO_DEV — not MERGED — is the "landed"
+// signal, so crash recovery uses this to avoid re-squashing a slice already on dev.
+function hasSquashedToDevEvent(id, regFile) {
+  const file = regFile || REGISTER_FILE;
+  try {
+    const cutoff = latestRestagedTs(id, file);
+    const lines = _getRegLines(file);
+    resetDedupeState();
+    for (const line of lines) {
+      try {
+        const raw = JSON.parse(line);
+        const entry = translateEvent(raw);
+        const ev = (entry && entry.event) || raw.event;
+        const rid = (entry && entry.id) || String(raw.slice_id || raw.id || '');
+        if (rid === String(id) && ev === 'SLICE_SQUASHED_TO_DEV') {
+          const ts = (entry && entry.ts) || raw.ts;
+          if (!cutoff || (ts && ts > cutoff)) return true;
+        }
+      } catch (_) {}
+    }
+  } catch (_) {}
+  return false;
+}
+
 /**
  * isTerminal(sliceId, opts)
  *
@@ -5107,8 +5132,14 @@ function crashRecovery() {
   const acceptedFiles = files.filter(f => f.endsWith('-ACCEPTED.md'));
   for (const file of acceptedFiles) {
     const id = file.replace('-ACCEPTED.md', '');
-    if (isTerminal(id)) {
-      log('debug', 'startup_recovery', { id, msg: `startup-recovery: skipped terminal slice ${id}` });
+    // isTerminal() returns true for ANY slice with an ACCEPTED file (Signal 1), so it must
+    // NOT gate this loop — it would skip every accepted file and make orphaned-merge
+    // recovery dead (a squash that failed after Nog-accept would never be retried). Skip
+    // only slices that ACTUALLY LANDED: squashed to dev (gate flow), merged to main, or
+    // fully archived. The rest fall through to the re-attempt below.
+    if (hasSquashedToDevEvent(id) || hasMergedEvent(id) ||
+        fs.existsSync(path.join(QUEUE_DIR, `${id}-ARCHIVED.md`))) {
+      log('debug', 'startup_recovery', { id, msg: `startup-recovery: ${id} already landed/archived — skip` });
       continue;
     }
     const acceptedPath = path.join(QUEUE_DIR, file);
@@ -5161,7 +5192,12 @@ function crashRecovery() {
       log('info', 'startup_recovery', { id, msg: `Recovery deferred for ${branchName} — gate is running`, branch: branchName });
       actions.push({ id, type: 'recovery_deferred', branch: branchName });
     } else if (result.success) {
-      registerEvent(id, 'MERGED', { branch: branchName, sha: result.sha, slice_id: id, recovery: true });
+      // Gate flow lands on DEV, not main — squashSliceToDev already emitted
+      // SLICE_SQUASHED_TO_DEV (the real "landed" signal). Emitting MERGED here would
+      // falsely mark the slice as on-main. Only the legacy direct-to-main path needs it.
+      if (process.env.DS9_USE_GATE_FLOW !== '1') {
+        registerEvent(id, 'MERGED', { branch: branchName, sha: result.sha, slice_id: id, recovery: true });
+      }
       log('info', 'startup_recovery', { id, msg: `Recovery squash succeeded for ${branchName}`, branch: branchName, sha: result.sha });
       actions.push({ id, type: 'recovery_merged', branch: branchName, sha: result.sha });
     } else {
