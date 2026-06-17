@@ -19,7 +19,7 @@ references: null
 timeout_min: null
 ---
 
-## Objective
+## Goal
 
 <!-- One or two sentences: what should Rom accomplish? This defines scope. -->
 
@@ -39,9 +39,11 @@ timeout_min: null
 <!-- Explicit limits: files to avoid, approaches to skip, scope boundaries.
      If none, write "None." — do not omit the section. -->
 
-## Success criteria
+## Acceptance criteria
 
 <!-- Checkable conditions Nog and Bashir will use to evaluate the result.
-     Rom self-evaluates against these before writing his report. -->
+     Rom self-evaluates against these before writing his report.
+     PRE-2 (ADR-AC-RECONCILE) will template one explicitly-tagged line per AC here:
+       - slice-{id}-ac-{k}: <text> -->.
 
 1.

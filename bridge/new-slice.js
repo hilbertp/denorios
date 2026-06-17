@@ -358,7 +358,7 @@ function main() {
   const frontmatter = buildFrontmatter(fields);
   const content = body
     ? `${frontmatter}\n\n${body}\n`
-    : `${frontmatter}\n\n## Objective\n\n${fields.goal}\n\n## Tasks\n\n<!-- O'Brien: fill in tasks -->\n\n## Success criteria\n\n<!-- O'Brien: fill in ACs -->\n`;
+    : `${frontmatter}\n\n## Goal\n\n${fields.goal}\n\n## Tasks\n\n<!-- O'Brien: fill in tasks -->\n\n## Acceptance criteria\n\n<!-- O'Brien: fill in ACs -->\n`;
 
   // Verify all required fields are present (self-check)
   const missingCheck = REQUIRED_FIELDS.filter(f => !content.includes(`${f}:`));
