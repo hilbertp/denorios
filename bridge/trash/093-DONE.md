@@ -33,11 +33,11 @@ Wired Nog code reviewer into the watcher pipeline. After O'Brien writes a DONE r
 ### 3. Verdict handling
 - **PASS**: Registers `NOG_PASS` event, renames file back to DONE for evaluator pickup
 - **RETURN**: Registers `NOG_RETURN` event, creates amendment PENDING for O'Brien via `handleNogReturn()`
-- **Missing/unparseable**: Treated as RETURN, emits `NOG_ESCALATION` obrien-event, creates amendment
+- **Missing/unparseable**: Treated as RETURN, emits `NOG_ESCALATION` kira-event, creates amendment
 
 ### 4. Round tracking and escalation
 - `countNogRounds()` counts `## Nog Review -- Round N` headers in slice file
-- Round 6+ triggers escalation: writes `{id}-NOG-ESCALATION.md` to `bridge/obrien-escalations/`, emits `NOG_ESCALATION` obrien-event, renames to STUCK
+- Round 6+ triggers escalation: writes `{id}-NOG-ESCALATION.md` to `bridge/kira-escalations/`, emits `NOG_ESCALATION` kira-event, renames to STUCK
 
 ### 5. Register events
 - `NOG_PASS`, `NOG_RETURN`, `NOG_ESCALATION` written to `bridge/register.jsonl`
@@ -59,7 +59,7 @@ Wired Nog code reviewer into the watcher pipeline. After O'Brien writes a DONE r
 2. Watcher invokes Nog after every O'Brien DONE -- DONE (poll loop routes through `invokeNog`)
 3. PASS verdict -> slice proceeds to evaluator -- DONE (renames back to DONE, evaluator picks up)
 4. RETURN verdict -> O'Brien gets amendment with Nog review appended -- DONE (`handleNogReturn`)
-5. Round 6 -> escalation file + obrien-event + STUCK -- DONE
+5. Round 6 -> escalation file + kira-event + STUCK -- DONE
 6. NOG_PASS, NOG_RETURN, NOG_ESCALATION register events -- DONE
 7. Nog logs written to `bridge/logs/nog-{id}-round{N}.log` -- DONE
 8. Committed on `slice/093-nog-wiring` -- DONE

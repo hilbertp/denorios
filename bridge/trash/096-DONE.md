@@ -2,7 +2,7 @@
 id: "096"
 title: "F-01 Ops Center — layout restructure + Post-Build Pipeline mock"
 from: obrien
-to: obrien
+to: kira
 status: DONE
 brief_id: "096"
 branch: "slice/096-layout-restructure"

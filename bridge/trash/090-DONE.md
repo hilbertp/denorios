@@ -2,7 +2,7 @@
 id: "090"
 title: "Wormhole writer-split migration"
 from: obrien
-to: obrien
+to: kira
 status: DONE
 slice_id: "090"
 branch: "slice/090"
@@ -16,7 +16,7 @@ compaction_occurred: false
 
 ## Summary
 
-Migrated `bridge/timesheet.jsonl`, `bridge/anchors.jsonl`, and `bridge/tt-audit.jsonl` to a writer-split model. Each writer now appends to its own per-role file (e.g. `timesheet-watcher.jsonl`, `timesheet-obrien.jsonl`). The watcher rebuilds merged views on any change.
+Migrated `bridge/timesheet.jsonl`, `bridge/anchors.jsonl`, and `bridge/tt-audit.jsonl` to a writer-split model. Each writer now appends to its own per-role file (e.g. `timesheet-watcher.jsonl`, `timesheet-kira.jsonl`). The watcher rebuilds merged views on any change.
 
 ## What was done
 
@@ -33,7 +33,7 @@ Migrated `bridge/timesheet.jsonl`, `bridge/anchors.jsonl`, and `bridge/tt-audit.
 
 ### 3. `bridge/watcher.js` updated
 - Imports `rebuildMerged` from slicelog
-- Added `fs.watch` on `bridge/` directory at startup — when any `{base}-*.jsonl` file changes (e.g. O'Brien appending via Wormhole), debounces and rebuilds the merged view
+- Added `fs.watch` on `bridge/` directory at startup — when any `{base}-*.jsonl` file changes (e.g. Kira appending via Wormhole), debounces and rebuilds the merged view
 
 ### 4. `bridge/usage-snapshot.js` updated
 - Writes to `timesheet-watcher.jsonl` instead of `timesheet.jsonl`
@@ -62,7 +62,7 @@ Migrated `bridge/timesheet.jsonl`, `bridge/anchors.jsonl`, and `bridge/tt-audit.
 2. `timesheet-watcher.jsonl` contains all 20 pre-migration entries — **PASS**
 3. `slicelog.js` writes to `timesheet-watcher.jsonl` — **PASS**
 4. Watcher rebuilds `timesheet.jsonl` after any `timesheet-*.jsonl` change — **PASS** (fs.watch + debounce)
-5. Wrap-up skill instructs O'Brien to append to `timesheet-obrien.jsonl` — **PASS**
+5. Wrap-up skill instructs Kira to append to `timesheet-kira.jsonl` — **PASS**
 6. Ops Center still shows economics (reads from events, not timesheet) — **PASS**
 7. Committed on `slice/090` — **PASS**
 

@@ -23,7 +23,7 @@ Embedded `/check-handoffs` as the explicit first action in every active role's R
 | File | Edit type |
 |---|---|
 | `.claude/roles/dax/ROLE.md` | Standard substitution — prepended `/check-handoffs` to existing "Read this file" line |
-| `.claude/roles/obrien/ROLE.md` | Standard substitution — same pattern |
+| `.claude/roles/kira/ROLE.md` | Standard substitution — same pattern |
 | `.claude/roles/sisko/ROLE.md` | Inserted new instruction line (had no "Read this file" line) |
 | `.claude/roles/ziyal/ROLE.md` | Inserted new instruction line (had Cagan attribution, no session instruction) |
 | `.claude/roles/leeta/ROLE.md` | Inserted new instruction line (had no session instruction) |
@@ -36,7 +36,7 @@ Embedded `/check-handoffs` as the explicit first action in every active role's R
 ## Roles beyond §1 list
 
 The brief listed: sisko, dax, worf, ziyal, CLAUDE.md, leeta, bashir. Additional active role files found and edited:
-- **obrien** — active role, had same "Read this file" pattern as dax
+- **kira** — active role, had same "Read this file" pattern as dax
 - **nog** — active role (code reviewer)
 - **obrien** (ROLE.md, distinct from CLAUDE.md anchor) — active role (dev team lead)
 
@@ -81,6 +81,6 @@ The Edit tool blocked all `.claude/` file edits as "sensitive files." Worked aro
 2. ✅ TEAM-STANDARDS §Session Onboarding promotes `/check-handoffs` to Step 1; remaining steps renumbered
 3. ✅ `/check-handoffs` non-blocking property verified
 4. ✅ Spot check: every edited file shows `/check-handoffs`-first in first paragraph
-5. ✅ DONE report lists every file edited including those beyond §1 list (obrien, nog, obrien)
+5. ✅ DONE report lists every file edited including those beyond §1 list (kira, nog, obrien)
 6. ✅ Bashir path-conditional: edited at `roles/bashir/ROLE.md` (Phase 0 not merged)
 7. ✅ `git diff main..HEAD --name-only` shows only expected files

@@ -2,7 +2,7 @@
 id: "099"
 title: "F-04 Ops Center — Queue panel redesign"
 from: obrien
-to: obrien
+to: kira
 status: DONE
 brief_id: "099"
 branch: "slice/099-queue-panel"
@@ -63,9 +63,9 @@ Rebuilt the Queue panel to match the spec: combined list of staged and accepted 
 7. ✅ Stats bar (Waiting / In Progress / Complete / Failed / For Review) is gone — no trace in HTML or JS
 8. ✅ Committed on `slice/099-queue-panel`
 
-## Notes for O'Brien
+## Notes for Kira
 
-- The `sprint` field is derived from ID ranges for now. When O'Brien adds the `sprint` field to future slice frontmatter, the server will prefer that over the lookup table.
+- The `sprint` field is derived from ID ranges for now. When Kira adds the `sprint` field to future slice frontmatter, the server will prefer that over the lookup table.
 - Queue order is persisted to `bridge/queue-order.json` (not tracked in git — it's runtime state).
 - The `[Edit]` button shows a placeholder alert — Slice Detail overlay is slice 100's scope.
-- NEEDS_AMENDMENT items are filtered out of the queue display (they're in limbo awaiting O'Brien's revision).
+- NEEDS_AMENDMENT items are filtered out of the queue display (they're in limbo awaiting Kira's revision).

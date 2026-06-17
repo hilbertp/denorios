@@ -2,7 +2,7 @@
 id: "115"
 title: "F-08 Ops Center — invocation gap indicator (frontend)"
 from: obrien
-to: obrien
+to: kira
 status: DONE
 brief_id: "115"
 branch: "slice/115-invocation-gap-frontend"

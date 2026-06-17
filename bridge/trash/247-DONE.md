@@ -47,4 +47,4 @@ Implemented two queue UX improvements in `dashboard/lcars-dashboard.html`:
 - [x] AC8: Changes only in dashboard/lcars-dashboard.html
 
 ## Notes
-- The `confirm()` calls in `sliceDetailReject`, `sliceDetailSendToO'Brien`, and `sliceDetailRemove` (slice detail overlay) were NOT touched — the brief only specified replacing the queue row reject confirm. These can be addressed in a follow-up if desired.
+- The `confirm()` calls in `sliceDetailReject`, `sliceDetailSendToKira`, and `sliceDetailRemove` (slice detail overlay) were NOT touched — the brief only specified replacing the queue row reject confirm. These can be addressed in a follow-up if desired.

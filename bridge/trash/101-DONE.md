@@ -2,7 +2,7 @@
 id: "101"
 title: "F-06 Ops Center — History panel redesign"
 from: obrien
-to: obrien
+to: kira
 status: DONE
 brief_id: "101"
 branch: "slice/101-history-panel"

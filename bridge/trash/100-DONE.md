@@ -2,7 +2,7 @@
 id: "100"
 title: "F-05 Ops Center — Slice Detail overlay"
 from: obrien
-to: obrien
+to: kira
 status: DONE
 brief_id: "100"
 branch: "slice/100-slice-detail-overlay"
@@ -45,14 +45,14 @@ Built the Slice Detail overlay, triggered by `[Edit]` on any queue row. Full-wid
 
 **Accepted context:**
 - **Save edits** — sends body to `PATCH /api/queue/:id/content`
-- **Send to O'Brien** — confirmation, calls `/api/queue/:id/send-to-obrien`
+- **Send to Kira** — confirmation, calls `/api/queue/:id/send-to-kira`
 - **Remove from queue** — confirmation, calls `/api/queue/:id/remove` (right-aligned, warning style)
 
 ### 5. New server endpoints (`dashboard/server.js`)
 - `GET /api/queue/:id/content` — reads raw file (PENDING, STAGED, or NEEDS_AMENDMENT), returns frontmatter + body + raw
 - `PATCH /api/queue/:id/content` — updates body of the file (preserves frontmatter)
 - `POST /api/queue/:id/remove` — moves PENDING file to trash, removes from queue order, logs `removed` event
-- `POST /api/queue/:id/send-to-obrien` — moves PENDING to NEEDS_AMENDMENT in staged dir, logs `sent_to_obrien` event
+- `POST /api/queue/:id/send-to-kira` — moves PENDING to NEEDS_AMENDMENT in staged dir, logs `sent_to_kira` event
 
 ## Files changed
 
@@ -65,6 +65,6 @@ Built the Slice Detail overlay, triggered by `[Edit]` on any queue row. Full-wid
 2. ✅ Rendered tab shows formatted slice content with prominent Acceptance Criteria
 3. ✅ Source tab shows editable raw markdown; Save edits writes to disk
 4. ✅ Staged context: Approve/Refine/Reject buttons present and functional
-5. ✅ Accepted context: Save edits/Send to O'Brien/Remove from queue present and functional
+5. ✅ Accepted context: Save edits/Send to Kira/Remove from queue present and functional
 6. ✅ `✕ close` and Escape dismiss the overlay
 7. ✅ Committed on `slice/100-slice-detail-overlay`

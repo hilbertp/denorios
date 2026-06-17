@@ -2,7 +2,7 @@
 id: "102"
 title: "F-07 Ops Center — Crew Roster"
 from: obrien
-to: obrien
+to: kira
 status: DONE
 brief_id: "102"
 branch: "slice/102-crew-roster"
@@ -33,7 +33,7 @@ Replaced the existing crew manifest (2-column, 8 agents with dot indicators) wit
 **HTML:**
 - Changed from `<div class="crew-manifest">` to `<section class="crew-roster">`
 - Heading changed from "Crew Manifest" to "Crew"
-- 8 agent cards in fixed order: Sisko, Ziyal, O'Brien, O'Brien, Nog, Bashir, Dax, Worf
+- 8 agent cards in fixed order: Sisko, Ziyal, Kira, O'Brien, Nog, Bashir, Dax, Worf
 - Active agents (01–04, 07): solid cards with jitter shadow
 - Planned agents (05, 06, 08): dashed, dimmed, non-interactive
 - Each card has: number, name, role label, status badge, function line

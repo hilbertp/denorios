@@ -51,7 +51,7 @@ Additional recent full cycles: slices 114, 113, 112, 108, 090, 079 — all COMMI
 
 **BLOCKED by permission system.** Both edits were denied:
 - `.claude/CLAUDE.md` line 26: still says `| Brief template | bridge/templates/brief.md |` — Edit tool returned "Claude requested permissions to edit... which is a sensitive file"
-- `.claude/roles/obrien/ROLE.md` line 52: still says `bridge/templates/brief.md` — same permission denial
+- `.claude/roles/kira/ROLE.md` line 52: still says `bridge/templates/brief.md` — same permission denial
 
 These are documentation-only references (no code depends on them). The actual template file was correctly renamed to `bridge/templates/slice.md` in the prior commit. These two stale doc references require a human edit or a session with elevated `.claude/` write permissions.
 

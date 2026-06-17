@@ -21,7 +21,7 @@ Created `docs/contracts/done-report-format.md` with the byte-for-byte content sp
 ## What changed
 
 - `docs/contracts/done-report-format.md` — created: canonical DONE-report contract v2.0 documenting the Rom/Leeta → Nog format as actually produced today.
-- `docs/contracts/report-format.md` — deleted: obsolete v1.0 contract (O'Brien → O'Brien flow).
+- `docs/contracts/report-format.md` — deleted: obsolete v1.0 contract (O'Brien → Kira flow).
 
 ## Acceptance criteria verification
 
@@ -33,7 +33,7 @@ Created `docs/contracts/done-report-format.md` with the byte-for-byte content sp
 | Contains `to: nog` | `grep -c "to: nog" docs/contracts/done-report-format.md` → 2 | PASS |
 | Contains `estimated_human_hours` | `grep -c "estimated_human_hours" docs/contracts/done-report-format.md` → 3 | PASS |
 | Contains `Acceptance criteria verification` | `grep -c "Acceptance criteria verification" docs/contracts/done-report-format.md` → 2 | PASS |
-| No O'Brien references | `grep -ic "obrien" docs/contracts/done-report-format.md` → 0 | PASS |
+| No Kira references | `grep -ic "kira" docs/contracts/done-report-format.md` → 0 | PASS |
 | Exactly 2 files in diff | `git diff --stat main` → 2 files changed | PASS |
 | Other contracts untouched | `slice-lifecycle.md`, `slice-pipeline.md`, `slice-format.md`, `queue-lifecycle.md` unchanged | PASS |
 

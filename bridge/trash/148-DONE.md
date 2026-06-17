@@ -34,7 +34,7 @@ Installed the canonical `docs/contracts/slice-format.md` (v2.0) and deleted the 
 | `grep -c "^## Goal$"` >= 1 | PASS (1) |
 | `grep -c "Acceptance criteria"` >= 1 | PASS (2) |
 | `grep -c "Quality + goal check"` >= 1 | PASS (2) |
-| `grep -ic "obrien"` == 0 | PASS (0) |
+| `grep -ic "kira"` == 0 | PASS (0) |
 | `git diff --stat main` shows exactly 2 files | PASS |
 | No other contract files touched | PASS |
 

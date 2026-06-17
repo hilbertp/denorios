@@ -1,5 +1,5 @@
 {
-  "ts": "2026-06-17T15:10:48.029Z",
+  "ts": "2026-06-17T15:19:59.940Z",
   "pickup_ts": null,
   "status": "idle",
   "current_slice": null,
@@ -11,7 +11,7 @@
   "queue": {
     "waiting": 0,
     "active": 0,
-    "done": 22,
-    "error": 34
+    "done": 21,
+    "error": 40
   }
 }

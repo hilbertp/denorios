@@ -24,7 +24,7 @@ Implemented worktree rescue for no_report exits. When Rom self-terminates withou
 - **`isRomSelfTerminated(reason)`** — backward-compat helper returns true for all 4 classified reasons AND legacy `no_report`. Used in `writeErrorFile` and available to any future code that switches on reason strings.
 - **`classifyNoReportExit(id, worktreePath, branchName)`** — inspects git state in worktree: checks `git log main..branch` for commits, `git status --porcelain` for uncommitted changes, `git diff HEAD` for diff summary. Returns `{ reason, hasCommits, hasDiff, commits, diffSummary, porcelain }`.
 - **`rescueWorktree(id, branchName, classification, stdout, stderr)`** — moves worktree to `bridge/worktree-rescue/<id>/`, prunes git registry, writes `RESCUE.md` with full forensic summary (timestamps, commits, diff, status, stdout/stderr tails). Preserves branch ref for committed/mixed cases; deletes ref for empty/uncommitted.
-- **No_report emission path (line ~1824)** rewired: calls `classifyNoReportExit` before any error handling, then dispatches to `rescueWorktree` (non-empty) or `cleanupWorktree` (empty). Classified reason flows into `writeErrorFile`, register event, and O'Brien event.
+- **No_report emission path (line ~1824)** rewired: calls `classifyNoReportExit` before any error handling, then dispatches to `rescueWorktree` (non-empty) or `cleanupWorktree` (empty). Classified reason flows into `writeErrorFile`, register event, and Kira event.
 - **`writeErrorFile`** — 3 comparisons updated from `=== 'no_report'` to `isRomSelfTerminated(reason)` for forward-compat with all classified reason strings.
 - **Exports** — added `classifyNoReportExit`, `rescueWorktree`, `isRomSelfTerminated` for testability.
 

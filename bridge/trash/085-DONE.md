@@ -2,7 +2,7 @@
 id: "085"
 title: "Queue panel: max height + internal scroll"
 from: obrien
-to: obrien
+to: kira
 status: DONE
 slice_id: "085"
 branch: "slice/085-queue-panel-scroll"

@@ -39,7 +39,7 @@ No file changes were needed beyond this report.
 
 Nothing.
 
-## Blockers / Questions for O'Brien
+## Blockers / Questions for Kira
 
 None. All acceptance criteria were already satisfied by prior work (primarily slice 199).
 

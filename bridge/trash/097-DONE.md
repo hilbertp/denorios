@@ -2,7 +2,7 @@
 id: "097"
 title: "F-02 Ops Center — header + system health pill"
 from: obrien
-to: obrien
+to: kira
 status: DONE
 brief_id: "097"
 branch: "slice/097-header-health"

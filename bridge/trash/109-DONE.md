@@ -2,7 +2,7 @@
 id: "109"
 title: "Watcher fix — evaluate-before-commission + checkout main before O'Brien"
 from: obrien
-to: obrien
+to: kira
 status: DONE
 brief_id: "109"
 branch: "slice/109-watcher-fix"

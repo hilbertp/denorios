@@ -2,7 +2,7 @@
 id: "112"
 title: "F-06 Amendment — History panel: remove server cap + paginate to 200"
 from: obrien
-to: obrien
+to: kira
 status: DONE
 slice_id: "112"
 branch: "slice/112"

@@ -1,11 +1,11 @@
 ---
 id: "092"
-title: "O'Brien drain — watcher event emitter"
+title: "Kira drain — watcher event emitter"
 from: obrien
-to: obrien
+to: kira
 status: DONE
 slice_id: "092"
-branch: "slice/092-obrien-drain-emitter"
+branch: "slice/092-kira-drain-emitter"
 completed: "2026-04-16T03:20:00.000Z"
 tokens_in: 42000
 tokens_out: 8500
@@ -16,11 +16,11 @@ compaction_occurred: false
 
 ## Summary
 
-Built the watcher-side event emitter for O'Brien's self-activation system per ADR Component 1.
+Built the watcher-side event emitter for Kira's self-activation system per ADR Component 1.
 
 ## What was done
 
-1. **Created `bridge/obrien-events.js`** — `appendO'BrienEvent()` utility that appends structured JSON lines to `bridge/obrien-events.jsonl`. Never throws (same pattern as `appendTimesheet`).
+1. **Created `bridge/kira-events.js`** — `appendKiraEvent()` utility that appends structured JSON lines to `bridge/kira-events.jsonl`. Never throws (same pattern as `appendTimesheet`).
 
 2. **Wired `STUCK` event** in `handleStuck()` — appends after the register event and file rename.
 
@@ -33,16 +33,16 @@ Built the watcher-side event emitter for O'Brien's self-activation system per AD
 
 4. **Wired `ALL_COMPLETE` event** in the poll loop — fires once when `sessionHasProcessed` is true, no PENDING files remain, and no IN_PROGRESS files exist. Resets the flag so it only fires once per completion wave.
 
-5. **Created directories** `bridge/obrien-escalations/` and `bridge/demo-summaries/` with `.gitkeep` files.
+5. **Created directories** `bridge/kira-escalations/` and `bridge/demo-summaries/` with `.gitkeep` files.
 
-6. **Added `bridge/obrien-events.jsonl` to `.gitignore`** — runtime file, not tracked.
+6. **Added `bridge/kira-events.jsonl` to `.gitignore`** — runtime file, not tracked.
 
 ## Files changed
 
-- `bridge/obrien-events.js` (new) — event emitter module
-- `bridge/watcher.js` — require + 7 appendO'BrienEvent calls (1 STUCK, 5 ERROR, 1 ALL_COMPLETE)
-- `.gitignore` — added obrien-events.jsonl exclusion
-- `bridge/obrien-escalations/.gitkeep` (new)
+- `bridge/kira-events.js` (new) — event emitter module
+- `bridge/watcher.js` — require + 7 appendKiraEvent calls (1 STUCK, 5 ERROR, 1 ALL_COMPLETE)
+- `.gitignore` — added kira-events.jsonl exclusion
+- `bridge/kira-escalations/.gitkeep` (new)
 - `bridge/demo-summaries/.gitkeep` (new)
 
 ## What was NOT done (by design)

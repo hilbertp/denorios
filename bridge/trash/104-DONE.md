@@ -2,7 +2,7 @@
 id: "104"
 title: "F-09 Ops Center — error display"
 from: obrien
-to: obrien
+to: kira
 status: DONE
 slice_id: "104"
 branch: "slice/104"

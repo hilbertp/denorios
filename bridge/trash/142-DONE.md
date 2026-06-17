@@ -16,7 +16,7 @@ compaction_occurred: false
 
 ## Summary
 
-Replaced the stale `docs/contracts/brief-format.md` (v1.0, O'Brien-authored brief flow) with `docs/contracts/slice-format.md` (v2.0, O'Brien-authored slice flow). The new document describes the current YAML frontmatter + markdown body format as produced by `bridge/new-slice.js` and consumed by Rom.
+Replaced the stale `docs/contracts/brief-format.md` (v1.0, Kira-authored brief flow) with `docs/contracts/slice-format.md` (v2.0, O'Brien-authored slice flow). The new document describes the current YAML frontmatter + markdown body format as produced by `bridge/new-slice.js` and consumed by Rom.
 
 ## What changed
 
@@ -33,7 +33,7 @@ Replaced the stale `docs/contracts/brief-format.md` (v1.0, O'Brien-authored brie
 | `grep -c "STAGED"` ≥ 1 | PASS (5) |
 | `grep -c "Acceptance criteria"` ≥ 1 | PASS (2) |
 | `grep -c "Quality + goal check"` ≥ 1 | PASS (2) |
-| `grep -ic "obrien"` = 0 | PASS (0) |
+| `grep -ic "kira"` = 0 | PASS (0) |
 | `grep -c "^## Goal$"` ≥ 1 | PASS (1) |
 | `git diff --stat main` shows exactly 2 files | PASS |
 | Other contract files untouched | PASS |

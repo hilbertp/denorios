@@ -2,7 +2,7 @@
 id: "086"
 title: "Fix orphan IN_PROGRESS: untrack queue files from git + crash recovery ACCEPTED/BRIEF check"
 from: obrien
-to: obrien
+to: kira
 status: DONE
 brief_id: "086"
 branch: "slice/086-fix-orphan-in-progress"

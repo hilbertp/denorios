@@ -1,6 +1,6 @@
 ---
 id: "275"
-title: "F-Docs-1 — Mark Bashir as Active in README, FEATURES, OBRIEN"
+title: "F-Docs-1 — Mark Bashir as Active in README, FEATURES, KIRA"
 from: rom
 to: nog
 status: DONE
@@ -24,14 +24,14 @@ All six acceptance criteria met:
    - "Planned:" prefix removed from the Nog/Bashir summary paragraph.
    - Handoff routing table: "(planned)" removed from Bashir row.
    - File map: "(planned)" removed from bashir directory entry.
-3. **OBRIEN.md** — Sprint priorities row for slice 16 (Bashir QA role) changed from "🟢 Later" to "✅ Done."
+3. **KIRA.md** — Sprint priorities row for slice 16 (Bashir QA role) changed from "🟢 Later" to "✅ Done."
 4. **IDEAS.md** — Untouched (`git diff main IDEAS.md` is empty).
-5. **`git diff main..HEAD --name-only`** shows only `README.md`, `docs/FEATURES.md`, `OBRIEN.md`, plus this DONE report.
+5. **`git diff main..HEAD --name-only`** shows only `README.md`, `docs/FEATURES.md`, `KIRA.md`, plus this DONE report.
 6. No code changes — `bridge/`, `dashboard/`, `scripts/`, `roles/`, `.claude/`, `test/` all clean.
 
 ## Files changed
 
 - `README.md` — 1 line (Bashir status)
 - `docs/FEATURES.md` — 4 lines (Bashir mentions)
-- `OBRIEN.md` — 1 line (sprint priority)
+- `KIRA.md` — 1 line (sprint priority)
 - `bridge/queue/275-DONE.md` — this report

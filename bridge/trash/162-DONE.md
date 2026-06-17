@@ -31,7 +31,7 @@ Implemented all five parts of the lifecycle completeness slice. The watcher now 
 - Extended the Nog verdict parsing to accept `ESCALATE` alongside `PASS` and `RETURN`.
 - Added a complete ESCALATE handling block in the Nog callback:
   - Emits `ESCALATED_TO_OBRIEN` register event with `{ round, reason }`.
-  - Emits O'Brien event for dashboard visibility.
+  - Emits Kira event for dashboard visibility.
   - Transitions slice to terminal STUCK state.
   - Cleans up worktree and NOG.md verdict file.
   - Does NOT commission any new slice.

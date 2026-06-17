@@ -2,7 +2,7 @@
 id: "089"
 title: "Wormhole MCP server — core"
 from: obrien
-to: obrien
+to: kira
 status: DONE
 slice_id: "089"
 branch: "slice/089-wormhole-core"

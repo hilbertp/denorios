@@ -26,7 +26,7 @@ Reverted all server.js modifications (lines 628–630, 643–644, 852–853). Th
 
 ### 2. AC3 — Approver identity added to approval log
 
-The approval log now displays approver identity alongside the timestamp: `"Approved  O'Brien · 4/27/2026, 2:30:00 PM"`. Uses `ev.approver || ev.actor || 'O'Brien'` — falls back to "O'Brien" because the current `writeRegisterEvent` call for `HUMAN_APPROVAL` events (server.js:904) does not record an approver field. If a future server change adds `approver` or `actor` to the event payload, the display will pick it up automatically.
+The approval log now displays approver identity alongside the timestamp: `"Approved  Kira · 4/27/2026, 2:30:00 PM"`. Uses `ev.approver || ev.actor || 'Kira'` — falls back to "Kira" because the current `writeRegisterEvent` call for `HUMAN_APPROVAL` events (server.js:904) does not record an approver field. If a future server change adds `approver` or `actor` to the event payload, the display will pick it up automatically.
 
 ### 3. AC5 — Toggle function reuse documented
 

@@ -2,7 +2,7 @@
 id: "114"
 title: "F-06 Amendment 2 — History panel: fixed height, pinned pagination footer"
 from: obrien
-to: obrien
+to: kira
 status: DONE
 slice_id: "114"
 branch: "slice/114"

@@ -2,7 +2,7 @@
 id: "094"
 title: "Error reporting — capture error details in watcher + API"
 from: obrien
-to: obrien
+to: kira
 status: DONE
 slice_id: "094"
 branch: "slice/094"

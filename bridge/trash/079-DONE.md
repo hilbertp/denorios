@@ -2,7 +2,7 @@
 id: "079"
 title: "Invocation gap probe 1 — report watcher uptime"
 from: obrien
-to: obrien
+to: kira
 status: DONE
 slice_id: "079"
 branch: "slice/079"

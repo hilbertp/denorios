@@ -2,7 +2,7 @@
 id: "087"
 title: "Fix history panel gap: backfill missing DONE events + untrack register.jsonl"
 from: obrien
-to: obrien
+to: kira
 status: DONE
 brief_id: "087"
 branch: "slice/087-fix-history-gap"
