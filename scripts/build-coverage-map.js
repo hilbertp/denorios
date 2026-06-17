@@ -27,6 +27,10 @@ const { bucketOf } = require('../lib/tests-needed');
 
 const TAG_RE = /slice-\d+-ac-\d+/g;
 const TITLE_RE = /\btest(?:\.skip|\.only|\.todo)?\s*\(\s*(['"`])([\s\S]*?)\1/g;
+// PRE-3 (ADR-AC-RECONCILE): the @ac-hash annotation embeds the SPEC hash a test guards,
+// beside its slice-N-ac-K tag:  // @ac-hash: slice-050-ac-7 sha256:<hex>
+// The tag is named in the annotation so the manifest join is deterministic, not positional.
+const AC_HASH_RE = /\/\/\s*@ac-hash:\s*(slice-\d+-ac-\d+)\s+(sha256:[0-9a-f]{6,64})/g;
 const CONST_RE = /\bconst\s+([A-Za-z_$][\w$]*)\s*=\s*path\.(?:resolve|join)\(([^)]*)\)/g;
 const READ_CONST_RE = /\breadFileSync\(\s*([A-Za-z_$][\w$]*)\b/g;
 const READ_INLINE_RE = /\breadFileSync\(\s*path\.(?:resolve|join)\(([^)]*)\)/g;
@@ -91,6 +95,17 @@ function tagsIn(src) {
   return [...tags].sort();
 }
 
+// Map slice-N-ac-K → guardAcHash, from `// @ac-hash: <tag> sha256:<hex>` annotations.
+// This is the hash EMBEDDED IN THE TEST (the guard's claim about which spec it covers);
+// the manifest's acHash is the spec's own hash. stale = acHash !== guardAcHash.
+function acHashesIn(src) {
+  const out = Object.create(null);
+  let m;
+  AC_HASH_RE.lastIndex = 0;
+  while ((m = AC_HASH_RE.exec(src))) out[m[1]] = m[2];
+  return out;
+}
+
 // Walk regression/**/*.test.js, repo-relative POSIX paths, sorted.
 function walkTests(repoRoot) {
   const root = path.join(repoRoot, 'regression');
@@ -113,8 +128,11 @@ function buildCoverageMap(repoRoot) {
     if (!sources.size) continue;
     const tags = tagsIn(src);
     if (!tags.length) continue;
+    const acHashes = acHashesIn(src);
     for (const s of sources) {
-      (bySource[s] = bySource[s] || []).push(...tags.map(tag => ({ tag, file: rel })));
+      (bySource[s] = bySource[s] || []).push(...tags.map(tag => (
+        acHashes[tag] ? { tag, file: rel, guardAcHash: acHashes[tag] } : { tag, file: rel }
+      )));
     }
   }
   const sorted = {};
@@ -151,6 +169,6 @@ function main() {
   console.log(`Wrote regression/COVERAGE.lock — ${map.guardCount} guards over ${Object.keys(map.bySource).length} sources.`);
 }
 
-module.exports = { buildCoverageMap, sourcesReadBy, tagsIn, walkTests, serialize };
+module.exports = { buildCoverageMap, sourcesReadBy, tagsIn, acHashesIn, walkTests, serialize };
 
 if (require.main === module) main();
