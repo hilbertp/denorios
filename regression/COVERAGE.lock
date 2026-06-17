@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 206,
+  "guardCount": 211,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -740,6 +740,28 @@
       {
         "tag": "slice-99822-ac-9",
         "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      }
+    ],
+    "scripts/build-ac-manifest.js": [
+      {
+        "tag": "slice-99826-ac-1",
+        "file": "regression/gate-merge/j-ac-manifest-integrity.test.js"
+      },
+      {
+        "tag": "slice-99826-ac-2",
+        "file": "regression/gate-merge/j-ac-manifest-integrity.test.js"
+      },
+      {
+        "tag": "slice-99826-ac-3",
+        "file": "regression/gate-merge/j-ac-manifest-integrity.test.js"
+      },
+      {
+        "tag": "slice-99826-ac-4",
+        "file": "regression/gate-merge/j-ac-manifest-integrity.test.js"
+      },
+      {
+        "tag": "slice-99826-ac-5",
+        "file": "regression/gate-merge/j-ac-manifest-integrity.test.js"
       }
     ],
     "scripts/build-coverage-map.js": [

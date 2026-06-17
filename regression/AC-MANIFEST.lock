@@ -1,0 +1,879 @@
+{
+  "generator": "scripts/build-ac-manifest.js",
+  "acCount": 109,
+  "legacyCount": 109,
+  "byTag": {
+    "slice-042-ac-1": {
+      "slice": "042",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-042-ac-10": {
+      "slice": "042",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-042-ac-11": {
+      "slice": "042",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-042-ac-12": {
+      "slice": "042",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-042-ac-13": {
+      "slice": "042",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-042-ac-2": {
+      "slice": "042",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-042-ac-3": {
+      "slice": "042",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-042-ac-4": {
+      "slice": "042",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-042-ac-5": {
+      "slice": "042",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-042-ac-7": {
+      "slice": "042",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-100-ac-3": {
+      "slice": "100",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-316-ac-1": {
+      "slice": "316",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-316-ac-10": {
+      "slice": "316",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-316-ac-11": {
+      "slice": "316",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-316-ac-12": {
+      "slice": "316",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-316-ac-2": {
+      "slice": "316",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-316-ac-3": {
+      "slice": "316",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-316-ac-4": {
+      "slice": "316",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-316-ac-5": {
+      "slice": "316",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-316-ac-6": {
+      "slice": "316",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-316-ac-7": {
+      "slice": "316",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-316-ac-8": {
+      "slice": "316",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-316-ac-9": {
+      "slice": "316",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-901-ac-1": {
+      "slice": "901",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-901-ac-2": {
+      "slice": "901",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-901-ac-8": {
+      "slice": "901",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-902-ac-4": {
+      "slice": "902",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-902-ac-5": {
+      "slice": "902",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-903-ac-8": {
+      "slice": "903",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-907-ac-6": {
+      "slice": "907",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99111-ac-2": {
+      "slice": "99111",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99112-ac-3": {
+      "slice": "99112",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99113-ac-3": {
+      "slice": "99113",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99114-ac-4": {
+      "slice": "99114",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99115-ac-5": {
+      "slice": "99115",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99201-ac-1": {
+      "slice": "99201",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99201-ac-2": {
+      "slice": "99201",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99201-ac-6": {
+      "slice": "99201",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99202-ac-3": {
+      "slice": "99202",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99202-ac-4": {
+      "slice": "99202",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99202-ac-5": {
+      "slice": "99202",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99203-ac-7": {
+      "slice": "99203",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99777-ac-1": {
+      "slice": "99777",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99777-ac-2": {
+      "slice": "99777",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99777-ac-3": {
+      "slice": "99777",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99777-ac-4": {
+      "slice": "99777",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99777-ac-6": {
+      "slice": "99777",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99777-ac-9": {
+      "slice": "99777",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99800-ac-1": {
+      "slice": "99800",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99800-ac-2": {
+      "slice": "99800",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99800-ac-3": {
+      "slice": "99800",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99800-ac-4": {
+      "slice": "99800",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99801-ac-1": {
+      "slice": "99801",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99801-ac-2": {
+      "slice": "99801",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99801-ac-3": {
+      "slice": "99801",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99801-ac-4": {
+      "slice": "99801",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99802-ac-1": {
+      "slice": "99802",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99803-ac-1": {
+      "slice": "99803",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99804-ac-1": {
+      "slice": "99804",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99805-ac-1": {
+      "slice": "99805",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99806-ac-1": {
+      "slice": "99806",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99807-ac-1": {
+      "slice": "99807",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99808-ac-1": {
+      "slice": "99808",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99808-ac-2": {
+      "slice": "99808",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99808-ac-3": {
+      "slice": "99808",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99808-ac-4": {
+      "slice": "99808",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99809-ac-1": {
+      "slice": "99809",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99809-ac-2": {
+      "slice": "99809",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99810-ac-1": {
+      "slice": "99810",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99810-ac-2": {
+      "slice": "99810",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99811-ac-1": {
+      "slice": "99811",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99811-ac-2": {
+      "slice": "99811",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99812-ac-1": {
+      "slice": "99812",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99812-ac-2": {
+      "slice": "99812",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99822-ac-1": {
+      "slice": "99822",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99822-ac-2": {
+      "slice": "99822",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99822-ac-3": {
+      "slice": "99822",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99822-ac-4": {
+      "slice": "99822",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99822-ac-5": {
+      "slice": "99822",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99822-ac-6": {
+      "slice": "99822",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99822-ac-7": {
+      "slice": "99822",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99822-ac-8": {
+      "slice": "99822",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99822-ac-9": {
+      "slice": "99822",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99823-ac-1": {
+      "slice": "99823",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99823-ac-2": {
+      "slice": "99823",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99823-ac-3": {
+      "slice": "99823",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99823-ac-4": {
+      "slice": "99823",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99823-ac-5": {
+      "slice": "99823",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99823-ac-6": {
+      "slice": "99823",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99824-ac-1": {
+      "slice": "99824",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99824-ac-2": {
+      "slice": "99824",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99824-ac-3": {
+      "slice": "99824",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99824-ac-4": {
+      "slice": "99824",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99824-ac-5": {
+      "slice": "99824",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99824-ac-6": {
+      "slice": "99824",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99824-ac-7": {
+      "slice": "99824",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99824-ac-8": {
+      "slice": "99824",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99825-ac-1": {
+      "slice": "99825",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99825-ac-2": {
+      "slice": "99825",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99825-ac-3": {
+      "slice": "99825",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99825-ac-4": {
+      "slice": "99825",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99825-ac-5": {
+      "slice": "99825",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99825-ac-90": {
+      "slice": "99825",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99825-ac-92": {
+      "slice": "99825",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99826-ac-1": {
+      "slice": "99826",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99826-ac-2": {
+      "slice": "99826",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99826-ac-3": {
+      "slice": "99826",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99826-ac-4": {
+      "slice": "99826",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99826-ac-5": {
+      "slice": "99826",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    }
+  }
+}
