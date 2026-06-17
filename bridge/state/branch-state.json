@@ -1,6 +1,10 @@
 {
   "schema_version": 1,
-  "main": { "tip_sha": null, "tip_subject": null, "tip_ts": null },
+  "main": {
+    "tip_sha": "9dbab40b5398557cdbe4a7494e9e5a08e32912c4",
+    "tip_subject": "promote.yml: success-gate the regression-report upload (fix gate-integrity guard)",
+    "tip_ts": "2026-06-17T15:21:19+03:00"
+  },
   "dev": {
     "tip_sha": null,
     "tip_ts": null,
@@ -8,6 +12,24 @@
     "commits": [],
     "deferred_slices": []
   },
-  "last_merge": null,
-  "gate": { "status": "IDLE", "current_run": null, "last_failure": null, "last_pass": null }
+  "last_merge": {
+    "sha": "9dbab40b5398557cdbe4a7494e9e5a08e32912c4",
+    "ts": "2026-06-17T15:21:19+03:00"
+  },
+  "gate": {
+    "status": "IDLE",
+    "current_run": null,
+    "last_failure": null,
+    "last_pass": null
+  },
+  "regression_risk": {
+    "rr": 0,
+    "band": "green",
+    "inputs": {
+      "slice_pressure": 0,
+      "surface_volatility": 0,
+      "ac_coverage_gap": 0
+    },
+    "computed_ts": "2026-06-17T13:11:51.832Z"
+  }
 }

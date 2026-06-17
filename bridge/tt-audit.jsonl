@@ -1,0 +1,4 @@
+{ "role": "ziyal", "ts": "2026-06-14T18:58:39Z", "to": "ziyal", "ref": "HANDOFF-TOPOLOGY-SERPENTINE-FROM-ZIYAL.md" }
+{"role":"garak","ts":"2026-06-16T09:23:43Z","to":"dax","ref":"HANDOFF-JULIAN-AC-TEST-AUTHORING-FROM-GARAK.md"}
+{"role":"dax","ts":"2026-06-17T08:18:55Z","to":"obrien","ref":"HANDOFF-AC-RECONCILE-FROM-DAX.md"}
+{ "role": "obrien", "ts": "2026-06-17T09:56:28Z", "to": "bashir", "ref": "HANDOFF-AC-DRAIN-FEED-FROM-OBRIEN.md" }

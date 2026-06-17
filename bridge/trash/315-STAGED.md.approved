@@ -1,53 +1,46 @@
 ---
 id: "315"
-title: "Move Bashir into Branch Topology as a live CI strip + retire his Post-Build lane (Ziyal redesign · step 2/3)"
-goal: "Make Branch Topology the single, live home of the dev→main story: add the CI status strip where Bashir now lives (as Test Author, with the real ci.yml regression + promote status), retire Bashir's old Post-Build lane so that panel is Nog-only, and fix the GitHub-truth read so the SHAs and CI status are actually live instead of the stale 439ab0a the panel shows today. This is the visible redesign — the thing the operator sees change."
+title: "Memory-safe auto-compaction: PreCompact hook commits role memory before compacting"
+goal: "An automatic context compaction will commit the active role's session memory to memory/MEMORY.md before it proceeds, with no manual step."
 from: obrien
 to: rom
 priority: normal
-created: "2026-06-05T10:45:00.000Z"
-timeout_min: 45
-status: "STAGED"
-spec: "HANDOFF-OPS-REDESIGN-GITHUB-CI-FROM-ZIYAL.md"
-references: null
+created: "2026-06-15T08:38:32.095Z"
+timeout_min: 30
+status: STAGED
 ---
 
-**Owner:** Garak/O'Brien (commissioner); Rom (executor)
-**Design source of truth:** `HANDOFF-OPS-REDESIGN-GITHUB-CI-FROM-ZIYAL.md` — §3a–3d (the CI strip + states), §3e (Post-Build after Bashir leaves), §5-C (kill the Bashir lane), §6 (Nog vs Bashir/CI legibility). It names every live element ID. Read it first.
-**Builds on:** slice 314 (step 1, already landed on `dev`/`main`) — the GitHub-truth payload + dead-control removal. This is **not** an amendment; it's a fresh slice off `dev` (which already contains 314).
+## Context
 
-## Why
-314 surfaced the GitHub data and killed the dead merge button, but it's invisible: Bashir is still a co-equal lane under Nog in Post-Build Pipeline (implying he runs per-slice, which is false), the Branch Topology action slot is just a passive "auto-promotes on green" caption, and the panel is showing a **stale** SHA (`439ab0a` when origin is really `8e4b734`). This slice makes the redesign real and live.
+This session introduced a role-memory system: the `/remember` skill writes durable project facts to `.claude/roles/{role}/memory/MEMORY.md`, the `/compress` skill wraps "remember-then-compact", and every `ROLE.md` carries a mandatory Memory Protocol. Those are the *behavioral* layer — they only fire when the model or user invokes them.
 
-**Merge model context (important for the copy):** we are in the **auto-merge interim** — green CI on `dev` auto-promotes `main` (promote.yml is ON). Build the strip's promote row for *that* reality (✓ main fast-forwarded → sha). When Bashir later becomes the full dev→main gate, auto-merge turns off and the promote row's meaning changes — but that's a future slice; build for today.
+This slice adds the *hard* layer: a `PreCompact` hook that catches **automatic** compaction (the silent ~90%-context auto-compact the model never sees coming) and commits the active role's memory **before** compaction proceeds. The active role is discoverable: `bridge/role-conversations.json` maps each role to its `session_id`, and the PreCompact hook payload includes `session_id`.
 
-## Scope
-**`dashboard/lcars-dashboard.html`**:
-- **Add the CI status strip** in Branch Topology (the footer/action-slot region where step 1 left the "auto-promotes on green" caption — the strip supersedes that caption). Per Ziyal §3a–3c:
-  - Left: a `Bashir · Test Author` chip (identity color `--bashir`). Right: `GitHub Actions · ci.yml` as the runner.
-  - **Regression row:** `✓ passing` / `↻ running…` / `✗ N failing`, with run number + `↗ view` deep-link to the Actions run.
-  - **Promote row:** `✓ main fast-forwarded → <sha> · <age>` / `◌ blocked on green check` / `held — main not advanced`.
-  - **Red state:** strip header goes `--err`, the failing suite name surfaces, `↗ open in CI`. Reuse existing check glyphs (`↻`/`✓`/`✗`/`◌`) and `--ok`/`--err`/`--warn` — no new tokens.
-- **Mini-pill** (`#topo-mini-pill`): re-point from any local gate status to a compact CI badge — `CI ✓ green · promoted` / `CI ↻ running` / `CI ✗ failing`.
-- **Retire Bashir's Post-Build lane:** remove `#bashir-lane` and its `#bashir-idle-state` / `#bashir-running-state` / `#bashir-failed-state` / `#bashir-badge` / `#bashir-heartbeat-warn`, the `.postbuild-arrow` (`↓`) connector, and the `.bashir-*` lane CSS. Post-Build Pipeline becomes **Nog-only** (Nog's lane unchanged).
-- Remove the `updateBashirLane(...)` call from the Post-Build panel; its CI-shaped replacement is the new strip.
+## Tasks
 
-**`dashboard/server.js`** (fold in the freshness fix — the strip's data source):
-- Make the GitHub-truth read **live**: `origin/main` / `origin/dev` tips, "commits ahead", `ci.yml` latest-run status (state + run # + URL), and promote result must reflect GitHub *now*, not a value cached at startup or read from a stale `branch-state` file. A `git fetch` (or `git ls-remote`) on a short TTL before serving the tips — whatever makes the panel stop showing `439ab0a` when origin is `8e4b734`.
+1. Create `scripts/precompact-remember.js` (Node, no new dependencies). It reads the PreCompact hook JSON from stdin (fields include `session_id`, `transcript_path`, `trigger` = "manual"|"auto", `cwd`) and:
+   - Looks up the active role in `bridge/role-conversations.json` by matching `.session_id` to the payload's `session_id`. If no match (or `session_id` absent), it is a **no-op**: exit 0 so compaction proceeds.
+   - Resolves the target memory file `.claude/roles/{role}/memory/MEMORY.md`, creating the `memory/` dir and file (from the template in `.claude/skills/remember/SKILL.md`) if absent. Exception: role `rom` has no `memory/MEMORY.md` — its slot is `.claude/roles/rom/CRAFT.md`; for `rom`, target `CRAFT.md`, or skip if that is cleaner. Document the choice.
+   - Invokes the implementor headlessly (`claude -p`) to run the remember procedure against `transcript_path`, writing durable project facts into the target file. **Embed the extraction instructions inline in the prompt** (do not depend on reading `SKILL.md` at runtime) so the hook is self-contained. Cap the headless run (`--max-turns` or equivalent) to prevent runaway cost or recursion.
+2. Make the script bulletproof against blocking a session:
+   - Hard timeout (default 120s, configurable via env). On timeout/error/any exception → log and **exit 0**. The hook must NEVER block compaction indefinitely and must NEVER exit non-zero in a way that aborts the user's session.
+   - Kill-switch: if `DS9_PRECOMPACT_DISABLE=1` is set, no-op exit 0.
+   - Debounce: if a run for this `session_id` completed less than N seconds ago (default 60s), skip to avoid double-extraction on back-to-back compactions.
+3. Append an audit line per invocation to `bridge/precompact.log`: `{ts, session_id, role, trigger, outcome}` where outcome ∈ {written, skipped-unknown-session, skipped-debounce, skipped-disabled, timeout, error}.
+4. Wire the hook in `.claude/settings.json` under `hooks.PreCompact` (matcher covering both "manual" and "auto" triggers) to run `node scripts/precompact-remember.js`. The change must be **additive** — preserve any existing settings, keep the JSON valid.
+5. In the DONE report, document: how to test the script with a sample stdin payload, the `rom`/`CRAFT.md` decision, the env knobs (`DS9_PRECOMPACT_DISABLE`, timeout, debounce), and the recursion/cost guard.
 
-## Out of scope (this is step 3 — do NOT do it here)
-- Removing the dormant 3-step gate-ceremony cards (`#gate-steps`) and the standalone **Gate-Health panel** (`.gate-health-panel`, `/api/gate-health`) + copy cleanup. Those don't render in the auto-merge world anyway; they get deleted in step 3.
+## Success criteria
 
-## Acceptance Criteria
-| # | Criterion |
-|---|---|
-| 1 | Branch Topology shows the **live** `origin/main` SHA (e.g. `8e4b734`, matching `git ls-remote origin main`) — the stale `439ab0a` is gone. "N commits ahead" is real. |
-| 2 | A **CI strip** lives in Branch Topology with a `Bashir · Test Author` chip and `GitHub Actions · ci.yml`, a regression row (pass/running/fail + run # + `↗ view`), and a promote row (main fast-forwarded → sha / blocked / held). |
-| 3 | The strip reflects real CI: when `ci.yml` is green its regression row reads passing and the promote row shows main advanced; a failed run surfaces the failing suite + `↗ open in CI`. (Verify against an actual recent run in the DONE report.) |
-| 4 | Post-Build Pipeline is **Nog-only**: `#bashir-lane`, the `.postbuild-arrow`, `#bashir-heartbeat-warn`, and `updateBashirLane` are gone; Nog's lane is unchanged. |
-| 5 | The mini-pill (`#topo-mini-pill`) shows a compact CI badge, not a local gate status. |
-| 6 | No new tokens or raw hex; the strip reuses `--bashir` / `--ok` / `--err` / `--warn` and existing check glyphs. |
-| 7 | DONE report: before/after screenshots (or markup) of Branch Topology with the live SHA + CI strip, and Post-Build with Bashir removed; plus the server diff showing the freshness fix and a sample `/api` payload with live tips + CI status. |
+- `scripts/precompact-remember.js` exists and exits 0 on every path: role matched, role missing, `session_id` absent, timeout, error, disabled, debounced.
+- Given a stdin payload whose `session_id` matches an entry in `bridge/role-conversations.json`, the script resolves the correct `.claude/roles/{role}/memory/MEMORY.md` target (verified without needing a live `claude -p` call — e.g. a dry-run/`--no-exec` mode or unit check).
+- `.claude/settings.json` contains a valid `hooks.PreCompact` entry invoking the script; pre-existing settings are intact; the file parses as JSON.
+- The hook cannot block compaction beyond the configured timeout, and `DS9_PRECOMPACT_DISABLE=1` cleanly disables it.
+- Unknown/missing `session_id` → no-op, exit 0, audit line `skipped-unknown-session`.
+- `bridge/precompact.log` receives one well-formed line per invocation.
 
-## Note for Nog
-Step 2 of Ziyal's 3-step Ops redesign — the visible one. Verify: (a) the SHA is **live** (no stale 439ab0a); (b) the CI strip reads real `ci.yml` + promote status, with Bashir framed as *author* and GitHub as *runner* (not "Bashir running locally"); (c) Bashir's old Post-Build lane is fully gone and that panel is Nog-only; (d) it reuses existing tokens/glyphs. The gate-ceremony cards and the Gate-Health panel are deliberately left for step 3 — don't fail it for those still existing.
+## Notes
+
+- **Dependency / sequencing:** the behavioral layer from this session (the `/remember` and `/compress` skills, the per-role Memory Protocol edits, and `.claude/roles/obrien/memory/MEMORY.md`) currently lives **uncommitted** in the `dev` working tree. For this slice's branch to build on a consistent foundation, those `.claude/` changes should be committed first. The hook script itself is designed to be self-contained (instructions embedded inline), so it does not hard-depend on `SKILL.md` at runtime — but the `memory/MEMORY.md` path convention must hold.
+- Branch: default `slice/NNN-precompact-memory-hook`.
+- Keep it dependency-free and resilient. A broken PreCompact hook degrades every session's compaction, so failure-safety (always exit 0) outranks completeness of extraction.
