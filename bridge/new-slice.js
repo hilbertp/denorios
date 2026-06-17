@@ -358,13 +358,24 @@ function main() {
   const frontmatter = buildFrontmatter(fields);
   const content = body
     ? `${frontmatter}\n\n${body}\n`
-    : `${frontmatter}\n\n## Goal\n\n${fields.goal}\n\n## Tasks\n\n<!-- O'Brien: fill in tasks -->\n\n## Acceptance criteria\n\n<!-- O'Brien: fill in ACs -->\n`;
+    : `${frontmatter}\n\n## Goal\n\n${fields.goal}\n\n## Tasks\n\n<!-- O'Brien: fill in tasks -->\n\n## Acceptance criteria\n\n<!-- O'Brien: one explicitly-tagged line per AC — the AC manifest derives from these:\n     - slice-${fields.id}-ac-1: <first checkable condition> -->\n`;
 
   // Verify all required fields are present (self-check)
   const missingCheck = REQUIRED_FIELDS.filter(f => !content.includes(`${f}:`));
   if (missingCheck.length > 0) {
     console.error(`INTERNAL ERROR: Generated file is missing required fields: ${missingCheck.join(', ')}`);
     process.exit(2);
+  }
+
+  // PRE-2 (ADR-AC-RECONCILE): commission-time AC-block check. Advisory in v1 —
+  // it surfaces problems but never blocks staging (§11.1 flips enforcing mode on later).
+  try {
+    const { validateAcBlock } = require('../lib/ac-block');
+    const ac = validateAcBlock(content, fields.id);
+    for (const w of ac.warnings) console.error(`new-slice: AC warning — ${w}`);
+    for (const e of ac.errors)   console.error(`new-slice: AC problem — ${e}`);
+  } catch (err) {
+    console.error(`new-slice: AC check skipped (${err.message})`);
   }
 
   // Write

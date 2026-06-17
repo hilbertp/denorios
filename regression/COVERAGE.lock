@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 191,
+  "guardCount": 199,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -532,6 +532,40 @@
       {
         "tag": "slice-99812-ac-2",
         "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      }
+    ],
+    "lib/ac-block.js": [
+      {
+        "tag": "slice-99824-ac-1",
+        "file": "regression/authoring-staging/j-ac-block-validation.test.js"
+      },
+      {
+        "tag": "slice-99824-ac-2",
+        "file": "regression/authoring-staging/j-ac-block-validation.test.js"
+      },
+      {
+        "tag": "slice-99824-ac-3",
+        "file": "regression/authoring-staging/j-ac-block-validation.test.js"
+      },
+      {
+        "tag": "slice-99824-ac-4",
+        "file": "regression/authoring-staging/j-ac-block-validation.test.js"
+      },
+      {
+        "tag": "slice-99824-ac-5",
+        "file": "regression/authoring-staging/j-ac-block-validation.test.js"
+      },
+      {
+        "tag": "slice-99824-ac-6",
+        "file": "regression/authoring-staging/j-ac-block-validation.test.js"
+      },
+      {
+        "tag": "slice-99824-ac-7",
+        "file": "regression/authoring-staging/j-ac-block-validation.test.js"
+      },
+      {
+        "tag": "slice-99824-ac-8",
+        "file": "regression/authoring-staging/j-ac-block-validation.test.js"
       }
     ],
     "lib/assert-direction.js": [

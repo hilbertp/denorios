@@ -41,9 +41,13 @@ timeout_min: null
 
 ## Acceptance criteria
 
-<!-- Checkable conditions Nog and Bashir will use to evaluate the result.
-     Rom self-evaluates against these before writing his report.
-     PRE-2 (ADR-AC-RECONCILE) will template one explicitly-tagged line per AC here:
-       - slice-{id}-ac-{k}: <text> -->.
+<!-- One explicitly-tagged line per AC — the AC manifest (ADR-AC-RECONCILE) derives
+     from these, and Nog/Bashir evaluate against them; Rom self-checks before reporting.
+     Tag = slice-<this slice's id>-ac-<k>, k starting at 1. Format:
+       - slice-{id}-ac-1: <first checkable condition>
+       - slice-{id}-ac-2: <second checkable condition>
+     Tags are the literal join key — never renumber to "fill a gap"; gaps are allowed. -->
+
+- slice-{id}-ac-1: 
 
 1.
