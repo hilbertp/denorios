@@ -52,7 +52,9 @@ function main() {
   r.headEqualsDevTip = headEqualsDevTip;
 
   try { fs.writeFileSync(path.join(REPO_ROOT, 'regression', 'TESTS-NEEDED.json'), JSON.stringify(r, null, 1)); } catch (_) {}
-  if (r.decision === 'red_flag' || r.decision === 'overridden') appendRegister(r);
+  // Audit AC mutations even when advisory (needs_review) — every laundering ATTEMPT is recorded.
+  if (r.decision === 'red_flag' || r.decision === 'overridden'
+      || (r.acMutated && r.acMutated.length) || (r.acRetired && r.acRetired.length)) appendRegister(r);
 
   if (asJson) process.stdout.write(JSON.stringify(r, null, 1) + '\n');
   else printHuman(r);
@@ -67,6 +69,7 @@ function appendRegister(r) {
       type: 'TESTS_UPDATE_GATE', ts: new Date().toISOString(), decision: r.decision, head: r.head,
       loosened: r.loosenedUndeclared.length, removed: r.removedUndeclared.length, skipped: r.skippedUndeclared.length,
       newBehaviourNoTest: r.newBehaviourNoTest.length, overridden: r.overridden.length, mismatchedOverride: r.mismatchedOverride,
+      acMutatedUndeclared: (r.acMutatedUndeclared || []).length, acRetiredUndeclared: (r.acRetiredUndeclared || []).length, acOverridden: (r.acOverridden || []).length,
     }) + '\n';
     fs.appendFileSync(path.join(REPO_ROOT, 'bridge', 'register.jsonl'), line);
   } catch (_) {}
@@ -85,6 +88,10 @@ function printHuman(r) {
   show('Rejected trailers', r.rejectedTrailers, t => `${t.kind}: ${t.why}`);
   show('Overridden (declared)', r.overridden, o => `${o.tag} ${o.transition} — ${o.reason}`);
   show('Needs review (uncorroborated)', r.unguardedSourceChanges, b => b.path);
+  const acAdv = r.acEnforce ? '' : ' (advisory)';
+  show('⚠ AC mutated (undeclared)', r.acMutatedUndeclared, t => `${t} — needs AC-Change-OK + Spec-Owner${acAdv}`);
+  show('⚠ AC retired (undeclared)', r.acRetiredUndeclared, t => `${t} — needs AC-Change-OK + Spec-Owner${acAdv}`);
+  show('AC change (authorized)', r.acOverridden, t => `${t} — AC-Change-OK + Spec-Owner`);
   if (r.decision === 'red_flag') {
     console.log('\n  → A guarded check was weakened/removed/skipped, or new behaviour shipped untested.');
     console.log('    If a feature changed this behaviour: move (don\'t weaken) the assertion (Bashir) and add a');

@@ -9,6 +9,7 @@ const path = require('node:path');
 // with COVERAGE.lock guardAcHash into COVERED / STALE / MISSING / LEGACY_UNHASHED.
 
 const RECONCILE_SRC = path.resolve(__dirname, '..', '..', 'lib', 'ac-reconcile.js');
+const RECONCILE_CLI = path.resolve(__dirname, '..', '..', 'scripts', 'ac-reconcile.js');
 const { reconcile } = require(RECONCILE_SRC);
 
 const cov = (entries) => ({ bySource: { 'lib/x.js': entries } });
@@ -74,4 +75,12 @@ test('J-ac-reconcile slice-99827-ac-7 — the classifier source on disk exports 
   assert.match(src, /module\.exports\s*=\s*{[^}]*reconcile/);
   assert.match(src, /LEGACY_UNHASHED/);
   assert.match(src, /never edit an AC|never the reverse|NEVER the/i);
+});
+
+test('J-ac-reconcile slice-99827-ac-8 — the STEP-1 driver loads the locks, writes the verdict, and routes Julian', () => {
+  const src = fs.readFileSync(RECONCILE_CLI, 'utf8');
+  assert.match(src, /require\(['"]\.\.\/lib\/ac-reconcile['"]\)/);
+  assert.match(src, /AC-RECONCILE\.json/);
+  assert.match(src, /RECONCILE-NEEDED\.md/);            // routes Julian's inbox
+  assert.match(src, /never edit an AC|never the reverse|HALTS/i);
 });

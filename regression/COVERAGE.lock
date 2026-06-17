@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 230,
+  "guardCount": 271,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -596,6 +596,10 @@
       {
         "tag": "slice-99827-ac-7",
         "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-8",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
       }
     ],
     "lib/assert-direction.js": [
@@ -732,6 +736,96 @@
       {
         "tag": "slice-99823-ac-6",
         "file": "regression/gate-merge/j-tests-needed-self-lock.test.js"
+      },
+      {
+        "tag": "slice-99829-ac-1",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
+      },
+      {
+        "tag": "slice-99829-ac-2",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
+      },
+      {
+        "tag": "slice-99829-ac-3",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
+      },
+      {
+        "tag": "slice-99829-ac-4",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
+      },
+      {
+        "tag": "slice-99829-ac-5",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
+      },
+      {
+        "tag": "slice-99829-ac-6",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
+      },
+      {
+        "tag": "slice-99829-ac-7",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
+      },
+      {
+        "tag": "slice-99829-ac-8",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
+      },
+      {
+        "tag": "slice-99829-ac-9",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
+      }
+    ],
+    "regression/AC-MANIFEST.lock": [
+      {
+        "tag": "slice-99826-ac-1",
+        "file": "regression/gate-merge/j-ac-manifest-integrity.test.js"
+      },
+      {
+        "tag": "slice-99826-ac-2",
+        "file": "regression/gate-merge/j-ac-manifest-integrity.test.js"
+      },
+      {
+        "tag": "slice-99826-ac-3",
+        "file": "regression/gate-merge/j-ac-manifest-integrity.test.js"
+      },
+      {
+        "tag": "slice-99826-ac-4",
+        "file": "regression/gate-merge/j-ac-manifest-integrity.test.js"
+      },
+      {
+        "tag": "slice-99826-ac-5",
+        "file": "regression/gate-merge/j-ac-manifest-integrity.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-1",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-2",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-3",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-4",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-5",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-6",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-7",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-8",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
       }
     ],
     "regression/COVERAGE.lock": [
@@ -797,6 +891,44 @@
       },
       {
         "tag": "slice-99827-ac-7",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-8",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      }
+    ],
+    "scripts/ac-reconcile.js": [
+      {
+        "tag": "slice-99827-ac-1",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-2",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-3",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-4",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-5",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-6",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-7",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-8",
         "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
       }
     ],
@@ -946,6 +1078,42 @@
       {
         "tag": "slice-99822-ac-9",
         "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99829-ac-1",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
+      },
+      {
+        "tag": "slice-99829-ac-2",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
+      },
+      {
+        "tag": "slice-99829-ac-3",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
+      },
+      {
+        "tag": "slice-99829-ac-4",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
+      },
+      {
+        "tag": "slice-99829-ac-5",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
+      },
+      {
+        "tag": "slice-99829-ac-6",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
+      },
+      {
+        "tag": "slice-99829-ac-7",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
+      },
+      {
+        "tag": "slice-99829-ac-8",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
+      },
+      {
+        "tag": "slice-99829-ac-9",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
       }
     ]
   }
