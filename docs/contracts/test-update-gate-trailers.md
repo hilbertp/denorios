@@ -121,3 +121,33 @@ The backstop that makes corroboration file-grained is `regression/COVERAGE.lock`
 derived by `scripts/build-coverage-map.js` and kept honest by
 `regression/gate-merge/j-coverage-map-integrity.test.js` (regenerate-and-deepEqual +
 the load-bearing-sources ratchet).
+
+---
+
+## AC-Change-OK + Spec-Owner — authorizing an AC edit (ADR-AC-RECONCILE)
+
+The AC manifest (`regression/AC-MANIFEST.lock`) is a first-class gate INPUT. When the gate
+sees a tag's `acHash` change (**AC-MUTATED**) or a tag disappear (**AC-RETIRED**) across the
+`base..head` window, it demands a trailer pair — exactly as a loosened test demands
+`Test-Loosen-OK`:
+
+    AC-Change-OK: <tag> <mutated|retired> <reason>
+    Spec-Owner: <name>
+
+- `<tag>` — the `slice-<id>-ac-<k>` whose spec changed.
+- `<mutated|retired>` — must match the detected direction (mismatch → RED, like a test override).
+- `<reason>` — why the **spec itself** changed.
+- `Spec-Owner:` — REQUIRED co-trailer naming the human who authorized it. Per Philipp's hard
+  ruling the only valid Spec-Owner of record is **Philipp** (pending §11.5); Nog must NOT be the
+  Spec-Owner — he is the non-author second-ack.
+
+An AC-MUTATED/AC-RETIRED with no matching `AC-Change-OK` (+ `Spec-Owner`) is `red_flag` — same
+routing as a loosened test with no `Test-Loosen-OK`.
+
+**This trailer does NOT let an agent self-clear.** Per the hard ruling an AC-vs-test
+contradiction HALTS and escalates to Philipp; the trailer makes the edit *auditable and
+human-authorized*, not automatic. At v1 (no commit identity) this is tamper-**evidence**, not
+prevention — the gate emits `acMutatedUndeclared` / `acRetiredUndeclared` / `acOverridden` counts.
+True prevention needs commit signing (Slice-0, §11.2).
+
+**Reconcile may update a TEST from an AC; never the reverse.**
