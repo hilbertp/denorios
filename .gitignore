@@ -61,3 +61,7 @@ playwright-report/
 blob-report/
 .playwright/
 regression/TESTS-NEEDED.json
+
+# AC-reconcile generated outputs (the manifest lock IS tracked; these regenerate)
+regression/AC-RECONCILE.json
+.claude/roles/bashir/inbox/RECONCILE-NEEDED.md

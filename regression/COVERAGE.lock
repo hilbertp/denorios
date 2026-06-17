@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 211,
+  "guardCount": 225,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -568,6 +568,36 @@
         "file": "regression/authoring-staging/j-ac-block-validation.test.js"
       }
     ],
+    "lib/ac-reconcile.js": [
+      {
+        "tag": "slice-99827-ac-1",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-2",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-3",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-4",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-5",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-6",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-7",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      }
+    ],
     "lib/assert-direction.js": [
       {
         "tag": "slice-99808-ac-1",
@@ -740,6 +770,34 @@
       {
         "tag": "slice-99822-ac-9",
         "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-1",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-2",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-3",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-4",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-5",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-6",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      },
+      {
+        "tag": "slice-99827-ac-7",
+        "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
       }
     ],
     "scripts/build-ac-manifest.js": [
