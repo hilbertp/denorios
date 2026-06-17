@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 283,
+  "guardCount": 290,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -640,6 +640,34 @@
       {
         "tag": "slice-99827-ac-8",
         "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-1",
+        "file": "regression/gate-merge/j-ac-drain-feed.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-2",
+        "file": "regression/gate-merge/j-ac-drain-feed.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-3",
+        "file": "regression/gate-merge/j-ac-drain-feed.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-4",
+        "file": "regression/gate-merge/j-ac-drain-feed.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-5",
+        "file": "regression/gate-merge/j-ac-drain-feed.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-6",
+        "file": "regression/gate-merge/j-ac-drain-feed.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-7",
+        "file": "regression/gate-merge/j-ac-drain-feed.test.js"
       }
     ],
     "lib/assert-direction.js": [

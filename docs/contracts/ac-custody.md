@@ -57,3 +57,22 @@ escalates to Philipp** and stays RED until he rules. No role edits an AC to clea
   v1 is **tamper-evidence, not prevention** — the gate emits undeclared/overridden counts. True
   prevention is a commit-signing Slice-0.
 - Enforcing vs advisory (§11.1) is Philipp's call; v1 ships **advisory**.
+
+## The new-AC drain feed (how ACs reach Julian)
+
+Every AC commissioned through a slice flows into `AC-MANIFEST.lock` (the integrity test forces
+the lock current at commit, so commissioned ACs are always captured). On every pipeline / gate
+run, `scripts/ac-reconcile.js` diffs the manifest against Julian's drained ledger
+(`regression/AC-DRAINED.json`, tracked) and writes the undrained ones — the **new or changed
+active ACs** — to `.claude/roles/bashir/inbox/NEW-ACS.md` (generated, gitignored), each tagged
+NEW/CHANGED with its coverage status (MISSING/STALE/COVERED).
+
+Julian's loop, every run:
+1. Read `NEW-ACS.md`. For each AC decide: does it **deliberately change existing behaviour**?
+   → update/add the guard test and re-embed its `@ac-hash` (a test update the gate audits).
+   New behaviour with no guard → write the test. No behavioural change → it drains as-is.
+2. `node scripts/ac-reconcile.js --drain` → advances `AC-DRAINED.json` to the current manifest;
+   the feed clears. Commit the ledger. A later edit to an AC's text re-surfaces it (hash changes).
+
+Legacy (unhashed) entries never enter the new feed — they are the separate grandfathered
+backfill task. O'Brien dumps the ACs (manifest); Julian drains and owns the test decisions.
