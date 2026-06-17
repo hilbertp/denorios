@@ -6614,6 +6614,11 @@ function abortGate() {
  * Never throws — conflict or failure returns a value.
  */
 function squashSliceToDev(sliceId, sliceTitle, sliceBranch) {
+  // This path checks out + commits in the MAIN working tree (drift-merge + squash
+  // commit on dev), so the Layer-1 pre-commit hook requires DS9_WATCHER_MERGE=1 —
+  // this IS the watcher merge path. Callers (acceptAndMerge, drainDeferredAfterGate)
+  // don't all wrap it in that env, so assert it here or the hook blocks the commit.
+  process.env.DS9_WATCHER_MERGE = '1';
   try {
     sliceBranch = sanitizeBranchName(sliceBranch);
   } catch (err) {
@@ -6705,7 +6710,10 @@ function squashSliceToDev(sliceId, sliceTitle, sliceBranch) {
   const commitMsgFile = path.join(PROJECT_DIR, '.squash-commit-msg');
   try {
     fs.writeFileSync(commitMsgFile, commitMsg);
-    execSync(`git commit -F ${commitMsgFile}`, { cwd: PROJECT_DIR, stdio: 'pipe' });
+    // Reference the message file RELATIVE to cwd (= PROJECT_DIR). The absolute path
+    // contains spaces ("01 - The Liberation of Bajor"); interpolating it unquoted made
+    // git read each word as a separate pathspec and the squash commit failed.
+    execSync('git commit -F .squash-commit-msg', { cwd: PROJECT_DIR, stdio: 'pipe' });
   } catch (commitErr) {
     return { success: false, error: `commit_failed: ${commitErr.message}` };
   } finally {
