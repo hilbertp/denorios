@@ -68,6 +68,12 @@ jobs:
           set -euo pipefail
           git fetch origin main dev
           node scripts/tests-needed.js --strict
+          # AC-reconcile completeness (ADR-AC-RECONCILE). The AC hash-diff already rides inside
+          # --strict above (AC-MUTATED/AC-RETIRED with no AC-Change-OK + Spec-Owner). This
+          # surfaces any in-window MISSING/STALE. Advisory in v1 (exits 0 on the legacy
+          # baseline); set AC_CUSTODY_ENFORCE=1 to make AC custody RED-blocking (§11.1) — then
+          # an AC-vs-test conflict halts the promotion here and escalates to Philipp.
+          node scripts/ac-reconcile.js
 
       - name: Run regression gate (fast node:test suite)
         run: |

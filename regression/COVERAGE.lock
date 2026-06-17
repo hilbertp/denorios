@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 271,
+  "guardCount": 283,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -134,6 +134,46 @@
       {
         "tag": "slice-99812-ac-2",
         "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      },
+      {
+        "tag": "slice-99829-ac-1",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
+      },
+      {
+        "tag": "slice-99829-ac-10",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
+      },
+      {
+        "tag": "slice-99829-ac-2",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
+      },
+      {
+        "tag": "slice-99829-ac-3",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
+      },
+      {
+        "tag": "slice-99829-ac-4",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
+      },
+      {
+        "tag": "slice-99829-ac-5",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
+      },
+      {
+        "tag": "slice-99829-ac-6",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
+      },
+      {
+        "tag": "slice-99829-ac-7",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
+      },
+      {
+        "tag": "slice-99829-ac-8",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
+      },
+      {
+        "tag": "slice-99829-ac-9",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
       }
     ],
     "bridge/orchestrator.js": [
@@ -742,6 +782,10 @@
         "file": "regression/gate-merge/j-ac-gate-wire.test.js"
       },
       {
+        "tag": "slice-99829-ac-10",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
+      },
+      {
         "tag": "slice-99829-ac-2",
         "file": "regression/gate-merge/j-ac-gate-wire.test.js"
       },
@@ -1081,6 +1125,10 @@
       },
       {
         "tag": "slice-99829-ac-1",
+        "file": "regression/gate-merge/j-ac-gate-wire.test.js"
+      },
+      {
+        "tag": "slice-99829-ac-10",
         "file": "regression/gate-merge/j-ac-gate-wire.test.js"
       },
       {

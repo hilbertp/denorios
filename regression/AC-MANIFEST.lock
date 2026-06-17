@@ -1,7 +1,7 @@
 {
   "generator": "scripts/build-ac-manifest.js",
-  "acCount": 131,
-  "legacyCount": 131,
+  "acCount": 132,
+  "legacyCount": 132,
   "byTag": {
     "slice-042-ac-1": {
       "slice": "042",
@@ -980,6 +980,14 @@
       "legacy": true
     },
     "slice-99829-ac-1": {
+      "slice": "99829",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-99829-ac-10": {
       "slice": "99829",
       "text": null,
       "acHash": null,

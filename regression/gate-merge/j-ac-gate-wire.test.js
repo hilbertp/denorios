@@ -92,3 +92,11 @@ test('J-ac-gate-wire slice-99829-ac-9 — the gate CLI records AC counts on the 
   assert.match(cli, /acRetiredUndeclared/);
   assert.match(cli, /AC mutated \(undeclared\)/);
 });
+
+test('J-ac-gate-wire slice-99829-ac-10 — promote.yml runs reconcile completeness alongside --strict (no new CI step)', () => {
+  const yml = fs.readFileSync(path.resolve(__dirname, '..', '..', '.github', 'workflows', 'promote.yml'), 'utf8');
+  assert.match(yml, /node scripts\/tests-needed\.js --strict/);
+  assert.match(yml, /node scripts\/ac-reconcile\.js/);
+  // both live in the single pre-suite gate step — the AC hash-diff rides inside --strict
+  assert.ok(yml.indexOf('node scripts/ac-reconcile.js') > yml.indexOf('node scripts/tests-needed.js --strict'));
+});

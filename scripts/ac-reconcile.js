@@ -47,7 +47,9 @@ function handoff(report) {
 }
 
 function main() {
-  const strict = process.argv.includes('--strict');
+  // One flag controls both halves of AC custody (§11.1): the gate's red_flag and this
+  // reconcile step. Advisory by default; AC_CUSTODY_ENFORCE=1 makes MISSING/STALE blocking.
+  const strict = process.argv.includes('--strict') || process.env.AC_CUSTODY_ENFORCE === '1';
   const r = reconcile({
     manifest: readJson(MANIFEST) || { byTag: {} },
     coverage: readJson(COVERAGE) || { bySource: {} },
