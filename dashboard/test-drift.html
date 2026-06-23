@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Test Drift Gate</title>
+<style>
+  :root {
+    --ink:#111827; --ink-2:#374151; --ink-3:#6b7280; --line:#e5e7eb; --bg:#f7f8fa; --card:#fff;
+    --green:#16a34a; --green-bg:rgba(22,163,74,.10); --green-line:rgba(22,163,74,.30);
+    --amber:#d97706; --amber-bg:rgba(217,119,6,.10); --amber-line:rgba(217,119,6,.30);
+    --red:#dc2626;   --red-bg:rgba(220,38,38,.09);   --red-line:rgba(220,38,38,.30);
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+    font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  .wrap { max-width:760px; margin:0 auto; padding:40px 22px 80px; }
+  h1 { font-size:20px; font-weight:700; margin:0; letter-spacing:-.01em; }
+  .sub { color:var(--ink-3); font-size:12.5px; margin-top:4px; }
+  .meta { color:var(--ink-3); font-size:11.5px; font-family:ui-monospace,"SF Mono",Menlo,monospace; }
+
+  .verdict { margin-top:22px; border:1px solid var(--line); border-radius:14px; background:var(--card);
+    padding:20px 22px; box-shadow:0 1px 2px rgba(0,0,0,.03); }
+  .badge { display:inline-flex; align-items:center; gap:8px; font-weight:700; font-size:13px;
+    letter-spacing:.04em; text-transform:uppercase; padding:5px 12px; border-radius:999px; border:1px solid; }
+  .badge .glyph { font-size:14px; }
+  .v-PROCEED .badge { color:var(--green); background:var(--green-bg); border-color:var(--green-line); }
+  .v-REVIEW  .badge { color:var(--amber); background:var(--amber-bg); border-color:var(--amber-line); }
+  .v-STOP    .badge { color:var(--red);   background:var(--red-bg);   border-color:var(--red-line); }
+  .headline { margin-top:12px; font-size:15px; line-height:1.5; color:var(--ink); }
+
+  .pile { margin-top:16px; border:1px solid var(--line); border-radius:12px; overflow:hidden; background:var(--card); }
+  .pile-head { font-size:12px; font-weight:700; letter-spacing:.02em; padding:10px 14px; border-bottom:1px solid var(--line); }
+  .pile-reg  .pile-head { background:var(--red-bg);   color:var(--red);   }
+  .pile-del  .pile-head { background:var(--amber-bg); color:var(--amber); }
+  .pile-dec  .pile-head { background:var(--green-bg); color:var(--green); }
+  .item { padding:9px 14px; border-bottom:1px solid var(--line); }
+  .item:last-child { border-bottom:none; }
+  .item .why { color:var(--ink-2); }
+  .item .where { display:block; margin-top:2px; font-family:ui-monospace,"SF Mono",Menlo,monospace;
+    font-size:11.5px; color:var(--ink-3); }
+
+  .bar { position:sticky; bottom:0; margin-top:26px; display:flex; gap:12px; justify-content:flex-end;
+    padding-top:18px; }
+  button { font:inherit; font-weight:600; padding:11px 20px; border-radius:10px; cursor:pointer; border:1px solid; transition:.12s; }
+  .stop { background:#fff; color:var(--red); border-color:var(--red-line); }
+  .stop:hover { background:var(--red-bg); }
+  .ok { background:var(--green); color:#fff; border-color:var(--green); }
+  .ok:hover { filter:brightness(.96); }
+  .ok:disabled { opacity:.45; cursor:not-allowed; }
+  .note { color:var(--ink-3); font-size:12px; align-self:center; margin-right:auto; }
+  .result { margin-top:18px; padding:13px 15px; border-radius:10px; font-size:13.5px; display:none; }
+  .result.show { display:block; }
+  .result.good { background:var(--green-bg); color:var(--green); border:1px solid var(--green-line); }
+  .result.halt { background:var(--red-bg);   color:var(--red);   border:1px solid var(--red-line); }
+  .empty { color:var(--ink-3); padding:20px 0; }
+  .refresh { float:right; font-size:11px; color:var(--ink-3); }
+  a.back { color:var(--ink-3); font-size:12px; text-decoration:none; }
+  a.back:hover { color:var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="/">&larr; Ops Center</a>
+  <span class="refresh" id="refresh"></span>
+  <h1>Test Drift Gate</h1>
+  <div class="sub">Examine what's pending on <b>dev</b> before the gate runs — has the code drifted from the test suite, and is that drift on purpose?</div>
+
+  <div id="surface" class="verdict v-REVIEW">
+    <div class="empty">Loading the review…</div>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="bar" id="bar" style="display:none">
+    <span class="note" id="note"></span>
+    <button class="stop" id="stopBtn" onclick="decide('stop')">⛔ STOP — I'll investigate</button>
+    <button class="ok"   id="okBtn"   onclick="decide('ok')">✅ OK — run the gate</button>
+  </div>
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  let _decided = false;
+  const GLYPH = { PROCEED:'✓', REVIEW:'●', STOP:'✗' };
+
+  function pile(cls, head, items) {
+    if (!items || !items.length) return '';
+    const rows = items.map(it => {
+      const where = it.file ? `<span class="where">${esc(it.file)}${it.tag ? ' · ' + esc(it.tag) : ''}</span>` : '';
+      return `<div class="item"><span class="why">${esc(it.why)}</span>${where}</div>`;
+    }).join('');
+    return `<div class="pile ${cls}"><div class="pile-head">${head} (${items.length})</div>${rows}</div>`;
+  }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+  const sha = (s) => s ? String(s).slice(0,7) : '?';
+
+  function render(d) {
+    const surface = $('surface');
+    surface.className = 'verdict v-' + d.action;
+    surface.innerHTML =
+      `<span class="badge"><span class="glyph">${GLYPH[d.action]||'?'}</span> ${d.action}</span>
+       <span class="meta" style="margin-left:10px">${sha(d.base)} → ${sha(d.head)}</span>
+       <div class="headline">${esc(d.headline)}</div>`
+      + pile('pile-reg', '⚠ Possible regression — STOP and look (or declare it intentional)', d.regression)
+      + pile('pile-del', '✎ Deliberate change — your call: update the test, or confirm it’s covered', d.deliberate)
+      + pile('pile-dec', '✓ Already declared — intentional, no action', d.declared);
+
+    if (_decided) return;
+    $('bar').style.display = 'flex';
+    if (d.action === 'PROCEED') {
+      $('note').textContent = 'No decision needed — clear to proceed.';
+      $('stopBtn').style.display = 'none';
+    } else if (d.action === 'REVIEW') {
+      $('note').textContent = 'Your call: OK if these are deliberate (you’ll update the tests), STOP to investigate.';
+      $('stopBtn').style.display = '';
+    } else { // STOP
+      $('note').textContent = 'Default STOP: fix the code or declare the change intentional first.';
+      $('stopBtn').style.display = '';
+    }
+  }
+
+  async function load() {
+    try {
+      const r = await fetch('/api/test-drift', { cache:'no-store' });
+      const d = await r.json();
+      $('refresh').textContent = 'updated ' + new Date().toLocaleTimeString();
+      render(d);
+    } catch (e) {
+      $('surface').innerHTML = `<span class="badge" style="color:var(--red)">✗ STOP</span>
+        <div class="headline">Couldn’t reach /api/test-drift — is the dashboard server running the latest code?</div>`;
+    }
+  }
+
+  async function decide(choice) {
+    _decided = true;
+    $('bar').style.display = 'none';
+    const res = $('result');
+    if (choice === 'stop') {
+      res.className = 'result show halt';
+      res.textContent = '⛔ Stopped. Nothing was dispatched — investigate the changes above, then update the tests or declare the change intentional and re-open this review.';
+      return;
+    }
+    res.className = 'result show good';
+    res.textContent = '✅ OK — dispatching the gate…';
+    try {
+      const r = await fetch('/api/promote/dispatch', { method:'POST' });
+      const b = await r.json().catch(() => ({}));
+      if (r.ok && b && b.ok) {
+        res.textContent = '✅ Gate dispatched — the full suite is running; main fast-forwards only on green. Watch it on the Ops Center.';
+      } else {
+        res.className = 'result show halt';
+        res.textContent = '⚠ Dispatch did not start: ' + ((b && b.error) || ('HTTP ' + r.status)) + '. Nothing merged.';
+      }
+    } catch (e) {
+      res.className = 'result show halt';
+      res.textContent = '⚠ Dispatch failed: network error. Nothing merged.';
+    }
+  }
+
+  load();
+  setInterval(() => { if (!_decided) load(); }, 5000);
+</script>
+</body>
+</html>

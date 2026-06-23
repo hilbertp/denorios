@@ -21,6 +21,7 @@ const TRASH_DIR    = path.join(REPO_ROOT, 'bridge', 'trash');
 const LOGS_DIR     = path.join(REPO_ROOT, 'bridge', 'logs');
 const DASHBOARD    = path.join(__dirname, 'lcars-dashboard.html');
 const TOKENS_CSS   = path.join(__dirname, 'tokens.css');
+const TEST_DRIFT_PAGE = path.join(__dirname, 'test-drift.html');
 const BRANCH_STATE = path.join(REPO_ROOT, 'bridge', 'state', 'branch-state.json');
 const COMMIT_NUMBERS = path.join(REPO_ROOT, 'bridge', 'state', 'commit-numbers.json');
 
@@ -1733,6 +1734,16 @@ const server = http.createServer(async (req, res) => {
     fs.readFile(TOKENS_CSS, (err, data) => {
       if (err) { res.writeHead(500); res.end('Internal Server Error'); return; }
       res.writeHead(200, { 'Content-Type': 'text/css; charset=utf-8' });
+      res.end(data);
+    });
+    return;
+  }
+
+  // Test Drift Gate — standalone operator review page (reads GET /api/test-drift).
+  if (pathname === '/test-drift' || pathname === '/test-drift.html') {
+    fs.readFile(TEST_DRIFT_PAGE, (err, data) => {
+      if (err) { res.writeHead(500); res.end('Internal Server Error'); return; }
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       res.end(data);
     });
     return;
