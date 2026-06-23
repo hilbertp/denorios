@@ -7757,15 +7757,32 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     return f ? f.label : 'regression';
   }
 
+  // Turn the server's parsed gate failure into a precise, copy-pasteable block:
+  // exactly which test(s) failed and the selector(s) that weren't found.
+  function gateFailureDetailText(d) {
+    if (!d || ((!d.tests || !d.tests.length) && (!d.locators || !d.locators.length))) return '';
+    let s = '';
+    if (d.tests && d.tests.length) {
+      s += `Failing test${d.tests.length > 1 ? 's' : ''}:\n`;
+      for (const t of d.tests) s += `  - ${t.spec}:${t.line} — ${t.title}\n`;
+    }
+    if (d.locators && d.locators.length) {
+      s += `Selector${d.locators.length > 1 ? 's' : ''} not found: ${d.locators.join('; ')}\n`;
+    }
+    return s + '\n';
+  }
+
   function gateFailurePrompt(pr) {
     const sha = (pr && pr.head_sha7) ? pr.head_sha7 : 'dev';
     const tag = commitTagBySha(sha);
     const phase = _gateFailingPhase(pr);
     const url = pr && pr.url ? pr.url : '<see CI run>';
+    const detail = (pr && pr.failure_detail) ? gateFailureDetailText(pr.failure_detail) : '';
     return `Regression failed during Run Gate & Merge.\n\n`
       + `Main was not changed.\n\n`
       + `Please investigate the failing ${phase} suite, identify the cause, and propose the smallest safe fix. `
       + `Do not merge to main until the regression suite passes cleanly.\n\n`
+      + detail
       + `Context:\n`
       + `- Source branch: dev\n`
       + `- Target branch: main\n`
