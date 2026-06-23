@@ -636,6 +636,34 @@ function getTestsNeeded() {
   return value;
 }
 
+// ── The Test Drift Gate (operator-facing review over the Test-Update classifier) ──
+// Re-buckets the SAME pinned verdict into PROCEED / REVIEW / STOP with two plain-English
+// piles — POSSIBLE REGRESSION (a guard weakened/removed, or new code untested) vs
+// DELIBERATE CHANGE (behaviour moved, no test moved). Read-only/advisory; the dashboard
+// turns it into the OK/STOP checkpoint. Same changeset as the promote gate: origin/dev
+// vs merge-base(origin/main, origin/dev). Fails safe to STOP.
+let _testDriftCache = { key: null, value: null, fetchedAt: 0 };
+function getTestDrift() {
+  const now = Date.now();
+  let head = null, base = null;
+  try { head = execFileSync('git', ['rev-parse', 'origin/dev'], { cwd: REPO_ROOT, encoding: 'utf8', timeout: 5000 }).trim(); } catch (_) {}
+  try { base = execFileSync('git', ['merge-base', 'origin/main', 'origin/dev'], { cwd: REPO_ROOT, encoding: 'utf8', timeout: 5000 }).trim(); } catch (_) {}
+  const safeStop = (headline) => ({ decision: 'unknown', action: 'STOP', headline,
+    regression: [], deliberate: [], declared: [], counts: { regression: 0, deliberate: 0, declared: 0 }, base, head });
+  if (!head || !base) return safeStop('Cannot resolve git refs — STOP (fail safe).');
+
+  const key = base + '..' + head;
+  if (_testDriftCache.key === key && (now - _testDriftCache.fetchedAt) < 30000) return _testDriftCache.value;
+
+  const { classify } = require(path.join(__dirname, '..', 'lib', 'tests-needed'));
+  const { drift } = require(path.join(__dirname, '..', 'lib', 'test-drift'));
+  let value;
+  try { value = drift(classify({ base, head, repoRoot: REPO_ROOT })); }
+  catch (err) { value = safeStop('Could not classify the changeset: ' + String(err && err.message || err)); }
+  _testDriftCache = { key, value, fetchedAt: now };
+  return value;
+}
+
 // The three gate phases promote.yml runs, in order, before main moves. Matched by
 // step name so renaming a step's prose doesn't silently drop a phase (the match is
 // the contract; j-promote-gate-phases locks it).
@@ -2542,6 +2570,18 @@ const server = http.createServer(async (req, res) => {
     try {
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
       res.end(JSON.stringify(getTestsNeeded()));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: String(err) }));
+    }
+    return;
+  }
+
+  // Test Drift Gate — the operator-facing pre-gate review (PROCEED / REVIEW / STOP).
+  if (pathname === '/api/test-drift' && req.method === 'GET') {
+    try {
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify(getTestDrift()));
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: String(err) }));

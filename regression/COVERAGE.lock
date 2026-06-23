@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 290,
+  "guardCount": 310,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -744,6 +744,48 @@
         "file": "regression/gate-merge/j-tests-needed-self-lock.test.js"
       }
     ],
+    "lib/test-drift.js": [
+      {
+        "tag": "slice-99830-ac-1",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-10",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-2",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-3",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-4",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-5",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-6",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-7",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-8",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-9",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      }
+    ],
     "lib/tests-needed.js": [
       {
         "tag": "slice-99822-ac-1",
@@ -1112,6 +1154,48 @@
       {
         "tag": "slice-99828-ac-5",
         "file": "regression/gate-merge/j-reconcile-bundle-blindness.test.js"
+      }
+    ],
+    "scripts/test-drift.js": [
+      {
+        "tag": "slice-99830-ac-1",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-10",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-2",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-3",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-4",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-5",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-6",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-7",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-8",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-9",
+        "file": "regression/gate-merge/j-test-drift.test.js"
       }
     ],
     "scripts/tests-needed.js": [
