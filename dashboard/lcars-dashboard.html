@@ -5063,11 +5063,10 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
         return c;
       })
       .filter(Boolean)
-      .sort((a, b) => {
-        const tsA = a._terminalTs ? new Date(a._terminalTs).getTime() : 0;
-        const tsB = b._terminalTs ? new Date(b._terminalTs).getTime() : 0;
-        return tsB - tsA;
-      });
+      // Sorted by slice number, newest first (page 1 = highest #). Sorting by
+      // terminal timestamp let a re-merged / rolled-back older slice float up
+      // out of numeric order, which read as "unsorted"; slice # is the stable key.
+      .sort((a, b) => parseInt(b.id, 10) - parseInt(a.id, 10));
 
     const totalPages = Math.max(1, Math.ceil(cachedHistoryAllRows.length / HISTORY_PAGE_SIZE));
     if (historyPage > totalPages) historyPage = totalPages;
