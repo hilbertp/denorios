@@ -2828,7 +2828,7 @@
   .outcome-max-rounds   { background: #fef3c7; color: #92400e; }
   .outcome-escalated    { background: #dbeafe; color: #1e40af; }
   .outcome-error        { background: var(--err-bg); color: #991b1b; }
-  .outcome-success      { background: var(--ok-bg); color: #166534; }
+  .outcome-pass      { background: var(--ok-bg); color: #166534; }
 
   /* ── PAUSE BUTTON ────────────────────────────────────── */
   /* "View live log" control in the Active Build footer (J-watch-slice-live-log) */
@@ -3545,7 +3545,7 @@ body.lcars-mode [style*="background:#fff"], body.lcars-mode [style*="background:
 body.lcars-mode .outcome-pill { color: var(--ink) !important; }
 body.lcars-mode .outcome-error { color: #ff8a8a !important; }
 body.lcars-mode .outcome-on-dev { color: #93b4ff !important; }
-body.lcars-mode .outcome-success { color: #7be388 !important; }
+body.lcars-mode .outcome-pass { color: #7be388 !important; }
 /* Dossier tabs */
 body.lcars-mode .crew-tab { color: var(--ink-3) !important; }
 body.lcars-mode .crew-tab.active { color: var(--lcars-amber) !important; border-bottom-color: var(--lcars-amber) !important; }
@@ -5133,7 +5133,7 @@ body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
     // else (ON_DEV, ON_MAIN, ACCEPTED, DEFERRED, ...) counts as success.
     return isFailureOutcome(outcome)
       ? '<span class="outcome-pill outcome-error">error</span>'
-      : '<span class="outcome-pill outcome-success">success</span>';
+      : '<span class="outcome-pill outcome-pass">success</span>';
   }
 
   function isFailureOutcome(outcome) {
