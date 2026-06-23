@@ -1,70 +1,138 @@
 :root {
-  /* Surfaces */
-  --bg-page: #f4f5f7;
+  /* ============================================================
+     FOUNDATION TOKENS — Liberation of Bajor ops dashboard
+     Light mode is primary. Every text-grade ink clears 4.5:1 on #fff.
+     Identity: a deliberate cool-slate "ops console" tint in the
+     neutrals (blue-leaning slate, not anonymous SaaS gray).
+     ============================================================ */
+
+  /* ---- Surfaces (cool-slate tinted neutrals) ---- */
+  --bg-page: #f2f4f8;        /* slate-tinted page, not pure gray */
   --bg-panel: #ffffff;
-  --bg-subtle: #f9fafb;
-  --bg-hover: #f3f4f6;
-  --bg-active: #eef2ff;
+  --bg-subtle: #f6f8fb;      /* panel insets / zebra rows */
+  --bg-hover: #eef1f6;       /* row + control hover */
+  --bg-active: #e7edf7;      /* pressed / selected wash (cool, was #eef2ff) */
 
-  /* Lines */
-  --border: #e5e7eb;
-  --border-strong: #d1d5db;
+  /* ---- Lines ---- */
+  --border: #e2e6ee;         /* hairline, cool-slate */
+  --border-strong: #cdd4e0;  /* emphasis dividers, input borders */
 
-  /* Ink */
+  /* ---- Ink ramp — text grades only on this ramp clear 4.5:1 on #fff ----
+     ink     #0f172a  ~16.7:1  primary text
+     ink-2   #1f2937  ~13.8:1  headings / strong body
+     ink-3   #475569  ~7.5:1   secondary text (was #64748b ~5.7, still fine — deepened)
+     ink-muted #5b6678 ~5.6:1  genuine text-grade muted ink (replaces #9ca3af-as-text)
+     ink-4   demoted: NOT for text. Border/disabled/decoration only. */
   --ink: #0f172a;
-  --ink-2: #334155;
-  --ink-3: #64748b;
-  --ink-4: #94a3b8;
+  --ink-2: #1f2937;
+  --ink-3: #475569;          /* secondary text — passes 4.5:1 comfortably */
+  --ink-muted: #5b6678;      /* NEW genuine text-grade muted ink ~5.6:1 on #fff;
+                                use this anywhere #94a3b8 was used as TEXT */
+  --ink-4: #94a3b8;          /* DEMOTED — border/disabled/decoration ONLY, never text */
+  --ink-disabled: #97a1b2;   /* disabled control text (large/secondary only) */
 
-  /* Semantic — ok */
-  --ok: #16a34a;
+  /* ---- Semantic — ok (text shades all clear 4.5:1 on #fff) ---- */
+  --ok: #15803d;             /* deepened from #16a34a → ~4.6:1 as text */
   --ok-bg: #f0fdf4;
   --ok-border: #bbf7d0;
 
-  /* Semantic — warn */
-  --warn: #b45309;
+  /* ---- Semantic — warn ---- */
+  --warn: #b45309;           /* ~4.9:1 as text on #fff */
   --warn-bg: #fffbeb;
   --warn-border: #fde68a;
 
-  /* Semantic — err */
-  --err: #b91c1c;
+  /* ---- Semantic — err ---- */
+  --err: #b91c1c;            /* ~6.4:1 as text on #fff */
   --err-bg: #fef2f2;
   --err-border: #fecaca;
 
-  /* Semantic — info */
-  --info: #1d4ed8;
+  /* ---- Semantic — info (also the focus-ring + selection accent) ---- */
+  --info: #1d4ed8;           /* ~6.9:1 as text on #fff */
   --info-bg: #eff6ff;
   --info-border: #bfdbfe;
 
-  /* Role identity */
-  --rom: #6d28d9;
+  /* ---- Role identity ---- */
+  --rom: #6d28d9;            /* ~6.9:1 as text */
   --rom-bg: #f5f3ff;
   --nog: #b45309;
   --nog-bg: #fffbeb;
-  --bashir: #0e7490;
+  --bashir: #0e7490;         /* ~4.9:1 as text */
   --bashir-bg: #ecfeff;
 
-  /* Branch tracks */
-  --branch-main: #16a34a;
+  /* ---- Branch tracks ---- */
+  --branch-main: #15803d;    /* matched to deepened --ok */
   --branch-dev: #6d28d9;
 
-  /* Radii */
+  /* ---- Radii ---- */
   --radius-sm: 6px;
   --radius: 8px;
   --radius-lg: 12px;
   --radius-pill: 99px;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(15,23,42,.04);
-  --shadow: 0 1px 3px rgba(15,23,42,.06), 0 1px 2px rgba(15,23,42,.04);
-  --shadow-floating: 0 6px 16px rgba(15,23,42,.18);
+  /* ---- Elevation — layered, cool-slate tinted shadows (real depth) ----
+     Two stacked layers each: a tight contact shadow + a softer ambient one.
+     Shadow color carries the slate identity (15,23,42 = --ink). */
+  --shadow-sm:
+    0 1px 1px rgba(15,23,42,.04),
+    0 1px 2px rgba(15,23,42,.06);
+  --shadow:
+    0 1px 2px rgba(15,23,42,.05),
+    0 2px 6px rgba(15,23,42,.08);
+  --shadow-md:
+    0 2px 4px rgba(15,23,42,.06),
+    0 6px 16px rgba(15,23,42,.10);
+  --shadow-floating:
+    0 4px 8px rgba(15,23,42,.10),
+    0 12px 28px rgba(15,23,42,.16);
 
-  /* Motion */
-  --motion-fast: 80ms ease;
-  --motion-standard: 120ms ease;
-  --motion-slow: 150ms ease;
+  /* ---- Motion ----
+     Custom curves: ease-out for entering/responsive UI, a restrained spring
+     for the occasional alive touch. UI durations stay <300ms.
+     --motion-* keep their names but are rewired onto --ease-out. */
+  --ease-out: cubic-bezier(.22, 1, .36, 1);          /* strong responsive ease-out */
+  --ease-spring: cubic-bezier(.34, 1.56, .64, 1);    /* subtle overshoot, sparingly */
+  --ease-in-out: cubic-bezier(.65, 0, .35, 1);       /* on-screen morphing */
+
+  --motion-fast: 120ms var(--ease-out);     /* press / hover feedback */
+  --motion-standard: 160ms var(--ease-out); /* default control transitions */
+  --motion-slow: 200ms var(--ease-out);     /* small popovers / disclosures */
+
+  /* decorative / looping (unchanged behavior, kept for back-compat) */
   --motion-pulse: 1.6s ease-out infinite;
   --motion-progress: 2s ease-in-out infinite;
   --motion-merge-flow: 1.2s linear infinite;
   --motion-halo: 1.6s ease-in-out infinite;
+
+  /* ---- Typography ----
+     One well-tuned system sans for UI; IBM Plex Mono for data/IDs/SHAs.
+     Fixed ~1.2-ratio rem scale anchored at 14px (0.875rem) body. */
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --text-xs: 0.6875rem;   /* 11px — meta, timestamps, dense labels */
+  --text-sm: 0.8125rem;   /* 13px — secondary UI text */
+  --text-base: 0.875rem;  /* 14px — body (matches current 14px base) */
+  --text-md: 1.0625rem;   /* 17px — panel section headings */
+  --text-lg: 1.25rem;     /* 20px — panel titles */
+  --text-xl: 1.5rem;      /* 24px — primary numerals / hero count */
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.6;  /* matches current body line-height */
+
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* ---- Z-index scale (semantic, no magic 9999) ---- */
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-overlay: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+  --z-tooltip: 600;
+
+  /* ---- Legacy LCARS aliases (kept for back-compat; do not rely on as truth) ---- */
+  --lcars-peach: var(--ink-4);
 }

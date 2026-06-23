@@ -76,6 +76,9 @@ test('full gate-success clicktest: held → run gate → regression → e2e → 
     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ decision: 'clear', head7: DEV, counts: {} }) }));
   await page.route('**/api/test-changes', r =>
     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ anyChange: false }) }));
+  // Stage ① "Check for test updates" — no AC needs a decision ⇒ CLEAR ⇒ it unlocks the merge button.
+  await page.route('**/api/check-test-updates', r =>
+    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ready: true, summary: { checked: 3, passed: 3, autoUpdate: 0, flagged: 0, kept: 0 }, flagged: [], verdict: 'CLEAR' }) }));
 
   // Advance to the next lifecycle snapshot and force the dashboard to re-poll.
   async function gateTo(n) {
@@ -97,6 +100,10 @@ test('full gate-success clicktest: held → run gate → regression → e2e → 
   // No stale green: none of the SUITE steps (②③④) may show passed for a stale run.
   for (const s of [regStep, e2eStep, ffStep]) await expect(s).not.toHaveClass(/gflow-passed/);
   await expect(btn).toContainText('RUN GATE');
+  // Stage ① — "Check for test updates" gates the merge; run it (CLEAR ⇒ unlocks RUN GATE).
+  const checkBtn = page.locator('#check-updates-btn');
+  await expect(checkBtn).toBeEnabled();
+  await checkBtn.click();
   await expect(btn).toBeEnabled();
   await page.waitForTimeout(PAUSE);
 

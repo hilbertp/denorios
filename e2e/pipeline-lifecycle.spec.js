@@ -150,6 +150,9 @@ test('a slice travels the whole pipeline: stage → queue → Rom → Nog → hi
     status: 200, contentType: 'application/json', body: JSON.stringify({ decision: 'clear', head7: 'bbbbbbb', counts: {} }) }));
   await page.route('**/api/test-changes', route => route.fulfill({
     status: 200, contentType: 'application/json', body: JSON.stringify({ anyChange: false }) }));
+  // Stage ① "Check for test updates" — no AC needs a decision ⇒ CLEAR ⇒ it unlocks the merge button.
+  await page.route('**/api/check-test-updates', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ ready: true, summary: { checked: 3, passed: 3, autoUpdate: 0, flagged: 0, kept: 0 }, flagged: [], verdict: 'CLEAR' }) }));
   let dispatched = false;
   await page.route('**/api/promote/dispatch', async route => {
     dispatched = true;
@@ -159,6 +162,10 @@ test('a slice travels the whole pipeline: stage → queue → Rom → Nog → hi
   await page.reload();
 
   const gate = page.locator('#promote-gate-btn');
+  // Stage ① — "Check for test updates" gates the merge; run it (CLEAR ⇒ unlocks RUN GATE).
+  const checkBtn = page.locator('#check-updates-btn');
+  await expect(checkBtn).toBeEnabled();
+  await checkBtn.click();
   await expect(gate).toBeEnabled({ timeout: 10000 });
   await expect(gate).toContainText('RUN GATE');
   await gate.click();

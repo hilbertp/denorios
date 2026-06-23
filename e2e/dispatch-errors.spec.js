@@ -32,6 +32,8 @@ test.beforeEach(async ({ page }) => {
     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ decision: 'clear', head7: 'bbbbbbb', counts: {} }) }));
   await page.route('**/api/test-changes', r =>
     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ anyChange: false }) }));
+  await page.route('**/api/check-test-updates', r =>
+    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ready: true, summary: { checked: 3, passed: 3, autoUpdate: 0, flagged: 0, kept: 0 }, flagged: [], verdict: 'CLEAR' }) }));
 });
 
 // RUN GATE → checkpoint → Approve (the path that actually dispatches the gate).
@@ -40,6 +42,14 @@ async function approveAndRun(page) {
   const approve = page.locator('#utc-approve-btn');
   await expect(approve).toBeEnabled();
   await approve.click();
+}
+
+// Stage ① — "Check for test updates" gates the merge; drive it (CLEAR ⇒ unlocks RUN GATE).
+async function passCheck(page) {
+  const checkBtn = page.locator('#check-updates-btn');
+  await expect(checkBtn).toBeEnabled();
+  await checkBtn.click();
+  await expect(page.locator('#promote-gate-btn')).toBeEnabled();
 }
 
 const CASES = [
@@ -57,7 +67,7 @@ for (const c of CASES) {
 
     await page.goto('/');
     const btn = page.locator('#promote-gate-btn');
-    await expect(btn).toBeEnabled();
+    await passCheck(page);
     await approveAndRun(page);
 
     await expect(page.locator('.promote-gate-err')).toContainText(c.expectText);
@@ -74,7 +84,7 @@ test('dispatch error: network failure → "dispatch failed: network error"', asy
 
   await page.goto('/');
   const btn = page.locator('#promote-gate-btn');
-  await expect(btn).toBeEnabled();
+  await passCheck(page);
   await approveAndRun(page);
 
   await expect(page.locator('.promote-gate-err')).toContainText('network error');

@@ -58,6 +58,9 @@ test('full gate-FAILURE clicktest: held → run gate → regression FAILS → ga
     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ decision: 'clear', head7: DEV, counts: {} }) }));
   await page.route('**/api/test-changes', r =>
     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ anyChange: false }) }));
+  // Stage ① "Check for test updates" — no AC needs a decision ⇒ CLEAR ⇒ it unlocks the merge button.
+  await page.route('**/api/check-test-updates', r =>
+    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ready: true, summary: { checked: 3, passed: 3, autoUpdate: 0, flagged: 0, kept: 0 }, flagged: [], verdict: 'CLEAR' }) }));
 
   async function gateTo(n) { cur = n; await page.evaluate(() => fetchBranchState()); await page.waitForTimeout(PAUSE); }
 
@@ -71,6 +74,12 @@ test('full gate-FAILURE clicktest: held → run gate → regression FAILS → ga
   await expect(regStep).not.toHaveClass(/gflow-passed/);
   await expect(btn).toContainText('RUN GATE');
   await page.waitForTimeout(PAUSE);
+
+  // Stage ① — "Check for test updates" gates the merge; run it (CLEAR ⇒ unlocks RUN GATE).
+  const checkBtn = page.locator('#check-updates-btn');
+  await expect(checkBtn).toBeEnabled();
+  await checkBtn.click();
+  await expect(btn).toBeEnabled();
 
   // Press the button → Step-1 checkpoint → Approve dispatches the gate.
   await btn.click();

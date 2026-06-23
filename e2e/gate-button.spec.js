@@ -44,6 +44,8 @@ test.beforeEach(async ({ page }) => {
     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ decision: 'clear', head7: 'bbbbbbb', counts: {} }) }));
   await page.route('**/api/test-changes', r =>
     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ anyChange: false }) }));
+  await page.route('**/api/check-test-updates', r =>
+    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ready: true, summary: { checked: 3, passed: 3, autoUpdate: 0, flagged: 0, kept: 0 }, flagged: [], verdict: 'CLEAR' }) }));
 });
 
 // RUN GATE → checkpoint → Approve (the path that actually dispatches the gate).
@@ -52,6 +54,14 @@ async function approveAndRun(page) {
   const approve = page.locator('#utc-approve-btn');
   await expect(approve).toBeEnabled();
   await approve.click();
+}
+
+// Stage ① — "Check for test updates" gates the merge; drive it (CLEAR ⇒ unlocks RUN GATE).
+async function passCheck(page) {
+  const checkBtn = page.locator('#check-updates-btn');
+  await expect(checkBtn).toBeEnabled();
+  await checkBtn.click();
+  await expect(page.locator('#promote-gate-btn')).toBeEnabled();
 }
 
 test('RUN GATE acknowledges the click instantly (DISPATCHING → GATE RUNNING) with no real dispatch', async ({ page }) => {
@@ -70,7 +80,7 @@ test('RUN GATE acknowledges the click instantly (DISPATCHING → GATE RUNNING) w
   await page.goto('/');
 
   const btn = page.locator('#promote-gate-btn');
-  await expect(btn).toBeEnabled();
+  await passCheck(page);
   await expect(btn).toContainText('RUN GATE');
 
   await approveAndRun(page);
@@ -121,6 +131,7 @@ test('clicking RUN GATE on a run that fails: the dashboard visibly flips to a fl
   await page.goto('/');
   const btn = page.locator('#promote-gate-btn');
   await expect(btn).toContainText('RUN GATE');
+  await passCheck(page);
   await approveAndRun(page);
   await expect(btn).toContainText('GATE RUNNING'); // the run is going…
 
@@ -174,7 +185,7 @@ test('a stale success (already-promoted sha) does NOT read as merged while dev i
   // The button is live to actually gate the new commits.
   const btn = page.locator('#promote-gate-btn');
   await expect(btn).toContainText('RUN GATE');
-  await expect(btn).toBeEnabled();
+  await passCheck(page);
 });
 
 test('clicking RUN GATE past a stale success shows GATE RUNNING (optimism is not cancelled by the old ✓)', async ({ page }) => {
@@ -187,7 +198,7 @@ test('clicking RUN GATE past a stale success shows GATE RUNNING (optimism is not
   await page.goto('/');
 
   const btn = page.locator('#promote-gate-btn');
-  await expect(btn).toBeEnabled();
+  await passCheck(page);
   await approveAndRun(page);
   // The fix: the stale success must not snap the button back — GATE RUNNING holds.
   await expect(btn).toContainText('GATE RUNNING', { timeout: 7000 });

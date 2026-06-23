@@ -750,51 +750,6 @@ function _getPromotePhases(runId) {
   } catch (_) { return null; }
 }
 
-// When a promote run FAILS, pull the specific failing tests out of its log so the
-// operator handoff prompt names the cause instead of a generic "go investigate". The
-// run log is the only place this lives — the gate forbids always()/failure() steps,
-// so promote.yml itself can't emit a failure report. Pure parser + run-id-cached fetch.
-function parseGateFailures(log) {
-  if (!log) return null;
-  const tests = [], seenT = new Set();
-  // Playwright numbered failure summary: "N) [chromium] › e2e/foo.spec.js:LINE:COL › title".
-  const tre = /\d+\)\s+\[[^\]]+\]\s+›\s+(e2e\/\S+\.spec\.js):(\d+):\d+\s+›\s+(.+?)\s*$/gm;
-  let m;
-  while ((m = tre.exec(log)) !== null) {
-    const key = `${m[1]}:${m[2]}|${m[3]}`;
-    if (seenT.has(key)) continue; seenT.add(key);
-    tests.push({ spec: m[1], line: m[2], title: m[3].trim() });
-  }
-  const locators = [], seenL = new Set();
-  // "Locator: locator('…').locator('.leaf')" → surface the leaf selector that wasn't found.
-  const lre = /Locator:\s*(.+?)\s*$/gm;
-  while ((m = lre.exec(log)) !== null) {
-    const full = m[1].trim();
-    const leafs = [...full.matchAll(/\.locator\(\s*['"]([^'"]+)['"]/g)];
-    const loc = leafs.length ? leafs[leafs.length - 1][1] : full;
-    if (seenL.has(loc)) continue; seenL.add(loc);
-    locators.push(loc);
-  }
-  return (tests.length || locators.length) ? { tests, locators } : null;
-}
-
-let _promoteFailCache = { runId: null, value: null, fetchedAt: 0 };
-function getPromoteFailureDetail(runId) {
-  if (runId == null) return null;
-  const now = Date.now();
-  if (_promoteFailCache.runId === runId && (now - _promoteFailCache.fetchedAt) < GH_TTL_MS) {
-    return _promoteFailCache.value;
-  }
-  let value = null;
-  try {
-    const log = execFileSync('gh', ['run', 'view', String(runId), '--log-failed'],
-      { cwd: REPO_ROOT, encoding: 'utf8', timeout: 20000, maxBuffer: 32 * 1024 * 1024 });
-    value = parseGateFailures(log);
-  } catch (_) { value = null; }
-  _promoteFailCache = { runId, value, fetchedAt: now };
-  return value;
-}
-
 function _getGhPromote() {
   const now = Date.now();
   if (_ghPromoteCache.fetchedAt > 0 && now - _ghPromoteCache.fetchedAt < GH_TTL_MS) {
@@ -827,9 +782,6 @@ function _getGhPromote() {
         // Per-phase gate progress (regression → e2e → fast-forward) so the operator
         // SEES the regression suite run green before main moves.
         phases: _getPromotePhases(run.databaseId),
-        // On a red gate, the specific failing tests + not-found selectors, so the
-        // operator handoff prompt is precise instead of "go investigate the suite".
-        failure_detail: status === 'failure' ? getPromoteFailureDetail(run.databaseId) : null,
       };
     }
   } catch (_) { /* gh not installed or not authenticated — non-fatal, degrade to idle */ }
@@ -3223,4 +3175,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, STALE_DONE_DAYS, deriveHistoryOutcome, createRevertCommit, resolveSquashSha, mapPromotePhases, parseGateFailures };
+module.exports = { buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, STALE_DONE_DAYS, deriveHistoryOutcome, createRevertCommit, resolveSquashSha, mapPromotePhases };
