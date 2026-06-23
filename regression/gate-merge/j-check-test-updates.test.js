@@ -12,6 +12,7 @@ const { triage, triageTag, CONF } = require('../../lib/check-test-updates');
 const CHK_SRC = path.resolve(__dirname, '..', '..', 'lib', 'check-test-updates.js');
 const CHK_CLI = path.resolve(__dirname, '..', '..', 'scripts', 'check-test-updates.js');
 const GATE_PAGE = path.resolve(__dirname, '..', '..', 'dashboard', 'merge-gate.html');
+const DASH = path.resolve(__dirname, '..', '..', 'dashboard', 'lcars-dashboard.html');
 
 const recOf = (byTag) => ({ reconcile: { byTag }, manifest: { byTag: {} }, decisions: {} });
 
@@ -91,13 +92,48 @@ test('J-check-test-updates slice-99831-ac-9 — the CLI drains, triages, writes 
   assert.match(src, /require\(['"]\.\.\/lib\/check-test-updates['"]\)/);
 });
 
-test('J-check-test-updates slice-99831-ac-10 — the two-stage gate page: ① check (per-AC Update/Keep) GATES ② run-gate-&-merge', () => {
+test('J-check-test-updates slice-99831-ac-10 — the standalone /merge-gate page: ① check (per-AC Update/Keep) GATES ② run-gate-&-merge', () => {
   const src = fs.readFileSync(GATE_PAGE, 'utf8');
   assert.match(src, /\/api\/check-test-updates/);                 // stage ① reads the triage
   assert.match(src, /\/api\/check-test-updates\/decide/);         // per-AC ruling
-  assert.match(src, /Update the tests/i);                        // the two human choices
+  // The two human choices — copy kept consistent with the main-dashboard overlay (ac-11).
+  assert.match(src, /Update the test to match/i);
   assert.match(src, /Keep as is/i);
   assert.match(src, /\/api\/promote\/dispatch/);                 // stage ② runs the merge gate
   assert.match(src, /mergeBtn[\s\S]*disabled/);                  // ② is LOCKED until ① is ready
   assert.match(src, /function unlockMerge|unlockMerge\(\)/);     // unlocked only when ready
+});
+
+// ── The PRIMARY surface: the in-dashboard stage-① overlay (Ziyal's redesign, f1a97fd) ──
+// _renderTestUpdatesBody in lcars-dashboard.html. This is what the operator actually sees;
+// it was unguarded after the redesign — these pin its contract.
+test('J-check-test-updates slice-99831-ac-11 — the in-dashboard overlay renders each flagged AC with its AC text as the evidence + the two rulings', () => {
+  const src = fs.readFileSync(DASH, 'utf8');
+  assert.match(src, /\/api\/check-test-updates/);                          // reads the triage
+  assert.match(src, /\/api\/check-test-updates\/decide/);                  // records the ruling
+  assert.match(src, /Update the test to match/);                          // redesigned copy
+  assert.match(src, /Keep as is &mdash; no test update needed|Keep as is — no test update needed/);
+  assert.match(src, /_decideTestUpdate\(/);                               // per-AC wiring…
+  assert.match(src, /,\s*'update'\)/);                                    // …with the two rulings
+  assert.match(src, /,\s*'keep'\)/);
+  assert.match(src, /class="utc-ac"/);                                    // the AC text is the on-screen hero
+  assert.match(src, /it\.title/);                                         // …sourced from the AC's own text
+});
+
+test('J-check-test-updates slice-99831-ac-12 — the overlay surfaces ONLY low-confidence flagged ACs; high-confidence are accounted for, not listed', () => {
+  const src = fs.readFileSync(DASH, 'utf8');
+  assert.match(src, /const flagged = rep\.flagged/);                      // iterates the FLAGGED set…
+  assert.match(src, /for \(const it of flagged\)/);                      // …not every item
+  assert.match(src, /utc-scan/);                                         // a one-line scan summary
+  assert.match(src, /your call/i);                                        // "N need your call"
+  assert.match(src, /already covered or handled automatically/i);        // the rest are trusted, not shown
+});
+
+test('J-check-test-updates slice-99831-ac-13 — CHECK FOR TEST UPDATES gates the merge: locked until the check passes for the CURRENT dev tip', () => {
+  const src = fs.readFileSync(DASH, 'utf8');
+  assert.match(src, /id="check-updates-btn"/);                           // the operator button exists
+  assert.match(src, /onclick="runTestUpdateCheck\(\)"/);                 // …runs the drain/triage
+  assert.match(src, /const checkPassed = _testUpdatesReady && _testUpdatesSha && _testUpdatesSha === devSha/); // re-check when dev moves
+  assert.match(src, /const enabled = [^;]*checkPassed/);                 // merge enabled ONLY when the check passed
+  assert.match(src, /ready[\s\S]{0,200}_testUpdatesReady = true[\s\S]{0,120}renderPromoteAction/); // ready → unlock
 });

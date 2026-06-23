@@ -169,8 +169,8 @@
         <div class="title">${esc(it.title)}</div>
         <div class="reason">${esc(it.reason)}</div>
         <div class="choices">
-          <button class="upd"  onclick="decide('${esc(it.tag)}','update')">Update the tests</button>
-          <button class="keep" onclick="decide('${esc(it.tag)}','keep')">Keep as is</button>
+          <button class="upd"  onclick="decide('${esc(it.tag)}','update')">Update the test to match</button>
+          <button class="keep" onclick="decide('${esc(it.tag)}','keep')">Keep as is — no test update needed</button>
         </div></div>`;
     }
     // Already-ruled (kept / user-update) — shown resolved, reversible.
