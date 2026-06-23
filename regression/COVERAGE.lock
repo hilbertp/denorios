@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 310,
+  "guardCount": 323,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -574,6 +574,52 @@
         "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
       }
     ],
+    "dashboard/test-drift.html": [
+      {
+        "tag": "slice-99830-ac-1",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-10",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-11",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-2",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-3",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-4",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-5",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-6",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-7",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-8",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-9",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      }
+    ],
     "lib/ac-block.js": [
       {
         "tag": "slice-99824-ac-1",
@@ -751,6 +797,10 @@
       },
       {
         "tag": "slice-99830-ac-10",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-11",
         "file": "regression/gate-merge/j-test-drift.test.js"
       },
       {
@@ -1163,6 +1213,10 @@
       },
       {
         "tag": "slice-99830-ac-10",
+        "file": "regression/gate-merge/j-test-drift.test.js"
+      },
+      {
+        "tag": "slice-99830-ac-11",
         "file": "regression/gate-merge/j-test-drift.test.js"
       },
       {

@@ -14,6 +14,7 @@ const { drift, ACTION } = require('../../lib/test-drift');
 // this guard — a behaviour file is only "covered" when a test literally reads its bytes).
 const DRIFT_SRC = path.resolve(__dirname, '..', '..', 'lib', 'test-drift.js');
 const DRIFT_CLI = path.resolve(__dirname, '..', '..', 'scripts', 'test-drift.js');
+const DRIFT_PAGE = path.resolve(__dirname, '..', '..', 'dashboard', 'test-drift.html');
 
 const chk = (file, tag) => ({ file, tag, area: 'regression', kind: 'modified', direction: 'removed' });
 const bf = (path, isNew) => ({ path, area: 'server', isNew: !!isNew });
@@ -103,4 +104,15 @@ test('J-test-drift slice-99830-ac-10 — the CLI pins the promoted changeset, is
   assert.match(src, /TEST-DRIFT\.json/);                   // writes the dashboard artifact
   assert.match(src, /process\.exit\(0\)/);                 // advisory — the human's OK/STOP decides
   assert.match(src, /require\(['"]\.\.\/lib\/test-drift['"]\)/);
+});
+
+test('J-test-drift slice-99830-ac-11 — the standalone review page reads the endpoint and offers OK(dispatch)/STOP', () => {
+  const src = fs.readFileSync(DRIFT_PAGE, 'utf8');
+  assert.match(src, /\/api\/test-drift/);                  // reads the live verdict
+  assert.match(src, /Possible regression/i);               // renders both operator piles
+  assert.match(src, /Deliberate change/i);
+  assert.match(src, /OK\s*[—-]+\s*run the gate/i);         // the OK control
+  assert.match(src, /\/api\/promote\/dispatch/);           // OK dispatches the REAL gate
+  assert.match(src, /STOP\s*[—-]+\s*I.?ll investigate/i);  // the STOP control
+  assert.doesNotMatch(src, /second reviewer|not the author/i); // retires the impossible second-ack box
 });
