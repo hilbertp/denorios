@@ -22,6 +22,7 @@ const LOGS_DIR     = path.join(REPO_ROOT, 'bridge', 'logs');
 const DASHBOARD    = path.join(__dirname, 'lcars-dashboard.html');
 const TOKENS_CSS   = path.join(__dirname, 'tokens.css');
 const TEST_DRIFT_PAGE = path.join(__dirname, 'test-drift.html');
+const MERGE_GATE_PAGE = path.join(__dirname, 'merge-gate.html');
 const BRANCH_STATE = path.join(REPO_ROOT, 'bridge', 'state', 'branch-state.json');
 const COMMIT_NUMBERS = path.join(REPO_ROOT, 'bridge', 'state', 'commit-numbers.json');
 
@@ -663,6 +664,39 @@ function getTestDrift() {
   catch (err) { value = safeStop('Could not classify the changeset: ' + String(err && err.message || err)); }
   _testDriftCache = { key, value, fetchedAt: now };
   return value;
+}
+
+// ── CHECK FOR TEST UPDATES — stage ① of the two-stage merge gate ──────────────
+// Drains the ACs, reconciles them against the test suite, applies recorded human
+// decisions, and triages each (high-confidence acts; low-confidence MISSING is flagged).
+// `ready` gates the merge button. Reads fresh each call (no cache) so a just-recorded
+// decision flips the verdict immediately.
+function getCheckTestUpdates() {
+  const readJson = (p, fb) => { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch (_) { return fb; } };
+  const { reconcile } = require(path.join(__dirname, '..', 'lib', 'ac-reconcile'));
+  const { triage } = require(path.join(__dirname, '..', 'lib', 'check-test-updates'));
+  const manifest  = readJson(path.join(REPO_ROOT, 'regression', 'AC-MANIFEST.lock'), { byTag: {} });
+  const coverage  = readJson(path.join(REPO_ROOT, 'regression', 'COVERAGE.lock'), { bySource: {} });
+  const decisions = readJson(path.join(REPO_ROOT, 'regression', 'AC-DECISIONS.json'), {});
+  try {
+    const report = triage({ reconcile: reconcile({ manifest, coverage }), manifest, decisions });
+    report.ts = new Date().toISOString();
+    return report;
+  } catch (e) {
+    return { ready: false, verdict: 'ERROR', items: [], flagged: [],
+      summary: { checked: 0, passed: 0, autoUpdate: 0, flagged: 0, kept: 0 }, error: String(e && e.message || e) };
+  }
+}
+
+// Record (or clear) the operator's per-AC ruling for a low-confidence AC.
+// decision: 'update' | 'keep' | null(clear). Persisted to regression/AC-DECISIONS.json.
+function recordAcDecision(tag, decision) {
+  const p = path.join(REPO_ROOT, 'regression', 'AC-DECISIONS.json');
+  let cur = {}; try { cur = JSON.parse(fs.readFileSync(p, 'utf8')); } catch (_) {}
+  if (decision === 'update' || decision === 'keep') cur[tag] = decision;
+  else delete cur[tag];
+  fs.writeFileSync(p, JSON.stringify(cur, null, 1));
+  return cur;
 }
 
 // The three gate phases promote.yml runs, in order, before main moves. Matched by
@@ -1749,6 +1783,16 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // The two-stage merge gate: ① Check for test updates → ② Run gate & merge.
+  if (pathname === '/merge-gate' || pathname === '/merge-gate.html') {
+    fs.readFile(MERGE_GATE_PAGE, (err, data) => {
+      if (err) { res.writeHead(500); res.end('Internal Server Error'); return; }
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(data);
+    });
+    return;
+  }
+
   if (pathname === '/api/bridge/review') {
     const corsHeaders = {
       'Access-Control-Allow-Origin':  CORS_ORIGIN,
@@ -2597,6 +2641,38 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: String(err) }));
     }
+    return;
+  }
+
+  // Stage ① — CHECK FOR TEST UPDATES: the AC-drain triage that gates the merge button.
+  if (pathname === '/api/check-test-updates' && req.method === 'GET') {
+    try {
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify(getCheckTestUpdates()));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: String(err) }));
+    }
+    return;
+  }
+
+  // Record the operator's per-AC ruling for a flagged (low-confidence) AC.
+  if (pathname === '/api/check-test-updates/decide' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const { tag, decision } = JSON.parse(body || '{}');
+        if (!tag || typeof tag !== 'string') throw new Error('tag required');
+        if (decision != null && decision !== 'update' && decision !== 'keep') throw new Error('decision must be update|keep|null');
+        recordAcDecision(tag, decision);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(getCheckTestUpdates()));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
     return;
   }
 

@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 323,
+  "guardCount": 353,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -274,6 +274,48 @@
       {
         "tag": "slice-99812-ac-2",
         "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
+      }
+    ],
+    "dashboard/merge-gate.html": [
+      {
+        "tag": "slice-99831-ac-1",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
+      },
+      {
+        "tag": "slice-99831-ac-10",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
+      },
+      {
+        "tag": "slice-99831-ac-2",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
+      },
+      {
+        "tag": "slice-99831-ac-3",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
+      },
+      {
+        "tag": "slice-99831-ac-4",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
+      },
+      {
+        "tag": "slice-99831-ac-5",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
+      },
+      {
+        "tag": "slice-99831-ac-6",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
+      },
+      {
+        "tag": "slice-99831-ac-7",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
+      },
+      {
+        "tag": "slice-99831-ac-8",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
+      },
+      {
+        "tag": "slice-99831-ac-9",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
       }
     ],
     "dashboard/server.js": [
@@ -790,6 +832,48 @@
         "file": "regression/gate-merge/j-tests-needed-self-lock.test.js"
       }
     ],
+    "lib/check-test-updates.js": [
+      {
+        "tag": "slice-99831-ac-1",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
+      },
+      {
+        "tag": "slice-99831-ac-10",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
+      },
+      {
+        "tag": "slice-99831-ac-2",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
+      },
+      {
+        "tag": "slice-99831-ac-3",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
+      },
+      {
+        "tag": "slice-99831-ac-4",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
+      },
+      {
+        "tag": "slice-99831-ac-5",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
+      },
+      {
+        "tag": "slice-99831-ac-6",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
+      },
+      {
+        "tag": "slice-99831-ac-7",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
+      },
+      {
+        "tag": "slice-99831-ac-8",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
+      },
+      {
+        "tag": "slice-99831-ac-9",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
+      }
+    ],
     "lib/test-drift.js": [
       {
         "tag": "slice-99830-ac-1",
@@ -1182,6 +1266,48 @@
       {
         "tag": "slice-99825-ac-92",
         "file": "regression/gate-merge/j-ac-hash-extraction.test.js"
+      }
+    ],
+    "scripts/check-test-updates.js": [
+      {
+        "tag": "slice-99831-ac-1",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
+      },
+      {
+        "tag": "slice-99831-ac-10",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
+      },
+      {
+        "tag": "slice-99831-ac-2",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
+      },
+      {
+        "tag": "slice-99831-ac-3",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
+      },
+      {
+        "tag": "slice-99831-ac-4",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
+      },
+      {
+        "tag": "slice-99831-ac-5",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
+      },
+      {
+        "tag": "slice-99831-ac-6",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
+      },
+      {
+        "tag": "slice-99831-ac-7",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
+      },
+      {
+        "tag": "slice-99831-ac-8",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
+      },
+      {
+        "tag": "slice-99831-ac-9",
+        "file": "regression/gate-merge/j-check-test-updates.test.js"
       }
     ],
     "scripts/make-reconcile-bundle.js": [

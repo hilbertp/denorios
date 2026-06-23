@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Merge Gate</title>
+<style>
+  :root {
+    --ink:#111827; --ink-2:#374151; --ink-3:#6b7280; --line:#e5e7eb; --bg:#f7f8fa; --card:#fff;
+    --green:#16a34a; --green-bg:rgba(22,163,74,.10); --green-line:rgba(22,163,74,.30);
+    --amber:#d97706; --amber-bg:rgba(217,119,6,.10); --amber-line:rgba(217,119,6,.30);
+    --red:#dc2626;   --red-bg:rgba(220,38,38,.09);   --red-line:rgba(220,38,38,.30);
+    --blue:#2563eb;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+    font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  .wrap { max-width:780px; margin:0 auto; padding:38px 22px 90px; }
+  a.back { color:var(--ink-3); font-size:12px; text-decoration:none; } a.back:hover { color:var(--ink); }
+  h1 { font-size:21px; font-weight:700; margin:6px 0 2px; letter-spacing:-.01em; }
+  .sub { color:var(--ink-3); font-size:12.5px; margin-bottom:22px; }
+  .meta { color:var(--ink-3); font-size:11.5px; font-family:ui-monospace,"SF Mono",Menlo,monospace; }
+
+  .stage { border:1px solid var(--line); border-radius:14px; background:var(--card); margin-top:18px;
+    box-shadow:0 1px 2px rgba(0,0,0,.03); overflow:hidden; transition:opacity .2s; }
+  .stage.locked { opacity:.5; }
+  .stage-head { display:flex; align-items:center; gap:11px; padding:16px 20px; border-bottom:1px solid var(--line); }
+  .num { width:25px; height:25px; flex:none; border-radius:50%; background:var(--ink); color:#fff;
+    display:grid; place-items:center; font-size:13px; font-weight:700; }
+  .stage.done .num { background:var(--green); }
+  .stage.locked .num { background:var(--ink-3); }
+  .stage-title { font-size:15px; font-weight:700; }
+  .stage-sub { font-size:12px; color:var(--ink-3); margin-top:1px; }
+  .pill { margin-left:auto; font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
+    padding:4px 10px; border-radius:999px; border:1px solid; white-space:nowrap; }
+  .pill.idle  { color:var(--ink-3); background:#f3f4f6; border-color:var(--line); }
+  .pill.work  { color:var(--amber); background:var(--amber-bg); border-color:var(--amber-line); }
+  .pill.ready { color:var(--green); background:var(--green-bg); border-color:var(--green-line); }
+  .pill.stop  { color:var(--red);  background:var(--red-bg);  border-color:var(--red-line); }
+  .body { padding:18px 20px; }
+
+  button { font:inherit; font-weight:600; padding:11px 18px; border-radius:10px; cursor:pointer; border:1px solid; transition:.12s; }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  .primary { background:var(--ink); color:#fff; border-color:var(--ink); }
+  .primary:hover:not(:disabled) { filter:brightness(1.15); }
+  .merge { background:var(--green); color:#fff; border-color:var(--green); width:100%; padding:13px; font-size:15px; }
+  .merge:hover:not(:disabled){ filter:brightness(.96); }
+
+  .summary { display:flex; flex-wrap:wrap; gap:8px 16px; font-size:12.5px; color:var(--ink-2); margin:2px 0 14px; }
+  .summary b { color:var(--ink); }
+  .auto { font-size:12.5px; color:var(--ink-3); margin-top:10px; }
+  .auto .ac { font-family:ui-monospace,Menlo,monospace; color:var(--ink-2); }
+
+  .flag { border:1px solid var(--amber-line); background:var(--amber-bg); border-radius:11px; padding:13px 15px; margin-top:11px; }
+  .flag .tag { font-family:ui-monospace,Menlo,monospace; font-size:12px; color:var(--amber); font-weight:700; }
+  .flag .title { font-weight:600; margin:3px 0 2px; }
+  .flag .reason { color:var(--ink-2); font-size:13px; }
+  .flag .choices { display:flex; gap:9px; margin-top:11px; }
+  .choices .upd { background:#fff; color:var(--blue); border-color:rgba(37,99,235,.35); }
+  .choices .keep { background:#fff; color:var(--ink-2); border-color:var(--line); }
+  .flag.resolved { border-color:var(--green-line); background:var(--green-bg); }
+  .flag .ruling { font-size:12px; font-weight:600; color:var(--green); margin-top:9px; }
+  .flag .ruling a { color:var(--ink-3); margin-left:8px; cursor:pointer; font-weight:500; }
+
+  .result { margin-top:14px; padding:12px 14px; border-radius:10px; font-size:13.5px; }
+  .result.good { background:var(--green-bg); color:var(--green); border:1px solid var(--green-line); }
+  .result.halt { background:var(--red-bg);  color:var(--red);  border:1px solid var(--red-line); }
+  .muted { color:var(--ink-3); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="/">&larr; Ops Center</a>
+  <h1>Merge Gate</h1>
+  <div class="sub">Two steps before <b>dev</b> reaches <b>main</b>: first decide whether the changes need test updates, then run the suite and merge.</div>
+
+  <!-- ① CHECK FOR TEST UPDATES -->
+  <section class="stage" id="stage1">
+    <div class="stage-head">
+      <div class="num">1</div>
+      <div>
+        <div class="stage-title">Check for test updates</div>
+        <div class="stage-sub">Drain the new ACs, reconcile against the regression &amp; smoke tests, decide what needs a test.</div>
+      </div>
+      <span class="pill idle" id="pill1">not run</span>
+    </div>
+    <div class="body" id="body1">
+      <button class="primary" id="checkBtn" onclick="runCheck()">Check for test updates</button>
+    </div>
+  </section>
+
+  <!-- ② RUN GATE & MERGE -->
+  <section class="stage locked" id="stage2">
+    <div class="stage-head">
+      <div class="num">2</div>
+      <div>
+        <div class="stage-title">Run gate &amp; merge to main</div>
+        <div class="stage-sub">Regression + smoke tests on a clean runner, then fast-forward main only on green.</div>
+      </div>
+      <span class="pill idle" id="pill2">locked</span>
+    </div>
+    <div class="body">
+      <button class="merge" id="mergeBtn" disabled onclick="runMerge()">🔒 Run gate &amp; merge to main</button>
+      <div id="mergeResult"></div>
+    </div>
+  </section>
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s==null?'':s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  let _checked = false;
+
+  function setPill(el, cls, text){ el.className = 'pill ' + cls; el.textContent = text; }
+
+  function lockMerge(reason){
+    $('stage2').classList.add('locked');
+    $('mergeBtn').disabled = true;
+    $('mergeBtn').textContent = '🔒 Run gate & merge to main';
+    setPill($('pill2'), 'idle', reason || 'locked');
+  }
+  function unlockMerge(){
+    $('stage2').classList.remove('locked');
+    $('mergeBtn').disabled = false;
+    $('mergeBtn').textContent = '✅ Run gate & merge to main';
+    setPill($('pill2'), 'ready', 'unlocked');
+  }
+
+  async function runCheck(){
+    setPill($('pill1'), 'work', 'checking…');
+    $('checkBtn').disabled = true;
+    try {
+      const r = await fetch('/api/check-test-updates', { cache:'no-store' });
+      renderCheck(await r.json());
+    } catch(e){
+      $('body1').innerHTML = '<div class="result halt">Could not reach /api/check-test-updates — is the server running the latest code?</div>';
+      setPill($('pill1'), 'stop', 'error'); lockMerge('blocked');
+    }
+  }
+
+  async function decide(tag, decision){
+    try {
+      const r = await fetch('/api/check-test-updates/decide', {
+        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tag, decision }) });
+      renderCheck(await r.json());
+    } catch(e){ /* keep current view */ }
+  }
+
+  function renderCheck(d){
+    _checked = true;
+    const s = d.summary || { checked:0, passed:0, autoUpdate:0, flagged:0, kept:0 };
+    const auto = (d.items||[]).filter(i => i.action === 'update-test');
+
+    let html = `<div class="summary">
+      <span>checked <b>${s.checked}</b></span>
+      <span><b>${s.passed}</b> already covered</span>
+      <span><b>${s.autoUpdate}</b> auto-update</span>
+      <span><b>${s.flagged}</b> flagged for you</span>
+      <span><b>${s.kept}</b> kept</span></div>`;
+
+    if (s.checked === 0) {
+      html += `<div class="muted">No AC changes need a test decision — nothing pending warrants a test update. Clear to proceed.</div>`;
+    }
+
+    // Low-confidence: the operator decides per AC.
+    for (const it of (d.flagged||[])) {
+      html += `<div class="flag" id="flag-${esc(it.tag)}">
+        <div class="tag">${esc(it.tag)}</div>
+        <div class="title">${esc(it.title)}</div>
+        <div class="reason">${esc(it.reason)}</div>
+        <div class="choices">
+          <button class="upd"  onclick="decide('${esc(it.tag)}','update')">Update the tests</button>
+          <button class="keep" onclick="decide('${esc(it.tag)}','keep')">Keep as is</button>
+        </div></div>`;
+    }
+    // Already-ruled (kept / user-update) — shown resolved, reversible.
+    for (const it of (d.items||[]).filter(i => i.action === 'kept' || (i.confidence==='high' && i.action==='update-test' && i.reason.includes('You ruled')))) {
+      const verb = it.action === 'kept' ? 'Kept as is — no test' : 'Will update the test';
+      html += `<div class="flag resolved"><div class="tag">${esc(it.tag)}</div><div class="title">${esc(it.title)}</div>
+        <div class="ruling">✓ ${verb}<a onclick="decide('${esc(it.tag)}',null)">change</a></div></div>`;
+    }
+    // High-confidence auto-updates (informational).
+    if (auto.length) {
+      html += `<div class="auto"><b>Bashir auto-updates these tests from their AC:</b> ` +
+        auto.map(i => `<span class="ac">${esc(i.tag)}</span>`).join(', ') + `</div>`;
+    }
+    $('body1').innerHTML = html;
+
+    if (d.ready) {
+      $('stage1').classList.add('done');
+      setPill($('pill1'), 'ready', s.flagged===0 && s.checked===0 ? 'clear' : 'resolved');
+      unlockMerge();
+    } else {
+      $('stage1').classList.remove('done');
+      setPill($('pill1'), 'stop', s.flagged + ' to decide');
+      lockMerge('finish step 1');
+    }
+  }
+
+  async function runMerge(){
+    if ($('mergeBtn').disabled) return;
+    $('mergeBtn').disabled = true;
+    const out = $('mergeResult');
+    out.innerHTML = '<div class="result good">Dispatching the gate…</div>';
+    try {
+      const r = await fetch('/api/promote/dispatch', { method:'POST' });
+      const b = await r.json().catch(()=>({}));
+      if (r.ok && b && b.ok) out.innerHTML = '<div class="result good">✅ Gate dispatched — regression + smoke running; main fast-forwards only on green. Watch it on the Ops Center.</div>';
+      else { out.innerHTML = '<div class="result halt">⚠ Did not start: ' + esc((b && b.error) || ('HTTP '+r.status)) + '. Nothing merged.</div>'; $('mergeBtn').disabled = false; }
+    } catch(e){ out.innerHTML = '<div class="result halt">⚠ Dispatch failed: network error. Nothing merged.</div>'; $('mergeBtn').disabled = false; }
+  }
+</script>
+</body>
+</html>
