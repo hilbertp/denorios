@@ -187,15 +187,10 @@
 
   /* ── POST-BUILD PIPELINE ─────────────────────────────── */
   .postbuild-panel {
-    background: var(--bg-panel);
-    border: 2px dashed var(--border-strong);
-    border-radius: 8px;
+    /* surface unified with every other panel card (redesign layer); layout only here */
     padding: 20px 24px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-    opacity: 0.5;
     display: flex;
     flex-direction: column;
-    transition: opacity 0.3s, border-color 0.3s;
   }
   /* When Nog is active, panel gets partial unmock */
   .postbuild-panel.nog-active {
@@ -1614,9 +1609,9 @@
   .queue-panel {
     background: var(--bg-panel);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: var(--radius);
     padding: 20px 24px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    box-shadow: var(--shadow);
     display: flex;
     flex-direction: column;
     height: 100%;
@@ -3562,14 +3557,24 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
 
 /* Uniform panel titles — was 3 styles: topo 13/700/UPPER, active 11/600/UPPER,
    section 13/600/mixed. Now one treatment. Margins kept per-class (untouched). */
+/* ── ONE panel-headline treatment — every panel title, a single definition.
+   The per-panel header selectors are listed here so this beats their higher
+   specificity; the scattered per-panel overrides below are deleted. ── */
 .topo-panel-title,
 .active-slice-label,
-.section-title {
-  font-size: 13px;
+.section-title,
+.postbuild-panel .section-title,
+.slice-history .section-title,
+.queue-panel-header .section-title,
+.cost-center-header .section-title,
+.crew-roster-header .section-title {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #374151;
+  line-height: var(--leading-tight);
+  color: var(--ink-3);
 }
 
 /* DS9 lore tags (e.g. "(Infirmary)", "(Quark's Ledger)") — shown only in the
@@ -3997,15 +4002,8 @@ button:disabled,
   .active-slice:hover { box-shadow: var(--shadow-md); }
 }
 
-/* ---- Header label: tokenized eyebrow, kept moderate ---- */
+/* ---- Header label: typography unified in the one canonical panel-title rule above ---- */
 .active-slice-header { margin-bottom: 6px; }
-.active-slice-label {
-  font-size: var(--text-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--ink-3);
-}
 
 /* ---- Timer: strong mono numerals, muted (text-safe) label ---- */
 .active-slice-timer-value {
@@ -4168,14 +4166,12 @@ button:disabled,
    line, real resting elevation, and a higher dim floor (.55) so text
    that survives the unmock stays legible. */
 .postbuild-panel {
-  background: var(--bg-subtle);
-  border: 2px dashed var(--border-strong);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-  opacity: 1;
-  /* name exact props, ease-out, <300ms, interruptible transition */
-  transition: opacity var(--motion-standard),
-              border-color var(--motion-standard),
+  /* the same solid card as every other panel — no more grey/dashed "mock" outlier */
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  transition: border-color var(--motion-standard),
               box-shadow var(--motion-standard);
 }
 
@@ -4190,14 +4186,7 @@ button:disabled,
   opacity: 1;
 }
 
-.postbuild-panel .section-title {
-  color: var(--ink-2);
-  font-family: var(--font-sans);
-  font-size: var(--text-md);
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  line-height: var(--leading-tight, 1.25);
-}
+/* (panel-title typography now lives in the one canonical rule; per-panel override removed) */
 
 .postbuild-lane {
   opacity: 1;
@@ -4637,13 +4626,7 @@ button:disabled,
 }
 
 /* Section heading — tighten to type scale, strong ink */
-.slice-history .section-title {
-  font-family: var(--font-sans);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  letter-spacing: -0.005em;
-  color: var(--ink-2);
-}
+/* (panel-title typography now lives in the one canonical rule; per-panel override removed) */
 
 /* Rows: hairline dividers on real border token */
 .history-row { border-bottom: 1px solid var(--border); }
@@ -5527,12 +5510,7 @@ body.lcars-mode #test-updates-overlay {
 .utc-clear-sub { font-size: var(--text-sm); color: var(--ink-2); margin-top: 2px; }
 
 /* Title: type scale + strong-ink grade. */
-.cost-center-header .section-title {
-  font-size: var(--text-sm, 13px);
-  font-weight: 600;
-  letter-spacing: -0.005em;
-  color: var(--ink-2);
-}
+/* (panel-title typography now lives in the one canonical rule; per-panel override removed) */
 
 /* Chevron: was #9ca3af (~2.5:1, fails). Demote to a real muted-text token; ease-out rotate. */
 .cost-center-toggle {
