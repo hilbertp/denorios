@@ -3659,6 +3659,15 @@ body.lcars-mode .lore-tag { display: inline; }
 .gate-flow-head { font-size: 10px; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.08em; color: #9ca3af; margin-bottom: 9px; }
 .gate-flow-steps { display: block; }
+  /* merge-pressure dial */
+  .dvs-gauge { display:inline-flex; align-items:center; gap:9px; }
+  .dvs-gauge > svg { display:block; flex:none; }
+  .dvs-gauge-meta { display:flex; flex-direction:column; line-height:1.2; }
+  .dvs-gauge-num { font-family:var(--font-mono, ui-monospace, "SF Mono", Menlo, monospace); font-size:16px; font-weight:600; color:var(--ink-2); letter-spacing:-0.01em; }
+  .dvs-gauge-cap { font-family:var(--font-mono, ui-monospace, "SF Mono", Menlo, monospace); font-size:9px; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-muted); }
+  /* question subtitle under the panel title */
+  .topo-head-text { display:flex; flex-direction:column; gap:3px; min-width:0; }
+  .topo-subtitle { font-family:var(--font-mono, ui-monospace, "SF Mono", Menlo, monospace); font-size:12px; color:var(--ink-muted); letter-spacing:.01em; }
   .topo-commits { margin-top: 12px; font-family: var(--dvs-mono, ui-monospace, "SF Mono", Menlo, monospace); font-size: 11px; line-height: 1.65; }
   .topo-commits .topo-c-row { display: flex; gap: 8px; align-items: baseline; max-width: 100%; }
   .topo-commits .topo-c-k { color: var(--dvs-idle-txt, #94a3b8); width: 44px; flex: none; }
@@ -6312,7 +6321,10 @@ body:not(.lcars-mode) .staged-details-body pre code {
   <div class="topo-row">
     <div class="topo-panel" id="topo-panel">
       <div class="topo-panel-head">
-        <span class="topo-panel-title">DevOps Station<span class="lore-tag"> (Infirmary)</span> <span class="panel-owner" data-role="bashir">QA Engineer</span></span>
+        <div class="topo-head-text">
+          <span class="topo-panel-title">DevOps Station<span class="lore-tag"> (Infirmary)</span> <span class="panel-owner" data-role="bashir">QA Engineer</span></span>
+          <div class="topo-subtitle" id="topo-subtitle"></div>
+        </div>
         <button class="topo-collapse-btn" id="topo-collapse-btn" onclick="toggleTopoCollapse()" aria-label="Toggle DevOps Station panel">&#9662;</button>
       </div>
       <div class="topo-panel-body" id="topo-panel-body">
@@ -10200,6 +10212,19 @@ body:not(.lcars-mode) .staged-details-body pre code {
   }
   const MERGE_PRESSURE_TIP = 'Validation urgency — how strongly to run the gate and merge dev into main before adding more work. Not a regression probability.';
 
+  // Semicircular merge-pressure dial (mission-control draft) — replaces the pill.
+  function dvsGauge(score, band) {
+    const s = Math.max(0, Math.min(100, Math.round(Number(score) || 0)));
+    const col = s <= 25 ? '#94a3b8' : s <= 50 ? '#f59e0b' : s <= 75 ? '#fb923c' : '#ef4444';
+    return '<span class="dvs-gauge" title="' + MERGE_PRESSURE_TIP + '">'
+      + '<svg viewBox="0 0 62 37" width="56" height="34" aria-hidden="true">'
+      + '<path d="M7 33 A24 24 0 0 1 55 33" fill="none" stroke="var(--border, #e5e7eb)" stroke-width="5" stroke-linecap="round" opacity="0.7"/>'
+      + '<path d="M7 33 A24 24 0 0 1 55 33" fill="none" stroke="' + col + '" stroke-width="5" stroke-linecap="round" pathLength="100" stroke-dasharray="' + s + ' 100"/>'
+      + '</svg>'
+      + '<span class="dvs-gauge-meta"><span class="dvs-gauge-num">' + s + '%</span><span class="dvs-gauge-cap">merge pressure · ' + band + '</span></span>'
+      + '</span>';
+  }
+
   function renderRRPill(bs) {
     const rrEl = document.getElementById('topo-foot-rr');
     if (!rrEl) return;
@@ -10217,7 +10242,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
       const churn = ghRR.churn != null ? ghRR.churn : 0;
       const nCrit = Array.isArray(ghRR.critical_files) ? ghRR.critical_files.length : 0;
       const tip = `${MERGE_PRESSURE_TIP}\n${commits} commits · ${churn} lines churn · ${nCrit} critical files.`;
-      rrEl.innerHTML = `<span class="rr-pill ${mp.cls}" title="${tip}"><span class="rr-pill-label">Merge Pressure<br>${score}% &middot; ${mp.band}</span></span>`;
+      rrEl.innerHTML = dvsGauge(score, mp.band);
       return;
     }
 
@@ -10227,7 +10252,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
 
     if (!rr || ahead === 0) {
       // Empty dev or no RR data — show low-pressure pill
-      rrEl.innerHTML = `<span class="rr-pill mp-low" title="${MERGE_PRESSURE_TIP}"><span class="rr-pill-label">Merge Pressure<br>0% &middot; low</span></span>`;
+      rrEl.innerHTML = dvsGauge(0, 'low');
       return;
     }
 
@@ -11183,6 +11208,17 @@ body:not(.lcars-mode) .staged-details-body pre code {
     }
     host.innerHTML = _trackA + _trackB + _readout;
     dvsStartElapsed(running);
+
+    // Question subtitle — frames the current state as the decision in front of you.
+    const _sub = document.getElementById('topo-subtitle');
+    if (_sub) {
+      _sub.textContent = failed ? 'A step failed — main untouched; here is what to do'
+        : running ? 'Running the gate — what must pass before we merge'
+        : success ? 'Merged to main — all checks green'
+        : _needCount > 0 ? 'One test-update decision needs you'
+        : ahead > 0 ? 'Merge now, or keep working?'
+        : 'Up to date — nothing to merge';
+    }
 
     // Per-push CI (ci.yml) — the automatic check that runs on every push, distinct
     // from the operator gate above. Folded in here so it isn't a redundant panel.
