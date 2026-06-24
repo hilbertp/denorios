@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-ac-manifest.js",
-  "acCount": 156,
+  "acCount": 162,
   "legacyCount": 156,
   "byTag": {
     "slice-042-ac-1": {
@@ -186,6 +186,54 @@
       "source": "legacy-backfill",
       "status": "active",
       "legacy": true
+    },
+    "slice-340-ac-1": {
+      "slice": "340",
+      "text": "the first operations panel is titled \"DevOps Station\", not \"Branch Topology\"",
+      "acHash": "sha256:54145d8ac9e223dd388d5884524a07ebefcca5efdfb862b3319fe24713686ee8",
+      "source": "bridge/queue/340-DONE.md",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-340-ac-2": {
+      "slice": "340",
+      "text": "the post-build review panel is titled \"Peer Review\", not \"Post-Build\"",
+      "acHash": "sha256:adedf07750fbf6fd7a2b31c5b59d4a14fdf5b45250dd542b310b54674414c95c",
+      "source": "bridge/queue/340-DONE.md",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-340-ac-3": {
+      "slice": "340",
+      "text": "the gate renders two named pipelines — Pipeline A for the test-update check and Pipeline B for run-tests and merge",
+      "acHash": "sha256:198c9b94e2242fbe2d20475c472bac1081bc5a861b60b8264e3ec3e6109a799e",
+      "source": "bridge/queue/340-DONE.md",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-340-ac-4": {
+      "slice": "340",
+      "text": "Pipeline B stays locked until Pipeline A passes, shown by a \"pass Pipeline A\" lock message",
+      "acHash": "sha256:0ff6f9b8978b57f8af5e809fb2967b322efb19c56179f7bcbed736146f17c7a4",
+      "source": "bridge/queue/340-DONE.md",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-340-ac-5": {
+      "slice": "340",
+      "text": "Pipeline A's steps read scan ACs, then reconcile, then resolve",
+      "acHash": "sha256:cfbb898656a6c5ebce52ee060be8363588171275979b6089106d21a82ca77b45",
+      "source": "bridge/queue/340-DONE.md",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-340-ac-6": {
+      "slice": "340",
+      "text": "the merge-pressure pill reflects release risk with a rising or falling trend indicator",
+      "acHash": "sha256:84c994374c163ed0b343600152a47ba7960bb36bebe31a40b1228e89a309562b",
+      "source": "bridge/queue/340-DONE.md",
+      "status": "active",
+      "legacy": false
     },
     "slice-901-ac-1": {
       "slice": "901",

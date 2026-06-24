@@ -61,7 +61,7 @@ test('J-ac-reconcile slice-99827-ac-5 — active AC whose guard carries no @ac-h
   assert.equal(r.byTag['slice-1-ac-1'].status, 'STALE');
 });
 
-test('J-ac-reconcile slice-99827-ac-6 — the live repo reconciles GREEN today (all tags grandfathered legacy)', () => {
+test('J-ac-reconcile slice-99827-ac-6 — the live repo reconciles GREEN (active ACs all covered; remaining tags grandfathered legacy)', () => {
   const manifest = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', 'AC-MANIFEST.lock'), 'utf8'));
   const coverage = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', 'COVERAGE.lock'), 'utf8'));
   const r = reconcile({ manifest, coverage });

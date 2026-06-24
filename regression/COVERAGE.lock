@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 375,
+  "guardCount": 381,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -203,6 +203,36 @@
       }
     ],
     "dashboard/lcars-dashboard.html": [
+      {
+        "tag": "slice-340-ac-1",
+        "file": "regression/direct-controls/j-devops-station.test.js",
+        "guardAcHash": "sha256:54145d8ac9e223dd388d5884524a07ebefcca5efdfb862b3319fe24713686ee8"
+      },
+      {
+        "tag": "slice-340-ac-2",
+        "file": "regression/direct-controls/j-devops-station.test.js",
+        "guardAcHash": "sha256:adedf07750fbf6fd7a2b31c5b59d4a14fdf5b45250dd542b310b54674414c95c"
+      },
+      {
+        "tag": "slice-340-ac-3",
+        "file": "regression/direct-controls/j-devops-station.test.js",
+        "guardAcHash": "sha256:198c9b94e2242fbe2d20475c472bac1081bc5a861b60b8264e3ec3e6109a799e"
+      },
+      {
+        "tag": "slice-340-ac-4",
+        "file": "regression/direct-controls/j-devops-station.test.js",
+        "guardAcHash": "sha256:0ff6f9b8978b57f8af5e809fb2967b322efb19c56179f7bcbed736146f17c7a4"
+      },
+      {
+        "tag": "slice-340-ac-5",
+        "file": "regression/direct-controls/j-devops-station.test.js",
+        "guardAcHash": "sha256:cfbb898656a6c5ebce52ee060be8363588171275979b6089106d21a82ca77b45"
+      },
+      {
+        "tag": "slice-340-ac-6",
+        "file": "regression/direct-controls/j-devops-station.test.js",
+        "guardAcHash": "sha256:84c994374c163ed0b343600152a47ba7960bb36bebe31a40b1228e89a309562b"
+      },
       {
         "tag": "slice-99777-ac-1",
         "file": "regression/observability/j-watch-slice-live-log.test.js"
