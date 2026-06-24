@@ -2079,7 +2079,7 @@
   .queue-state-badge.state-error            { background: var(--err-bg); color: var(--err); border-color: var(--err-border); }
   .queue-state-badge.state-needs-apendment  { background: #fef3c7; color: #92400e; border-color: var(--warn-border); }
 
-  /* ── BRANCH TOPOLOGY PANEL (slice 262) ────────────────────── */
+  /* ── DEVOPS STATION PANEL (slice 262) ────────────────────── */
   .topo-row {
     display: grid;
     grid-template-columns: 1fr;
@@ -2227,7 +2227,7 @@
     cursor: not-allowed;
   }
 
-  /* ── CI status strip (Branch Topology — slice 315) ── */
+  /* ── CI status strip (DevOps Station — slice 315) ── */
   .ci-strip {
     margin-top: 10px;
     border: 1px solid var(--border);
@@ -6231,12 +6231,12 @@ body:not(.lcars-mode) .staged-details-body pre code {
     </div>
   </div>
 
-  <!-- ── BRANCH TOPOLOGY (slice 262) ──────────────────────────────────── -->
+  <!-- ── DEVOPS STATION (slice 262) ──────────────────────────────────── -->
   <div class="topo-row">
     <div class="topo-panel" id="topo-panel">
       <div class="topo-panel-head">
-        <span class="topo-panel-title">Branch Topology<span class="lore-tag"> (Infirmary)</span> <span class="panel-owner" data-role="bashir">QA Engineer</span></span>
-        <button class="topo-collapse-btn" id="topo-collapse-btn" onclick="toggleTopoCollapse()" aria-label="Toggle branch topology panel">&#9662;</button>
+        <span class="topo-panel-title">DevOps Station<span class="lore-tag"> (Infirmary)</span> <span class="panel-owner" data-role="bashir">QA Engineer</span></span>
+        <button class="topo-collapse-btn" id="topo-collapse-btn" onclick="toggleTopoCollapse()" aria-label="Toggle DevOps Station panel">&#9662;</button>
       </div>
       <div class="topo-panel-body" id="topo-panel-body">
         <div class="topo-svg-wrap" id="topo-svg-wrap"></div>
@@ -6263,7 +6263,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
         <div class="gate-steps-error" id="gate-steps-error" style="display:none"></div>
       </div>
       <div class="topo-mini" id="topo-mini">
-        <svg viewBox="0 0 280 32" width="280" height="32" role="img" aria-label="Branch topology collapsed">
+        <svg viewBox="0 0 280 32" width="280" height="32" role="img" aria-label="DevOps Station collapsed">
           <line x1="10" y1="10" x2="270" y2="10" stroke="var(--branch-main)" stroke-width="2" />
           <line x1="10" y1="22" x2="200" y2="22" stroke="var(--branch-dev)" stroke-width="2" />
           <line x1="200" y1="22" x2="220" y2="10" stroke="var(--branch-dev)" stroke-width="1.5" stroke-dasharray="3 2" />
@@ -7658,7 +7658,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
 
   function outcomeHtml(outcome, row) {
     // Binary verdict only: did the slice land (success) or fail (error)?
-    // Pipeline position (dev / regression gate / main) lives in the Branch Topology panel,
+    // Pipeline position (dev / regression gate / main) lives in the DevOps Station panel,
     // so the Logbook no longer repeats it. Failure set = isFailureOutcome(); everything
     // else (ON_DEV, ON_MAIN, ACCEPTED, DEFERRED, ...) counts as success.
     return isFailureOutcome(outcome)
@@ -7959,7 +7959,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
   }
 
   // ── Topology rollback — undo the LAST promotion to main ──────────────────
-  // The Branch Topology footer's reverse of RUN GATE & MERGE. Targets main's
+  // The DevOps Station footer's reverse of RUN GATE & MERGE. Targets main's
   // tip SHA (the last commit promoted) instead of a History row's slice, so it
   // works regardless of register slice→squash bookkeeping. Reuses the same
   // preview/dispatch endpoints (keyed by ?sha=) and the same optimistic
@@ -9975,7 +9975,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
   costCenterInterval = setInterval(fetchCosts, 30000);
   setInterval(updateCostCenterTimestamp, 1000);
 
-  // ── Branch Topology panel (slice 262) ─────────────────────────────────────
+  // ── DevOps Station panel (slice 262) ─────────────────────────────────────
   let _lastBranchState = null;
 
   // Collapse toggle — persisted in localStorage
@@ -10033,7 +10033,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
     const mainTip = bs.main ? bs.main.tip_sha : null;
     const lastMerge = bs.last_merge;
 
-    const ariaLabel = `Branch topology: origin/dev ${ahead} commits ahead of origin/main`;
+    const ariaLabel = `Branch graph: origin/dev ${ahead} commits ahead of origin/main`;
 
     // ── Serpentine layout (Ziyal) ─────────────────────────────────────────────
     // The dev thread FOLDS instead of overflowing: row 0 runs left→right, row 1
