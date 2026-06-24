@@ -2199,7 +2199,7 @@
     margin-bottom: 12px;
     grid-area: graph;
     align-self: start;
-    padding-top: 30px;
+    padding-top: 8px;
   }
   .topo-foot {
     display: flex;
@@ -3659,6 +3659,12 @@ body.lcars-mode .lore-tag { display: inline; }
 .gate-flow-head { font-size: 10px; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.08em; color: #9ca3af; margin-bottom: 9px; }
 .gate-flow-steps { display: block; }
+  .topo-commits { margin-top: 12px; font-family: var(--dvs-mono, ui-monospace, "SF Mono", Menlo, monospace); font-size: 11px; line-height: 1.65; }
+  .topo-commits .topo-c-row { display: flex; gap: 8px; align-items: baseline; max-width: 100%; }
+  .topo-commits .topo-c-k { color: var(--dvs-idle-txt, #94a3b8); width: 44px; flex: none; }
+  .topo-commits .topo-c-sha { color: var(--dvs-act, #2563eb); font-weight: 600; flex: none; }
+  .topo-commits .topo-c-subj { color: var(--dvs-ink, #1f2937); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topo-commits .topo-c-age { color: var(--dvs-idle-txt, #94a3b8); flex: none; margin-left: auto; }
 .gflow-trigger, .gflow-step, .gflow-target {
   display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
   padding: 5px 10px; border-radius: 7px; border: 1px solid #e5e7eb; background: #fff;
@@ -10099,138 +10105,88 @@ body:not(.lcars-mode) .staged-details-body pre code {
     const wrap = document.getElementById('topo-svg-wrap');
     if (!wrap) return;
 
-    const commits = bs.dev && bs.dev.commits ? bs.dev.commits : [];
-    const ahead = bs.dev ? (bs.dev.commits_ahead_of_main || 0) : 0;
-    const mainTip = bs.main ? bs.main.tip_sha : null;
+    const commits   = bs.dev && bs.dev.commits ? bs.dev.commits : [];
+    const ahead     = bs.dev ? (bs.dev.commits_ahead_of_main || 0) : 0;
+    const mainTip   = bs.main ? bs.main.tip_sha : null;
     const lastMerge = bs.last_merge;
+    const n         = commits.length;
+
+    // origin/main (base)
+    const mainSha   = (lastMerge ? lastMerge.sha : mainTip) || null;
+    const mainSha7  = (mainSha || '').slice(0, 7);
+    const mainNum   = lastMerge ? lastMerge.number : (bs.main ? bs.main.number : null);
+    const mainAge   = lastMerge && lastMerge.age_s != null ? formatAgeShort(lastMerge.age_s) : '';
+    const isMerge   = !!lastMerge;
+
+    // ── Clean horizontal branch map (Ziyal — "mission-control" draft) ──
+    // origin/main runs along the top; the dev branch curves down once and runs
+    // beneath it with a dot per un-merged commit and a "dev +N" head. The viewBox
+    // fits its content so a short ribbon fills its column instead of reserving
+    // room for ten commits.
+    const mainX = 16, mainY = 22, devY = 52;
+    const devX0 = 78, rightPad = 72, maxW = 620;
+    const spacing = n > 1 ? Math.min(54, Math.max(26, (maxW - devX0 - rightPad) / (n - 1))) : 54;
+    const W = n > 0 ? Math.round(devX0 + (n - 1) * spacing + rightPad) : 280;
+    const H = 74;
+    const devX = i => devX0 + i * spacing;
+    const headX = n > 0 ? devX(n - 1) : devX0;
 
     const ariaLabel = `Branch graph: origin/dev ${ahead} commits ahead of origin/main`;
+    let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="height:auto;display:block" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${ariaLabel}">`;
 
-    // ── Serpentine layout (Ziyal) ─────────────────────────────────────────────
-    // The dev thread FOLDS instead of overflowing: row 0 runs left→right, row 1
-    // right→left, and so on, so EVERY unmerged commit is shown without a
-    // horizontal scrollbar. Rows are joined by rounded U-bends, keeping one
-    // continuous green ribbon you can read like boustrophedon text. The panel
-    // grows downward by row, never sideways.
-    // VBW is computed once the commit count is known (just below): a short, single-row
-    // ribbon fits its content so it fills the column; a fold-capable ribbon keeps full width.
-    const xL    = 130, xR = 844;        // horizontal bounds of a row (left margin leaves room for the origin/main branch)
-    const COLS  = 10;                   // commits per row before the ribbon folds
-    const span  = COLS > 1 ? (xR - xL) / (COLS - 1) : 0;
-    const rowH  = 58;                   // vertical distance between folded rows
-    const row0Y = 88;                   // baseline of the first dev row
-    const mainX = 86, mainY = 40;       // origin/main anchor dot, top-left
-    const bulge = 22;                   // how far a U-bend bows past the row edge
+    // main trunk
+    svg += `<line x1="${mainX}" y1="${mainY}" x2="${W - 8}" y2="${mainY}" stroke="var(--branch-main)" stroke-width="2" opacity="0.4" stroke-linecap="round" />`;
 
-    const n    = commits.length;
-    // Fit a short single-row ribbon (≤10 commits) to its content + the origin/dev badge,
-    // so a 2–3 commit graph fills its column instead of reserving room for ten.
-    const VBW  = (n > 0 && n <= COLS) ? Math.min(920, Math.round(xL + (n - 1) * span + 132)) : 920;
-    const rows = Math.max(1, Math.ceil(n / COLS));
-    const H    = row0Y + (rows - 1) * rowH + 44;   // +44 leaves room for hash labels
-
-    // Position of dev dot i — serpentine. Even rows L→R, odd rows R→L, columns
-    // aligned to a fixed grid so folds stack cleanly above one another.
-    function devPos(i) {
-      const row = Math.floor(i / COLS);
-      const col = i % COLS;
-      const ltr = (row % 2 === 0);
-      const x   = ltr ? (xL + col * span) : (xR - col * span);
-      const y   = row0Y + row * rowH;
-      return { x, y, row, ltr };
-    }
-
-    let svg = `<svg viewBox="0 0 ${VBW} ${H}" width="100%" style="height:auto;display:block" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${ariaLabel}">`;
-
-    // ── Dev ribbon (drawn first, beneath the dots) ────────────────────────────
     if (n > 0) {
-      const p0 = devPos(0);
-      // First edge: origin/main → the oldest shown commit. Always DASHED (it can
-      // span commits we don't draw) and routed as a rounded "L" that stays clear of
-      // the first commit's number label — straight down under origin/main, round the
-      // corner, then right along the baseline (which passes UNDER the labels).
-      const cr = 10;
-      svg += `<path d="M ${mainX} ${mainY} L ${mainX} ${p0.y - cr} Q ${mainX} ${p0.y} ${mainX + cr} ${p0.y} L ${p0.x} ${p0.y}" `
-           + `fill="none" stroke="var(--branch-dev)" stroke-width="2" stroke-dasharray="5 5" stroke-linecap="round" />`;
-
-      // Walk the commits: straight runs within a row, bowed U-bends at each fold.
-      let d = `M ${p0.x} ${p0.y}`;
-      for (let i = 1; i < n; i++) {
-        const a = devPos(i - 1);
-        const b = devPos(i);
-        if (a.row === b.row) {
-          d += ` L ${b.x} ${b.y}`;
-        } else {
-          const bx = a.ltr ? (xR + bulge) : (xL - bulge);   // even rows end right
-          d += ` C ${bx} ${a.y}, ${bx} ${b.y}, ${b.x} ${b.y}`;
-        }
-      }
-      svg += `<path d="${d}" fill="none" stroke="var(--branch-dev)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />`;
-
-      // Short dashed tail past the head, in its travel direction — "work continues".
-      const last  = devPos(n - 1);
-      const tailX = last.ltr
-        ? Math.min(last.x + span * 0.7, xR + bulge)
-        : Math.max(last.x - span * 0.7, xL - bulge);
-      svg += `<line x1="${last.x}" y1="${last.y}" x2="${tailX}" y2="${last.y}" stroke="var(--branch-dev)" stroke-width="2" stroke-dasharray="6 4" opacity="0.7" />`;
+      // dev branch: one smooth curve down from main, then horizontal to the head
+      svg += `<path d="M ${mainX} ${mainY} C ${mainX + 36} ${mainY}, ${devX0 - 32} ${devY}, ${devX0} ${devY} L ${headX} ${devY}" fill="none" stroke="var(--branch-dev)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />`;
+      // short dashed tail — "work continues"
+      svg += `<line x1="${headX}" y1="${devY}" x2="${headX + 28}" y2="${devY}" stroke="var(--branch-dev)" stroke-width="2" stroke-dasharray="5 4" opacity="0.55" stroke-linecap="round" />`;
     } else {
-      // Nothing ahead — dev is level with main (just promoted / up to date).
-      svg += `<line x1="${mainX}" y1="${row0Y}" x2="${xR}" y2="${row0Y}" stroke="var(--branch-dev)" stroke-width="2" stroke-dasharray="6 4" opacity="0.5" />`;
+      svg += `<line x1="${mainX}" y1="${devY}" x2="${W - 8}" y2="${devY}" stroke="var(--branch-dev)" stroke-width="2" stroke-dasharray="6 4" opacity="0.35" />`;
     }
 
-    // ── origin/main dot — top-left anchor the ribbon springs from ─────────────
-    {
-      const mainSha    = lastMerge ? lastMerge.sha : (mainTip || null);
-      const isMerge    = !!lastMerge;
-      const num        = lastMerge ? lastMerge.number : (bs.main ? bs.main.number : null);
-      const sha7       = (mainSha || '').slice(0, 7);
-      const promotedAge = lastMerge && lastMerge.age_s != null ? formatAgeShort(lastMerge.age_s) : '';
-      if (mainSha) {
-        // Give origin/main a visible branch length — a horizontal stub into the dot,
-        // so it reads as a branch rather than a lone node.
-        svg += `<line x1="18" y1="${mainY}" x2="${mainX}" y2="${mainY}" stroke="var(--branch-main)" stroke-width="2.5" stroke-linecap="round" />`;
-        svg += `<text x="${mainX}" y="${mainY - 16}" text-anchor="middle" font-size="9" font-weight="600" fill="var(--branch-main)">origin/main</text>`;
-        svg += `<circle cx="${mainX}" cy="${mainY}" r="${isMerge ? 7.5 : 6}" fill="var(--branch-main)">`;
-        svg += `<title>origin/main: ${sha7}${promotedAge ? ` — promoted ${promotedAge} ago by the gate` : ''}</title></circle>`;
-        if (isMerge) {
-          svg += `<path d="M${mainX - 3} ${mainY} l2 3 l4 -5" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round" />`;
-        }
-        svg += `<text x="${mainX}" y="${mainY + 18}" text-anchor="middle" font-size="10" font-weight="${isMerge ? 600 : 400}" fill="${isMerge ? 'var(--ok)' : 'var(--ink-4)'}">${commitLabel(num, sha7)}${promotedAge ? ` · ${promotedAge}` : ''}</text>`;
-      }
+    // origin/main label + dot
+    svg += `<text x="${mainX - 2}" y="${mainY - 9}" text-anchor="start" font-size="9" font-weight="600" fill="var(--branch-main)">origin/main</text>`;
+    if (mainSha) {
+      svg += `<circle cx="${mainX}" cy="${mainY}" r="${isMerge ? 6.5 : 5.5}" fill="var(--branch-main)"><title>origin/main: ${mainSha7}${mainAge ? ` — promoted ${mainAge}` : ''}</title></circle>`;
+      if (isMerge) svg += `<path d="M${mainX - 2.6} ${mainY} l1.8 2.6 l3.4 -4.6" stroke="#fff" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round" />`;
     }
 
-    // ── Dev dots — each tooltip carries subject + age so the graph answers
-    // "what is this commit, how old" without leaving the panel. Number sits
-    // above the dot, hash below; the head wears the origin/dev badge.
+    // dev dots
     for (let i = 0; i < n; i++) {
       const d = commits[i];
-      const pos = devPos(i);
+      const x = devX(i);
       const sha7 = (d.sha || '').slice(0, 7);
-      const isHead = (i === n - 1);
+      const isHead = i === n - 1;
       const age = d.age_s != null ? formatAgeShort(d.age_s) : '';
       const subj = d.subject ? _promoteEsc(d.subject) : '';
-      const tip = `${isHead ? 'origin/dev' : 'dev'}: ${sha7}${subj ? ` — ${subj}` : ''}${age ? ` · ${age} ago` : ''}`;
-
-      // Slice ID annotation (rare) — sits highest so it never collides with the number.
-      if (d.slice_id) {
-        svg += `<text x="${pos.x}" y="${pos.y - (isHead ? 30 : 26)}" text-anchor="middle" font-size="9" font-weight="600" fill="var(--rom)">${d.slice_id}</text>`;
-      }
-
+      const tip = `${isHead ? 'origin/dev' : 'dev'}: ${sha7}${subj ? ` — ${subj}` : ''}${age ? ` · ${age}` : ''}`;
       if (isHead) {
-        svg += `<rect x="${pos.x - 32}" y="${pos.y - 24}" width="64" height="14" rx="3" fill="var(--branch-dev)" />`;
-        svg += `<text x="${pos.x}" y="${pos.y - 14}" text-anchor="middle" font-size="9" font-weight="700" letter-spacing="0.5" fill="#fff">origin/dev</text>`;
-        svg += `<circle cx="${pos.x}" cy="${pos.y}" r="7.5" fill="var(--branch-dev)"><title>${tip}</title></circle>`;
-        svg += `<text x="${pos.x}" y="${pos.y + 20}" text-anchor="middle" font-size="10" font-weight="600" fill="var(--ink-4)">${commitLabel(d.number, sha7)}</text>`;
+        svg += `<rect x="${x - 28}" y="${devY - 27}" width="56" height="14" rx="7" fill="var(--branch-dev)" />`;
+        svg += `<text x="${x}" y="${devY - 17}" text-anchor="middle" font-size="8.5" font-weight="700" letter-spacing="0.3" fill="#fff">dev +${ahead}</text>`;
+        svg += `<circle cx="${x}" cy="${devY}" r="6.5" fill="var(--branch-dev)" stroke="var(--bg-panel)" stroke-width="1.5"><title>${tip}</title></circle>`;
       } else {
-        const numTag = fmtCommitNum(d.number);
-        if (numTag) svg += `<text x="${pos.x}" y="${pos.y - 13}" text-anchor="middle" font-size="10" font-weight="600" fill="#6b7280">${numTag}</text>`;
-        svg += `<circle cx="${pos.x}" cy="${pos.y}" r="6" fill="var(--branch-dev)"><title>${tip}</title></circle>`;
-        svg += `<text x="${pos.x}" y="${pos.y + 18}" text-anchor="middle" font-size="10" fill="var(--ink-4)">${sha7}</text>`;
+        svg += `<circle cx="${x}" cy="${devY}" r="4.5" fill="var(--branch-dev)"><title>${tip}</title></circle>`;
       }
     }
-
     svg += '</svg>';
-    wrap.innerHTML = svg;
+
+    // ── commit details (draft style: newest + base) ──
+    let info = '<div class="topo-commits">';
+    if (n > 0) {
+      const head  = commits[n - 1];
+      const hSha  = (head.sha || '').slice(0, 7);
+      const hSubj = head.subject ? _promoteEsc(head.subject) : '';
+      const hAge  = head.age_s != null ? formatAgeShort(head.age_s) : '';
+      info += `<div class="topo-c-row"><span class="topo-c-k">newest</span><span class="topo-c-sha">${hSha}</span><span class="topo-c-subj">${hSubj || ('origin/dev ' + fmtCommitNum(head.number))}</span>${hAge ? `<span class="topo-c-age">· ${hAge}</span>` : ''}</div>`;
+    }
+    if (mainSha) {
+      info += `<div class="topo-c-row"><span class="topo-c-k">base</span><span class="topo-c-sha">${mainSha7}</span><span class="topo-c-subj">origin/main ${fmtCommitNum(mainNum)}</span>${mainAge ? `<span class="topo-c-age">· ${mainAge}</span>` : ''}</div>`;
+    }
+    info += '</div>';
+
+    wrap.innerHTML = svg + info;
   }
 
   // Merge Pressure band from score — validation urgency, NOT regression probability.
