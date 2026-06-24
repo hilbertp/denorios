@@ -2080,6 +2080,65 @@
   .queue-state-badge.state-needs-apendment  { background: #fef3c7; color: #92400e; border-color: var(--warn-border); }
 
   /* ── DEVOPS STATION PANEL (slice 262) ────────────────────── */
+
+  /* ══ DevOps Station — instrument pipelines (mission-control draft, live-wired) ══ */
+  .gate-flow-steps {
+    --dvs-idle-line:#cbd5e1; --dvs-idle-txt:#94a3b8;
+    --dvs-act:#2563eb; --dvs-act-track:#dbe4ff; --dvs-act-bg:#eef3ff;
+    --dvs-need:#b45309; --dvs-need-acc:#f59e0b; --dvs-need-bg:#fffbeb;
+    --dvs-done:#15803d; --dvs-done-acc:#22c55e; --dvs-done-bg:#f0fdf4;
+    --dvs-fail:#b91c1c; --dvs-fail-acc:#ef4444; --dvs-fail-bg:#fef2f2;
+    --dvs-panel:#ffffff; --dvs-bd:#e6eaf0; --dvs-ink:#1f2937; --dvs-muted:#64748b;
+    --dvs-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  body.lcars-mode .gate-flow-steps {
+    --dvs-idle-line:#475569; --dvs-idle-txt:#64748b;
+    --dvs-act:#7c9cff; --dvs-act-track:#1e2740; --dvs-act-bg:#101826;
+    --dvs-need:#ffb454; --dvs-need-acc:#ffb454; --dvs-need-bg:#1a1408;
+    --dvs-done:#4ade80; --dvs-done-acc:#4ade80; --dvs-done-bg:#0c1a10;
+    --dvs-fail:#ff6b6b; --dvs-fail-acc:#ff6b6b; --dvs-fail-bg:#1c0f0f;
+    --dvs-panel:#0e121b; --dvs-bd:#1c2430; --dvs-ink:#cbd5e1; --dvs-muted:#64748b;
+  }
+  .dvs-track { margin-top:16px; }
+  .dvs-track:first-child { margin-top:2px; }
+  .dvs-track.locked { opacity:.6; }
+  .dvs-trkhd { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .dvs-trkname { font-family:var(--dvs-mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--dvs-ink); display:flex; align-items:center; gap:7px; }
+  .dvs-trkname .dvs-dot { width:6px; height:6px; border-radius:50%; background:var(--dvs-idle-line); }
+  .dvs-trkname.run .dvs-dot { background:var(--dvs-act); }
+  .dvs-trkname.need .dvs-dot { background:var(--dvs-need-acc); }
+  .dvs-trkname.fail .dvs-dot { background:var(--dvs-fail-acc); }
+  .dvs-trkname.done .dvs-dot { background:var(--dvs-done-acc); }
+  .dvs-chip { font-family:var(--dvs-mono); font-size:10px; letter-spacing:.04em; color:var(--dvs-muted); background:transparent; border:1px solid var(--dvs-bd); border-radius:20px; padding:3px 9px; display:inline-flex; align-items:center; gap:5px; }
+  .dvs-chip i { width:5px; height:5px; border-radius:50%; background:var(--dvs-idle-txt); display:inline-block; }
+  .dvs-flow { display:flex; align-items:flex-start; }
+  .dvs-node { flex:none; width:60px; display:flex; flex-direction:column; align-items:center; text-align:center; }
+  .dvs-box { width:32px; height:32px; border-radius:9px; border:1.5px solid var(--dvs-idle-line); background:var(--dvs-panel); display:flex; align-items:center; justify-content:center; color:var(--dvs-idle-txt); position:relative; transition:border-color .2s, background .2s, box-shadow .2s, color .2s; }
+  .dvs-box svg { width:16px; height:16px; display:block; }
+  .dvs-nlab { font-size:10px; color:var(--dvs-idle-txt); margin-top:7px; line-height:1.25; }
+  .dvs-ntime { font-family:var(--dvs-mono); font-size:10px; color:var(--dvs-idle-txt); margin-top:3px; }
+  .dvs-pipe { flex:1; height:32px; display:flex; align-items:center; min-width:12px; }
+  .dvs-tube { width:100%; height:6px; border-radius:3px; background:var(--dvs-idle-line); overflow:hidden; position:relative; }
+  .dvs-tube.done { background:var(--dvs-done-acc); }
+  .dvs-box.done { border-color:var(--dvs-done-acc); color:var(--dvs-done); background:var(--dvs-done-bg); }
+  .dvs-box.act  { border-color:var(--dvs-act); color:var(--dvs-act); background:var(--dvs-act-bg); box-shadow:0 0 0 4px var(--dvs-act-track); }
+  .dvs-box.need { border-color:var(--dvs-need-acc); color:var(--dvs-need); background:var(--dvs-need-bg); box-shadow:0 0 0 4px var(--dvs-need-bg); }
+  .dvs-box.fail { border-color:var(--dvs-fail-acc); color:var(--dvs-fail); background:var(--dvs-fail-bg); box-shadow:0 0 0 4px var(--dvs-fail-bg); }
+  .dvs-node.act .dvs-nlab, .dvs-node.act .dvs-ntime { color:var(--dvs-act); }
+  .dvs-node.need .dvs-nlab { color:var(--dvs-need); }
+  .dvs-node.fail .dvs-nlab, .dvs-node.fail .dvs-ntime { color:var(--dvs-fail); }
+  .dvs-node.done .dvs-nlab, .dvs-node.done .dvs-ntime { color:var(--dvs-ink); }
+  .dvs-tube.active { background:var(--dvs-act-track); }
+  .dvs-tube.active::before { content:""; position:absolute; inset:0; background:linear-gradient(90deg,transparent 0%,var(--dvs-act) 35%,var(--dvs-act) 55%,transparent 100%); background-size:50% 100%; animation:dvs-flow 1.05s linear infinite; }
+  @keyframes dvs-flow { 0%{ background-position:-60% 0; } 100%{ background-position:160% 0; } }
+  .dvs-lockrow { display:flex; align-items:center; gap:6px; font-family:var(--dvs-mono); font-size:11px; color:var(--dvs-muted); margin-top:10px; }
+  .dvs-lockrow svg { width:13px; height:13px; }
+  .dvs-readout { display:flex; align-items:center; justify-content:space-between; margin-top:14px; padding-top:11px; border-top:1px dashed var(--dvs-bd); font-family:var(--dvs-mono); font-size:11px; color:var(--dvs-muted); }
+  .dvs-readout .dvs-live { color:var(--dvs-act); display:flex; align-items:center; gap:6px; }
+  .dvs-readout .dvs-pulse { width:6px; height:6px; border-radius:50%; background:var(--dvs-act); animation:dvs-pulse 1.05s ease-in-out infinite; }
+  @keyframes dvs-pulse { 0%,100%{ opacity:.35; } 50%{ opacity:1; } }
+  .dvs-bigtime { font-variant-numeric:tabular-nums; color:var(--dvs-ink); }
+  @media (prefers-reduced-motion: reduce) { .dvs-tube.active::before, .dvs-readout .dvs-pulse { animation:none; } }
   .topo-row {
     display: grid;
     grid-template-columns: 1fr;
@@ -10553,17 +10612,28 @@ body:not(.lcars-mode) .staged-details-body pre code {
   async function runTestUpdateCheck() {
     const btn = document.getElementById('check-updates-btn');
     if (btn) { btn.disabled = true; btn.innerHTML = '&#8635; CHECKING&#8230;'; }
+    _testUpdatesChecking = true;
+    if (_lastBranchState && _lastBranchState.github) renderGateFlow(_lastBranchState.github);
     try {
       const res = await fetch('/api/check-test-updates', { cache: 'no-store' });
       const rep = await res.json();
       const gh = _lastBranchState ? _lastBranchState.github : null;
       _testUpdatesSha = gh && gh.origin_dev_sha;
-      if (rep.ready) _testUpdatesReady = true;   // nothing to decide → unlock straight away
-      else openTestUpdatesOverlay(rep);          // low-confidence ACs → operator decides
+      if (rep.ready) {                            // nothing to decide → unlock straight away
+        _testUpdatesReady = true; _testUpdatesPending = null;
+      } else {                                    // low-confidence ACs → operator decides
+        const _n = (rep.decisions && rep.decisions.length) || (rep.pending && rep.pending.length) || (Array.isArray(rep.acs) ? rep.acs.length : 0) || 1;
+        _testUpdatesPending = { sha: _testUpdatesSha, count: _n };
+        openTestUpdatesOverlay(rep);
+      }
     } catch (e) {
       _promoteSlotError = 'test-update check failed: network error';
     } finally {
-      if (_lastBranchState) renderPromoteAction(_lastBranchState);
+      _testUpdatesChecking = false;
+      if (_lastBranchState) {
+        renderPromoteAction(_lastBranchState);
+        if (_lastBranchState.github) renderGateFlow(_lastBranchState.github);
+      }
     }
   }
 
@@ -10910,6 +10980,80 @@ body:not(.lcars-mode) .staged-details-body pre code {
   //   RUN GATE → ① Update tests → ② Run fast regression → ③ E2E smoke test → ④ Promote
   // Any step fails → STOP, main untouched & flagged. All pass → promoted.
   // Reflects the real promote_run.phases (status + duration_s) and live elapsed.
+  // ── DevOps Station instrument: two-pipeline track renderers (live-wired) ──
+  let _testUpdatesChecking = false;
+  let _testUpdatesPending = null;   // { sha, count } when low-confidence ACs await the human
+  let _dvsElapsedRAF = null;
+  let _dvsActivePrior = 0;          // sum of completed phase durations before the active step (s)
+
+  function dvsIcon(name) {
+    const p = {
+      scan:      '<circle cx="12" cy="12" r="3"/><path d="M3 12h6M15 12h6"/>',
+      reconcile: '<path d="M3 7h11M3 12h11M3 17h7"/><path d="M15 17l2 2 4-4"/>',
+      resolve:   '<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/>',
+      question:  '<circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.4 2.4 0 1 1 3.4 2.2c-.8.4-1.1.9-1.1 1.6"/><path d="M12 16.6h.01"/>',
+      package:   '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/>',
+      bolt:      '<path d="M13 3L5 13h6l-1 8 9-12h-6z"/>',
+      browser:   '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/>',
+      merge:     '<circle cx="6" cy="5" r="2.4"/><circle cx="6" cy="19" r="2.4"/><circle cx="18" cy="9" r="2.4"/><path d="M6 7.4v9.2M6 12c0-2 2-3 9.6-3"/>',
+      check:     '<path d="M5 12l4 4 10-11"/>',
+      x:         '<path d="M6 6l12 12M18 6L6 18"/>',
+      lock:      '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'
+    }[name] || '<circle cx="12" cy="12" r="2"/>';
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + p + '</svg>';
+  }
+
+  // Pipeline A (test-update) node config from a collective state.
+  function dvsTrackANodes(state, needCount) {
+    if (state === 'ready')   return { nodes: [{ic:'scan',l:'scan ACs',s:'done',t:''},{ic:'reconcile',l:'reconcile',s:'done',t:''},{ic:'resolve',l:'resolve',s:'done',t:'ready'}], pipes: ['done','done'] };
+    if (state === 'need')    return { nodes: [{ic:'scan',l:'scan ACs',s:'done',t:''},{ic:'reconcile',l:'reconcile',s:'done',t:''},{ic:'question',l:'resolve',s:'need',t:needCount+' to you'}], pipes: ['done','done'] };
+    if (state === 'fail')    return { nodes: [{ic:'scan',l:'scan ACs',s:'done',t:''},{ic:'reconcile',l:'reconcile',s:'done',t:''},{ic:'x',l:'resolve',s:'fail',t:'RED'}], pipes: ['done','idle'] };
+    if (state === 'running') return { nodes: [{ic:'scan',l:'scan ACs',s:'act',t:'…'},{ic:'reconcile',l:'reconcile',s:'idle',t:'—'},{ic:'resolve',l:'resolve',s:'idle',t:'—'}], pipes: ['active','idle'] };
+    return { nodes: [{ic:'scan',l:'scan ACs',s:'idle',t:'—'},{ic:'reconcile',l:'reconcile',s:'idle',t:'—'},{ic:'resolve',l:'resolve',s:'idle',t:'—'}], pipes: ['idle','idle'] };
+  }
+
+  // Render one horizontal track: header (name + owner chip) + node/pipe flow + optional lock row.
+  function dvsTrack(name, owner, dotcls, nodes, pipes, locked) {
+    let flow = '<div class="dvs-flow">';
+    nodes.forEach((n, i) => {
+      const ns = (n.s && n.s !== 'idle') ? n.s : '';
+      flow += '<div class="dvs-node ' + ns + '">'
+        + '<div class="dvs-box ' + ns + '">' + dvsIcon(n.ic) + '</div>'
+        + '<div class="dvs-nlab">' + n.l + '</div>'
+        + '<div class="dvs-ntime"' + (n.live ? ' data-dvs-nodetime="1"' : '') + '>' + (n.t || '') + '</div>'
+        + '</div>';
+      if (i < pipes.length) {
+        const p = pipes[i];
+        const cls = p === 'active' ? 'dvs-tube active' : p === 'done' ? 'dvs-tube done' : 'dvs-tube';
+        flow += '<div class="dvs-pipe"><div class="' + cls + '"></div></div>';
+      }
+    });
+    flow += '</div>';
+    return '<div class="dvs-track' + (locked ? ' locked' : '') + '">'
+      + '<div class="dvs-trkhd"><div class="dvs-trkname ' + (dotcls || '') + '"><span class="dvs-dot"></span>' + name + '</div>'
+      + '<span class="dvs-chip"><i></i>' + owner + '</span></div>'
+      + flow
+      + (locked ? '<div class="dvs-lockrow">' + dvsIcon('lock') + ' locked — pass Pipeline A to unlock</div>' : '')
+      + '</div>';
+  }
+
+  // One monotonic rAF loop smooths the live elapsed readout + active node time between polls.
+  function dvsStartElapsed(running) {
+    if (!running) { if (_dvsElapsedRAF) cancelAnimationFrame(_dvsElapsedRAF); _dvsElapsedRAF = null; return; }
+    if (_dvsElapsedRAF) return;
+    const step = () => {
+      if (_gateClientStartedAt) {
+        const tot = Math.max(0, (Date.now() - _gateClientStartedAt) / 1000);
+        const big = document.querySelector('[data-dvs-elapsed]');
+        if (big) big.textContent = tot.toFixed(1) + 's';
+        const nd = document.querySelector('[data-dvs-nodetime]');
+        if (nd) nd.textContent = Math.max(0, tot - _dvsActivePrior).toFixed(1) + 's';
+      }
+      _dvsElapsedRAF = requestAnimationFrame(step);
+    };
+    _dvsElapsedRAF = requestAnimationFrame(step);
+  }
+
   function renderGateFlow(gh) {
     const host = document.getElementById('gate-flow-steps');
     const cap  = document.getElementById('gate-flow-caption');
@@ -11015,7 +11159,58 @@ body:not(.lcars-mode) .staged-details-body pre code {
     // No trailing "merged" node — a merge is the RESULT of step ④ Promote, not a
     // separate step. Success/held state is carried by the Promote step + the caption.
     const separator = setupHtml && stepHtml ? arrow : '';
-    host.innerHTML = updateTestsHtml + arrow + setupHtml + separator + stepHtml;
+    // ── DevOps Station — two horizontal pipelines (mission-control, live-wired) ──
+    const _devSha = gh && gh.origin_dev_sha ? gh.origin_dev_sha : null;
+    const _checkPassed = _testUpdatesReady && _testUpdatesSha && _testUpdatesSha === _devSha;
+    const _needCount = (_testUpdatesPending && _testUpdatesPending.sha === _devSha) ? _testUpdatesPending.count : 0;
+    const _bLocked = !_checkPassed && !running && !success && !failed;
+
+    // Pipeline A — test-update
+    const _tn = byKey['tests-needed'] || null;
+    let _aState;
+    if (_tn && _tn.status === 'failed') _aState = 'fail';
+    else if (_needCount > 0) _aState = 'need';
+    else if (_testUpdatesChecking) _aState = 'running';
+    else if (_checkPassed || running || success || failed) _aState = 'ready';
+    else if (_tn && _tn.status === 'running') _aState = 'running';
+    else _aState = 'idle';
+    const _a = dvsTrackANodes(_aState, _needCount);
+    const _aDot = _aState === 'idle' ? '' : _aState === 'ready' ? 'done' : _aState;
+    const _trackA = dvsTrack('Pipeline A &middot; test-update', 'Julian', _aDot, _a.nodes, _a.pipes, false);
+
+    // Pipeline B — run-tests & merge (load deps -> regression -> e2e -> promote)
+    _dvsActivePrior = 0;
+    const _reg = byKey['regression'];
+    const _setupStarted = _reg && _reg.status !== 'idle' && _reg.status !== 'pending';
+    const _setupS = running && !_setupStarted ? 'act' : (_setupStarted || success || failed) ? 'done' : 'idle';
+    const _term = (st) => st === 'passed' || st === 'failed' || st === 'skipped';
+    let _bActive = _setupS === 'act';
+    let _bPrior = 0;
+    const _bNodes = [{ ic:'package', l:'load deps', s:_setupS, t: _setupS === 'done' ? 'ready' : (_setupS === 'act' ? '…' : '—'), live: _setupS === 'act' }];
+    [{k:'regression',l:'regression',ic:'bolt'},{k:'e2e',l:'E2E smoke',ic:'browser'},{k:'ff',l:'promote',ic:'merge'}].forEach(pd => {
+      const ph = byKey[pd.k];
+      let st = ph ? ph.status : 'idle';
+      if (running && !_bActive && !_term(st)) { st = 'running'; _bActive = true; }
+      const s = st === 'passed' ? 'done' : st === 'running' ? 'act' : st === 'failed' ? 'fail' : 'idle';
+      let t = '—';
+      if (ph && ph.duration_s != null) { t = ph.duration_s + 's'; _bPrior += ph.duration_s; }
+      else if (s === 'act') { _dvsActivePrior = _bPrior; if (_gateClientStartedAt) { const tot = Math.max(0, Math.floor((Date.now() - _gateClientStartedAt) / 1000)); t = Math.max(0, tot - _bPrior) + 's'; } else t = 'live'; }
+      else if (s === 'fail') t = 'FAIL';
+      _bNodes.push({ ic: s === 'done' ? 'check' : s === 'fail' ? 'x' : pd.ic, l: pd.l, s, t, live: s === 'act' });
+    });
+    const _bPipes = [];
+    for (let _i = 0; _i < _bNodes.length - 1; _i++) { const L = _bNodes[_i].s, R = _bNodes[_i + 1].s; _bPipes.push(L === 'done' && R === 'act' ? 'active' : L === 'done' ? 'done' : 'idle'); }
+    const _bDot = failed ? 'fail' : running ? 'run' : success ? 'done' : '';
+    const _trackB = dvsTrack('Pipeline B &middot; run-tests &amp; merge', 'Worf', _bDot, _bNodes, _bPipes, _bLocked);
+
+    // Live readout — the prominent elapsed clock (smoothed by rAF, never jumps)
+    let _readout = '';
+    if (running) {
+      const _an = _bNodes.find(n => n.s === 'act');
+      _readout = '<div class="dvs-readout"><span class="dvs-live"><span class="dvs-pulse"></span>' + (_an ? _an.l + ' running' : 'gate running') + '</span><span>elapsed <span class="dvs-bigtime" data-dvs-elapsed="1">' + (_gateElapsedLabel() || '0s') + '</span></span></div>';
+    }
+    host.innerHTML = _trackA + _trackB + _readout;
+    dvsStartElapsed(running);
 
     // Per-push CI (ci.yml) — the automatic check that runs on every push, distinct
     // from the operator gate above. Folded in here so it isn't a redundant panel.

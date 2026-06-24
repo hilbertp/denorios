@@ -177,9 +177,10 @@ test('a stale success (already-promoted sha) does NOT read as merged while dev i
   // Held — the new commits are ungated. The gate trigger (button) still says RUN GATE; no success caption.
   await expect(page.locator('#promote-gate-btn')).toContainText('RUN GATE');
   await expect(caption.locator('.gflow-cap-ok')).toHaveCount(0);
-  // No stale green: none of the suite steps may paint the old run's ✓ as the current gate.
-  for (const name of ['Regression', 'E2E smoke test', 'Promote']) {
-    await expect(steps.locator('.gflow-step', { hasText: name })).not.toHaveClass(/gflow-passed/);
+  // No stale green: none of the suite steps may paint the old run's done state as the current gate.
+  for (const name of ['regression', 'E2E smoke', 'promote']) {
+    const node = steps.locator('.dvs-node', { hasText: name });
+    await expect(node.locator('.dvs-box')).not.toHaveClass(/done/);
   }
 
   // The button is live to actually gate the new commits.
@@ -204,11 +205,12 @@ test('clicking RUN GATE past a stale success shows GATE RUNNING (optimism is not
   await expect(btn).toContainText('GATE RUNNING', { timeout: 7000 });
 
   // And — the bug Philipp caught — while running past a stale success, the stepper must
-  // NOT paint the OLD run's all-green phases as the current gate. No passed suite steps;
+  // NOT paint the OLD run's all-green phases as the current gate. No done suite steps;
   // it waits for the real run to report.
   const steps = page.locator('#gate-flow-steps');
-  for (const name of ['Regression', 'E2E smoke test', 'Promote']) {
-    await expect(steps.locator('.gflow-step', { hasText: name })).not.toHaveClass(/gflow-passed/);
+  for (const name of ['regression', 'E2E smoke', 'promote']) {
+    const node = steps.locator('.dvs-node', { hasText: name });
+    await expect(node.locator('.dvs-box')).not.toHaveClass(/done/);
   }
 });
 
@@ -233,8 +235,8 @@ test('during a gate run the REGRESSION row shows the gate step running — not t
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(GATE_REG_RUNNING) }));
   await page.goto('/');
 
-  const regStep = page.locator('#gate-flow-steps .gflow-step', { hasText: 'Regression' });
-  await expect(regStep).toHaveClass(/gflow-running/);          // it's the gate's regression, running
+  const regStep = page.locator('#gate-flow-steps .dvs-node', { hasText: 'regression' });
+  await expect(regStep.locator('.dvs-box')).toHaveClass(/act/); // it's the gate's regression, running
   await expect(regStep).not.toContainText('run #44');          // NOT the stale per-push green ✓
   await expect(regStep).not.toContainText('passing');
   // The per-push ci.yml run is shown SEPARATELY and clearly labeled — never conflated with the gate.
@@ -260,11 +262,13 @@ test('the Promote row shows the gate phases live — regression passes (with dur
   await page.goto('/');
 
   const steps = page.locator('#gate-flow-steps');
-  // Regression is shown PASSED with its real duration — proof it ran, before e2e/merge.
-  const regStep = steps.locator('.gflow-step', { hasText: 'Regression' });
-  await expect(regStep).toHaveClass(/gflow-passed/);
+  // Regression is shown DONE with its real duration — proof it ran, before e2e/merge.
+  const regStep = steps.locator('.dvs-node', { hasText: 'regression' });
+  await expect(regStep.locator('.dvs-box')).toHaveClass(/done/);
   await expect(regStep).toContainText('2s');
-  // e2e is shown running; the fast-forward has not happened yet (its step is pending).
-  await expect(steps.locator('.gflow-step', { hasText: 'E2E smoke test' })).toHaveClass(/gflow-running/);
-  await expect(steps.locator('.gflow-step', { hasText: 'Promote' })).toHaveClass(/gflow-pending/);
+  // e2e is shown running; the fast-forward has not happened yet (its node is pending — no state class).
+  const e2eStep = steps.locator('.dvs-node', { hasText: 'E2E smoke' });
+  await expect(e2eStep.locator('.dvs-box')).toHaveClass(/act/);
+  const promoteStep = steps.locator('.dvs-node', { hasText: 'promote' });
+  await expect(promoteStep.locator('.dvs-box')).not.toHaveClass(/done|act|fail/);
 });

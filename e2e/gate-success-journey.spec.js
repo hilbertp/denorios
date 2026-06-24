@@ -10,9 +10,11 @@ const { test, expect } = require('@playwright/test');
 // function of /api/branch-state. So we stub that endpoint with a SEQUENCE of snapshots —
 // the gate's lifecycle — and step through it, forcing the dashboard's own
 // fetchBranchState() poll between steps and asserting the operator-visible UI at each
-// stage. The surface is the gate-flow STEPPER (#gate-flow-steps): ① Update tests →
-// ② Regression → ③ Browser e2e → ④ Fast-forward → origin/main, each step's status shown
-// by its .gflow-{idle,pending,running,passed,failed} class + glyph + duration.
+// stage. The surface is the two-track gate-flow PIPELINE (#gate-flow-steps): Pipeline A
+// (test-update: scan ACs → reconcile → resolve, owner Julian) and Pipeline B
+// (run-tests & merge: load deps → regression → E2E smoke → promote, owner Worf). Each
+// node's status is carried by its .dvs-box class — done / act / fail (passed / running /
+// failed); a pending/idle node has NO state class. Durations show in .dvs-ntime.
 //
 // Phase keys are the SERVER's real keys (regression / e2e / ff) — using the dashboard's
 // display key instead would let an ff/fast-forward drift bug hide (see j-promote-gate-phases).
@@ -89,16 +91,19 @@ test('full gate-success clicktest: held → run gate → regression → e2e → 
 
   await page.goto('/');
   const steps  = page.locator('#gate-flow-steps');
-  const setupStep = steps.locator('.gflow-step', { hasText: 'Loading pipeline' });
-  const regStep = steps.locator('.gflow-step', { hasText: 'Regression' });
-  const e2eStep = steps.locator('.gflow-step', { hasText: 'E2E smoke test' });
-  const ffStep  = steps.locator('.gflow-step', { hasText: 'Promote' });
+  // Pipeline B nodes — assert state via each node's .dvs-box class (done/act/fail),
+  // never via glyph text (there is no glyph text in the new structure).
+  const setupStep = steps.locator('.dvs-node', { hasText: 'load deps' }).locator('.dvs-box');
+  const regStep = steps.locator('.dvs-node', { hasText: 'regression' }).locator('.dvs-box');
+  const e2eStep = steps.locator('.dvs-node', { hasText: 'E2E smoke' }).locator('.dvs-box');
+  const ffStep  = steps.locator('.dvs-node', { hasText: 'promote' }).locator('.dvs-box');
   const btn     = page.locator('#promote-gate-btn');
 
   // ── Stage 0 · HELD — nothing gated yet, no green tick, stale run not shown current ─
   await expect(page.locator('#promote-gate-btn')).toContainText('RUN GATE'); // held: the gate trigger (button) prompts RUN GATE
-  // No stale green: none of the SUITE steps (②③④) may show passed for a stale run.
-  for (const s of [regStep, e2eStep, ffStep]) await expect(s).not.toHaveClass(/gflow-passed/);
+  // No stale green: none of the SUITE nodes (regression / E2E smoke / promote) may show
+  // done (passed) for a stale run.
+  for (const s of [regStep, e2eStep, ffStep]) await expect(s).not.toHaveClass(/done/);
   await expect(btn).toContainText('RUN GATE');
   // Stage ① — "Check for test updates" gates the merge; run it (CLEAR ⇒ unlocks RUN GATE).
   const checkBtn = page.locator('#check-updates-btn');
@@ -113,37 +118,38 @@ test('full gate-success clicktest: held → run gate → regression → e2e → 
   await expect(approve).toBeEnabled();
   await approve.click();
 
-  // ── Stage 1 · QUEUED — run exists but no suite step has started; the "Loading
-  // pipeline · dependencies" step is the CURRENT one (the ~40-50s runner setup window:
-  // checkout, npm install, Playwright browser), so the gap isn't a dead grey nothing.
+  // ── Stage 1 · QUEUED — run exists but no suite step has started; the "load deps"
+  // node is the CURRENT one (the ~40-50s runner setup window: checkout, npm install,
+  // Playwright browser), so the gap isn't a dead grey nothing.
   await gateTo(1);
-  await expect(setupStep).toHaveClass(/gflow-running/);
-  // The suite steps haven't started — none running, none green yet.
-  for (const s of [regStep, e2eStep, ffStep]) await expect(s).not.toHaveClass(/gflow-running/);
-  for (const s of [regStep, e2eStep, ffStep]) await expect(s).not.toHaveClass(/gflow-passed/);
+  await expect(setupStep).toHaveClass(/act/);
+  // The suite nodes haven't started — none active, none done yet.
+  for (const s of [regStep, e2eStep, ffStep]) await expect(s).not.toHaveClass(/act/);
+  for (const s of [regStep, e2eStep, ffStep]) await expect(s).not.toHaveClass(/done/);
 
   // ── Stage 2 · REGRESSION RUNNING ───────────────────────────────────────────────
   await gateTo(2);
-  await expect(regStep).toHaveClass(/gflow-running/);
+  await expect(regStep).toHaveClass(/act/);
 
   // ── Stage 3 · REGRESSION PASSED (with duration), E2E RUNNING ───────────────────
   await gateTo(3);
-  await expect(regStep).toHaveClass(/gflow-passed/);
-  await expect(regStep).toContainText('2s');
-  await expect(e2eStep).toHaveClass(/gflow-running/);
-  await expect(ffStep).not.toHaveClass(/gflow-passed/);            // fast-forward has NOT happened yet
+  await expect(regStep).toHaveClass(/done/);
+  // The duration lives in the node's .dvs-ntime sibling, not the .dvs-box state cell.
+  await expect(steps.locator('.dvs-node', { hasText: 'regression' })).toContainText('2s');
+  await expect(e2eStep).toHaveClass(/act/);
+  await expect(ffStep).not.toHaveClass(/done/);                    // promote (fast-forward) has NOT happened yet
 
   // ── Stage 4 · E2E PASSED (34s — proves it really ran), FAST-FORWARD RUNNING ─────
   await gateTo(4);
-  await expect(e2eStep).toHaveClass(/gflow-passed/);
-  await expect(e2eStep).toContainText('34s');
-  await expect(ffStep).toHaveClass(/gflow-running/);              // ④ reflects the real ff phase (ff-key bug guard)
+  await expect(e2eStep).toHaveClass(/done/);
+  await expect(steps.locator('.dvs-node', { hasText: 'E2E smoke' })).toContainText('34s');
+  await expect(ffStep).toHaveClass(/act/);                       // promote node reflects the real ff phase (ff-key bug guard)
 
   // ── Stage 5 · PROMOTED — main fast-forwarded, every step green, nothing left ────
   await gateTo(5);
-  await expect(ffStep).toHaveClass(/gflow-passed/);              // the fast-forward step finally lights up green
-  await expect(regStep).toHaveClass(/gflow-passed/);
-  await expect(e2eStep).toHaveClass(/gflow-passed/);
+  await expect(ffStep).toHaveClass(/done/);                     // the promote (fast-forward) node finally lights up green
+  await expect(regStep).toHaveClass(/done/);
+  await expect(e2eStep).toHaveClass(/done/);
   // The merge-success popup confirms the promotion and names the tested commit.
   const success = page.locator('#merge-success-overlay');
   await expect(success).toBeVisible();

@@ -66,12 +66,12 @@ test('full gate-FAILURE clicktest: held → run gate → regression FAILS → ga
 
   await page.goto('/');
   const steps   = page.locator('#gate-flow-steps');
-  const regStep = steps.locator('.gflow-step', { hasText: 'Regression' });
+  const regStep = steps.locator('.dvs-node', { hasText: 'regression' });
   const caption = page.locator('#gate-flow-caption');
   const btn     = page.locator('#promote-gate-btn');
 
   // Stage 0 · HELD — the gate hasn't run for this dev tip; press RUN GATE.
-  await expect(regStep).not.toHaveClass(/gflow-passed/);
+  await expect(regStep.locator('.dvs-box')).not.toHaveClass(/done/);
   await expect(btn).toContainText('RUN GATE');
   await page.waitForTimeout(PAUSE);
 
@@ -87,19 +87,18 @@ test('full gate-FAILURE clicktest: held → run gate → regression FAILS → ga
   await expect(approve).toBeEnabled();
   await approve.click();
 
-  // Stage 1 · QUEUED
+  // Stage 1 · QUEUED — pending ⇒ the regression box carries no state class (not done/act/fail).
   await gateTo(1);
-  await expect(regStep).toHaveClass(/gflow-pending/);
+  await expect(regStep.locator('.dvs-box')).not.toHaveClass(/done|act|fail/);
 
   // Stage 2 · REGRESSION RUNNING
   await gateTo(2);
-  await expect(regStep).toHaveClass(/gflow-running/);
+  await expect(regStep.locator('.dvs-box')).toHaveClass(/act/);
 
   // Stage 3 · REGRESSION FAILED — the unhappy ending
   await gateTo(3);
-  // The regression step reads FAILED (✗), not idle.
-  await expect(regStep).toHaveClass(/gflow-failed/);
-  await expect(regStep.locator('.gflow-glyph')).toHaveText('✗');
+  // The regression node reads FAILED (its box carries the "fail" state), not idle.
+  await expect(regStep.locator('.dvs-box')).toHaveClass(/fail/);
   // The gate flow flags the failure: the caption goes red and states main was held.
   await expect(caption.locator('.gflow-cap-fail')).toBeVisible();
   await expect(caption).toContainText('Stopped');
@@ -130,8 +129,8 @@ test('a failed regression PHASE stops the ticking timer immediately and pops the
   await page.goto('/');
 
   await expect(page.locator('#promote-gate-btn')).not.toContainText('GATE RUNNING'); // no ticking
-  const regStep = page.locator('#gate-flow-steps .gflow-step', { hasText: 'Regression' });
-  await expect(regStep).toHaveClass(/gflow-failed/);
+  const regStep = page.locator('#gate-flow-steps .dvs-node', { hasText: 'regression' });
+  await expect(regStep.locator('.dvs-box')).toHaveClass(/fail/);
   await expect(page.locator('#gate-flow-caption')).toContainText('Stopped');
   const popup = page.locator('#gate-failure-overlay');
   await expect(popup).toBeVisible();

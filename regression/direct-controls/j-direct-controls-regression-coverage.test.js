@@ -203,21 +203,28 @@ test('J-direct-controls-ops-ui slice-99809-ac-2 — the shipped dashboard explai
     'merge-pressure tooltip must state it is not a regression probability');
 });
 
-// The crucial process rule: "update tests" is step 1 of the gate — the suites test
-// intended behaviour, so the tests must be updated BEFORE the suite runs or it fails
-// by design. This is enforced at three surfaces: the gate-sequence step, the
-// pre-dispatch checkpoint, and the promote.yml workflow.
-test('J-direct-controls-ops-ui slice-99811-ac-1 — "update tests" is the explicit first step of the gate, before the regression suite runs', () => {
+// The crucial process rule: "update tests" runs BEFORE the regression suite — the
+// suites test intended behaviour, so the tests must be reconciled first or the gate
+// fails by design. In the rewritten DevOps Station this is the dedicated
+// "Pipeline A · test-update" track that must clear before Pipeline B (run-tests &
+// merge) unlocks. Enforced at three surfaces: the gate-flow track, the pre-dispatch
+// checkpoint, and the promote.yml workflow.
+test('J-direct-controls-ops-ui slice-99811-ac-1 — test-update is a distinct pipeline that runs before the regression suite', () => {
   const html = fs.readFileSync(DASHBOARD_SRC, 'utf8');
 
-  // Gate sequence renders an "Update tests" step ahead of the GitHub phases.
-  assert.match(html, /<span class="gflow-label">Update tests<\/span>/,
-    'gate sequence must render an "Update tests" step');
+  // The gate flow renders the test-update work as its own "Pipeline A · test-update"
+  // track (owner Julian), built by dvsTrack with the scan ACs → reconcile → resolve nodes.
+  assert.match(html, /dvsTrack\('Pipeline A &middot; test-update', 'Julian'/,
+    'the gate flow must render a "Pipeline A · test-update" track (owner Julian)');
+  assert.match(html, /l:'scan ACs'[\s\S]*?l:'reconcile'[\s\S]*?l:'resolve'/,
+    'Pipeline A must carry the scan ACs → reconcile → resolve nodes');
 
-  // "Update tests" only goes green when tests were actually updated; with no test
-  // changes it reads "not req." (grey) — never a ✓ implying work that didn't happen.
-  assert.match(html, /gh \? gh\.tests_changed/, 'step 1 must read the tests_changed signal');
-  assert.match(html, /not req\./, 'step 1 must show "not req." when no test update was needed');
+  // The track is driven by the live tests_changed signal: when the dev changeset
+  // touched no check, no test update is required (Pipeline A clears to ready/idle);
+  // when ACs are outstanding, the "resolve" node surfaces the count back to the operator.
+  assert.match(html, /gh \? gh\.tests_changed/, 'the gate flow must read the tests_changed signal');
+  assert.match(html, /l:'resolve',s:'need',t:needCount\+' to you'/,
+    'the resolve node must surface outstanding ACs ("N to you") when a test update is owed');
 
   // RUN GATE opens a checkpoint (not a direct dispatch) requiring the operator to
   // confirm the tests were updated before the suite runs.
@@ -256,7 +263,7 @@ test('J-direct-controls-ops-ui slice-99811-ac-2 — the gate surfaces regression
 
   // The checkpoint loads the plain-language changes and lets the operator STOP.
   assert.ok(html.includes("fetch('/api/test-changes')"), 'checkpoint loads the plain-language test changes');
-  assert.ok(server.includes('tests_changed'), 'branch-state surfaces tests_changed so the gate-flow "Update tests" step can read it');
+  assert.ok(server.includes('tests_changed'), 'branch-state surfaces tests_changed so the gate-flow "Pipeline A · test-update" track can read it');
   assert.match(html, /onclick="closeUpdateTestsOverlay\(\)">Cancel</,
     'operator can stop the pipeline right there (Cancel)');
   assert.ok(html.includes('No longer checked'), 'removed checks are surfaced as a masking risk');

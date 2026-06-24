@@ -89,10 +89,11 @@ test('J-promote-gate-phases ac-7 — the Test-Update Gate phase resolves from th
 });
 
 test('J-promote-gate-phases ac-9 — the dashboard gate-flow steps consume the SERVER phase keys (no ff/fast-forward drift)', () => {
-  // The gate-flow stepper (renderGateFlow) looks up each suite phase by key in the
-  // server's promote_run.phases. If a dashboard key drifts from the server key, that
-  // step silently stays idle even when the phase ran — exactly the 'ff' vs 'fast-forward'
-  // bug. Lock the contract: every dashboard step key must be a real server phase key.
+  // The DevOps Station gate-flow (renderGateFlow / dvsTrack) builds Pipeline B's suite
+  // nodes from a key descriptor array and looks each one up by key in the server's
+  // promote_run.phases (byKey[pd.k]). If a dashboard key drifts from the server key, that
+  // node silently stays idle even when the phase ran — exactly the 'ff' vs 'fast-forward'
+  // bug. Lock the contract: every Pipeline B node key must be a real server phase key.
   const html = fs.readFileSync(DASHBOARD_SRC, 'utf8');
   const serverKeys = mapPromotePhases([
     VERDICT_STEP('completed', 'success'),
@@ -101,13 +102,14 @@ test('J-promote-gate-phases ac-9 — the dashboard gate-flow steps consume the S
     STEP('Fast-forward main to the tested commit', 'completed', 'success'),
   ]).map(p => p.key);
 
-  // The renderGateFlow STEPS array (the suite steps ②③④, identified by its 'E2E smoke test' label).
-  const block = html.match(/const STEPS = \[([\s\S]*?E2E smoke test[\s\S]*?)\];/);
-  assert.ok(block, 'renderGateFlow STEPS array must exist');
-  const dashKeys = [...block[1].matchAll(/key:\s*'([^']+)'/g)].map(m => m[1]);
-  assert.deepEqual(dashKeys, ['regression', 'e2e', 'ff'], 'gate-flow steps must key on regression/e2e/ff (the server phase keys)');
+  // Pipeline B's run-tests & merge node descriptors (the suite nodes regression / E2E
+  // smoke / promote), identified by its 'E2E smoke' node label.
+  const block = html.match(/\[([^\]]*?E2E smoke[^\]]*?)\]\.forEach\(pd => \{/);
+  assert.ok(block, 'Pipeline B suite-node descriptor array must exist');
+  const dashKeys = [...block[1].matchAll(/k:\s*'([^']+)'/g)].map(m => m[1]);
+  assert.deepEqual(dashKeys, ['regression', 'e2e', 'ff'], 'Pipeline B nodes must key on regression/e2e/ff (the server phase keys)');
   for (const k of dashKeys) {
-    assert.ok(serverKeys.includes(k), `dashboard gate-flow step key '${k}' is not a server phase key — that step would never light up`);
+    assert.ok(serverKeys.includes(k), `dashboard gate-flow node key '${k}' is not a server phase key — that node would never light up`);
   }
 });
 
