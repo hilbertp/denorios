@@ -2099,7 +2099,7 @@
     --dvs-fail:#ff6b6b; --dvs-fail-acc:#ff6b6b; --dvs-fail-bg:#1c0f0f;
     --dvs-panel:#0e121b; --dvs-bd:#1c2430; --dvs-ink:#cbd5e1; --dvs-muted:#64748b;
   }
-  .dvs-track { margin-top:16px; }
+  .dvs-track { margin-top:18px; max-width:720px; }
   .dvs-track:first-child { margin-top:2px; }
   .dvs-track.locked { opacity:.6; }
   .dvs-trkhd { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
@@ -2184,11 +2184,22 @@
   }
   .topo-panel-body {
     padding: 0 20px 16px 20px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 700px);
+    grid-template-areas:
+      "controls controls"
+      "graph    gate";
+    column-gap: 32px;
+    row-gap: 6px;
+    align-items: start;
   }
   .topo-collapsed .topo-panel-body { display: none; }
   .topo-svg-wrap {
     overflow-x: auto;
     margin-bottom: 12px;
+    grid-area: graph;
+    align-self: start;
+    padding-top: 30px;
   }
   .topo-foot {
     display: flex;
@@ -2197,6 +2208,7 @@
     padding: 8px 0 0 0;
     font-size: 13px;
     color: var(--ink-2);
+    grid-area: controls;
   }
   .topo-foot-stats { font-weight: 500; }
   .topo-foot-stats strong { font-weight: 700; }
@@ -3642,11 +3654,11 @@ body.lcars-mode .chain-link.done { background:#5fd17a !important; }
 body.lcars-mode .lore-tag { display: inline; }
 
 /* Gate sequence: RUN GATE → ① Update tests → ② Run fast regression → ③ E2E smoke test → ④ Promote */
-.gate-flow { margin: 12px 0 4px; padding: 12px 14px; border: 1px solid #e5e7eb;
+.gate-flow { grid-area: gate; margin: 0 0 4px; padding: 12px 14px; border: 1px solid #e5e7eb;
   border-radius: 10px; background: #f9fafb; }
 .gate-flow-head { font-size: 10px; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.08em; color: #9ca3af; margin-bottom: 9px; }
-.gate-flow-steps { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.gate-flow-steps { display: block; }
 .gflow-trigger, .gflow-step, .gflow-target {
   display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
   padding: 5px 10px; border-radius: 7px; border: 1px solid #e5e7eb; background: #fff;
@@ -10100,7 +10112,8 @@ body:not(.lcars-mode) .staged-details-body pre code {
     // horizontal scrollbar. Rows are joined by rounded U-bends, keeping one
     // continuous green ribbon you can read like boustrophedon text. The panel
     // grows downward by row, never sideways.
-    const VBW   = 920;                  // logical viewBox width (scales to container)
+    // VBW is computed once the commit count is known (just below): a short, single-row
+    // ribbon fits its content so it fills the column; a fold-capable ribbon keeps full width.
     const xL    = 130, xR = 844;        // horizontal bounds of a row (left margin leaves room for the origin/main branch)
     const COLS  = 10;                   // commits per row before the ribbon folds
     const span  = COLS > 1 ? (xR - xL) / (COLS - 1) : 0;
@@ -10110,6 +10123,9 @@ body:not(.lcars-mode) .staged-details-body pre code {
     const bulge = 22;                   // how far a U-bend bows past the row edge
 
     const n    = commits.length;
+    // Fit a short single-row ribbon (≤10 commits) to its content + the origin/dev badge,
+    // so a 2–3 commit graph fills its column instead of reserving room for ten.
+    const VBW  = (n > 0 && n <= COLS) ? Math.min(920, Math.round(xL + (n - 1) * span + 132)) : 920;
     const rows = Math.max(1, Math.ceil(n / COLS));
     const H    = row0Y + (rows - 1) * rowH + 44;   // +44 leaves room for hash labels
 
