@@ -9134,7 +9134,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
     // ── Approved section (top) ──
     html += '<div class="queue-section-label">Approved Work Orders</div>';
     if (approvedRows.length === 0) {
-      html += '<div class="queue-empty-card">No approved work orders waiting. Approve a proposed improvement below to fill the queue.</div>';
+      html += '<div class="queue-empty-card">No approved work orders waiting. Approve a proposed improvement below.</div>';
     } else {
       html += approvedRows.map((row, idx) => renderQueueRow(row, { position: idx + 1 })).join('');
     }
@@ -10144,7 +10144,9 @@ body:not(.lcars-mode) .staged-details-body pre code {
     const headX = n > 0 ? devX(n - 1) : devX0;
 
     const ariaLabel = `Branch graph: origin/dev ${ahead} commits ahead of origin/main`;
-    let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="height:auto;display:block" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${ariaLabel}">`;
+    // Cap the rendered width to ~1.3x the viewBox so a short ribbon (1-2 commits)
+    // doesn't scale up to fill the column and balloon; longer ribbons still fill it.
+    let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="height:auto;display:block;max-width:${Math.round(W * 1.3)}px" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${ariaLabel}">`;
 
     // main trunk
     svg += `<line x1="${mainX}" y1="${mainY}" x2="${W - 8}" y2="${mainY}" stroke="var(--branch-main)" stroke-width="2" opacity="0.4" stroke-linecap="round" />`;
