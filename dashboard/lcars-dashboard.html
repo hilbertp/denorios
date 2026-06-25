@@ -2924,6 +2924,7 @@
   .outcome-escalated    { background: #dbeafe; color: #1e40af; }
   .outcome-error        { background: var(--err-bg); color: #991b1b; }
   .outcome-success      { background: var(--ok-bg); color: #166534; }
+  .outcome-reviewing    { background: #fef3c7; color: #92400e; }
 
   /* ── PAUSE BUTTON ────────────────────────────────────── */
   /* "View live log" control in the Active Build footer (J-watch-slice-live-log) */
@@ -3658,6 +3659,7 @@ body.lcars-mode .outcome-pill { color: var(--ink) !important; }
 body.lcars-mode .outcome-error { color: #ff8a8a !important; }
 body.lcars-mode .outcome-on-dev { color: #93b4ff !important; }
 body.lcars-mode .outcome-success { color: #7be388 !important; }
+body.lcars-mode .outcome-reviewing { color: #ffb74d !important; }
 /* Dossier tabs */
 body.lcars-mode .crew-tab { color: var(--ink-3) !important; }
 body.lcars-mode .crew-tab.active { color: var(--lcars-amber) !important; border-bottom-color: var(--lcars-amber) !important; }
@@ -4998,6 +5000,7 @@ button:disabled,
 .outcome-max-rounds { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-border); }
 .outcome-error      { background: var(--err-bg);  color: var(--err);  border: 1px solid var(--err-border); }
 .outcome-success    { background: var(--ok-bg);   color: var(--ok);   border: 1px solid var(--ok-border); }
+.outcome-reviewing  { background: var(--warn-bg);  color: var(--warn);  border: 1px solid var(--warn-border); }
 
 /* tag-error: was #991b1b text → --err (text-safe on its bg) */
 .tag-error { background: var(--err-bg); color: var(--err); border: 1px solid var(--err-border); }
@@ -7794,13 +7797,16 @@ body:not(.lcars-mode) .staged-details-body pre code {
   }
 
   function outcomeHtml(outcome, row) {
-    // Binary verdict only: did the slice land (success) or fail (error)?
-    // Pipeline position (dev / regression gate / main) lives in the DevOps Station panel,
-    // so the Logbook no longer repeats it. Failure set = isFailureOutcome(); everything
-    // else (ON_DEV, ON_MAIN, ACCEPTED, DEFERRED, ...) counts as success.
-    return isFailureOutcome(outcome)
-      ? '<span class="outcome-pill outcome-error">error</span>'
-      : '<span class="outcome-pill outcome-success">success</span>';
+    // Failure set = isFailureOutcome(); pipeline position lives in the DevOps Station panel.
+    if (isFailureOutcome(outcome))
+      return '<span class="outcome-pill outcome-error">error</span>';
+    // Honest pill (fixes the slice-318 bug): a slice is NOT a success until Nog has
+    // actually accepted it. While Rom is done but review is still open (or changes were
+    // requested), show "reviewing" — green is reserved for an accepted verdict, not just
+    // a finished build.
+    if (row && row.reviewStatus && row.reviewStatus !== 'accepted')
+      return '<span class="outcome-pill outcome-reviewing">reviewing</span>';
+    return '<span class="outcome-pill outcome-success">success</span>';
   }
 
   function isFailureOutcome(outcome) {
