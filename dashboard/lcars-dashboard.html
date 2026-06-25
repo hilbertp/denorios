@@ -1468,6 +1468,9 @@
     color: #111827;
     background: #fff;
   }
+  /* LCARS: keep the amend input + the API-retry toast on the dark skin (were #fff). */
+  body.lcars-mode .staged-inline-amend input[type="text"],
+  body.lcars-mode .api-retry-toast { background: var(--bg-panel); color: var(--ink-2); }
 
   .staged-inline-amend input[type="text"]:focus {
     outline: none;
