@@ -2807,6 +2807,21 @@
     margin-top: 8px;
   }
 
+  /* LCARS: the slice-detail panel's text was hard-coded for light mode (dark ink
+     on the dark LCARS panel = invisible). Flip it to the skin's light ink. */
+  body.lcars-mode .slice-rendered-section-content,
+  body.lcars-mode .slice-rendered-criteria,
+  body.lcars-mode .slice-detail-title,
+  body.lcars-mode .slice-detail-tab.active,
+  body.lcars-mode .slice-source-textarea { color: var(--ink-2); }
+  body.lcars-mode .slice-rendered-section-label,
+  body.lcars-mode .slice-detail-id,
+  body.lcars-mode .slice-detail-close,
+  body.lcars-mode .slice-detail-tab,
+  body.lcars-mode .slice-source-note { color: var(--ink-muted); }
+  body.lcars-mode .slice-detail-tab.active { border-bottom-color: var(--ink-2); }
+  body.lcars-mode .slice-source-textarea { background: var(--bg-panel); }
+
   /* Actions footer */
   .slice-detail-actions {
     display: flex;
