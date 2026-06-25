@@ -2191,7 +2191,8 @@
     grid-template-columns: minmax(0, 1fr) minmax(0, 700px);
     grid-template-areas:
       "controls controls"
-      "graph    gate";
+      "graph    gate"
+      "action   action";
     column-gap: 32px;
     row-gap: 22px;
     align-items: start;
@@ -2215,6 +2216,16 @@
   }
   .topo-foot-stats { font-weight: 500; }
   .topo-foot-stats strong { font-weight: 700; }
+  /* Gate-action buttons relocated to the panel bottom (slice 344). */
+  .topo-action-bar {
+    grid-area: action;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
 
   /* ── Operator promote button (slice 316 — replaces "auto-promotes on green" caption) ── */
   .promote-gate-slot {
@@ -6340,7 +6351,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
     </div>
     <div class="header-status">
       <label class="lcars-switch" title="Toggle LCARS mode (dark skin)">
-        <span class="lcars-switch-text">LCARS</span>
+        <span class="lcars-switch-text">Dark Mode (LCARS)</span>
         <input type="checkbox" id="lcars-toggle" onchange="toggleLcarsMode(this.checked)">
         <span class="lcars-switch-track"><span class="lcars-switch-thumb"></span></span>
       </label>
@@ -6367,7 +6378,6 @@ body:not(.lcars-mode) .staged-details-body pre code {
         <div class="topo-foot" id="topo-foot">
           <span id="topo-foot-rr"></span>
           <span class="topo-foot-stats" id="topo-foot-stats"></span>
-          <span id="topo-foot-action"></span>
         </div>
         <!-- ── Gate sequence (single source for the gate flow + per-push CI) ── -->
         <div class="gate-flow" id="gate-flow">
@@ -6385,6 +6395,9 @@ body:not(.lcars-mode) .staged-details-body pre code {
           <div class="gate-step-card" id="gate-step-3"><div class="step-label">3. Merge</div><div class="step-body" id="gate-step-3-body"></div></div>
         </div>
         <div class="gate-steps-error" id="gate-steps-error" style="display:none"></div>
+        <!-- Gate-action buttons moved to the panel bottom (slice 344): the panel reads
+             status-first (topology → gate sequence) with the action landing at the end. -->
+        <div class="topo-action-bar"><span id="topo-foot-action"></span></div>
       </div>
       <div class="topo-mini" id="topo-mini">
         <svg viewBox="0 0 280 32" width="280" height="32" role="img" aria-label="DevOps Station collapsed">
@@ -10614,14 +10627,8 @@ body:not(.lcars-mode) .staged-details-body pre code {
     if (_promoteSlotError) {
       html += `<span class="promote-gate-err" role="alert" title="${_promoteEsc(_promoteSlotError)}">${_promoteEsc(_promoteSlotError)}</span>`;
     }
-    if (mainSha) {
-      html += '<button type="button" class="topo-rollback-btn" id="topo-rollback-btn"' +
-        ' aria-label="Roll back the last promotion to main"' +
-        ` title="${_promoteEsc(TOPO_ROLLBACK_TITLE)}"` +
-        ' onclick="openTopoRollback()"' + (rbEnabled ? '' : ' disabled') + '>' +
-        '&#8635; Roll back' +
-        '</button>';
-    }
+    // Operator Roll Back button removed (slice 343): rolling back a promotion is a rare
+    // edge case handled on GitHub, not something the everyday operator UI needs.
     // Stage ① — CHECK FOR TEST UPDATES. Runs the AC-drain triage; only when it passes
     // does the merge button below unlock. Shows ✓ once the current dev tip is checked.
     html += '<button type="button" class="promote-gate-btn check-updates-btn' + (checkPassed ? ' check-updates-done' : '') + '" id="check-updates-btn"' +
