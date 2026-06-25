@@ -3356,6 +3356,23 @@
     box-shadow: -4px 0 32px rgba(0,0,0,0.2);
     overflow: hidden;
   }
+  /* LCARS: the investigation drawer hard-codes a white bg + dark ink and had no
+     dark-mode override → light text on eggshell (unreadable). Flip it to the
+     dark skin's panel + light ink. */
+  body.lcars-mode .inv-panel { background: var(--bg-panel); }
+  body.lcars-mode .inv-panel-title,
+  body.lcars-mode .inv-pane,
+  body.lcars-mode .inv-pane h1, body.lcars-mode .inv-pane h2,
+  body.lcars-mode .inv-pane h3, body.lcars-mode .inv-pane h4,
+  body.lcars-mode .inv-round summary,
+  body.lcars-mode .inv-round-body { color: var(--ink-2); }
+  body.lcars-mode .inv-panel-id,
+  body.lcars-mode .inv-close-btn,
+  body.lcars-mode .inv-tab,
+  body.lcars-mode .inv-empty,
+  body.lcars-mode .inv-loading,
+  body.lcars-mode .inv-round-meta,
+  body.lcars-mode .inv-round summary::before { color: var(--ink-muted); }
   .inv-header {
     display: flex; align-items: center; justify-content: space-between;
     padding: 14px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0;
