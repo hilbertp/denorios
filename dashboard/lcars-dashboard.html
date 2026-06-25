@@ -10139,7 +10139,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
     const devX0 = 78, rightPad = 72, maxW = 620;
     const spacing = n > 1 ? Math.min(54, Math.max(26, (maxW - devX0 - rightPad) / (n - 1))) : 54;
     const W = n > 0 ? Math.round(devX0 + (n - 1) * spacing + rightPad) : 280;
-    const H = 74;
+    const H = 84;
     const devX = i => devX0 + i * spacing;
     const headX = n > 0 ? devX(n - 1) : devX0;
 
@@ -10183,6 +10183,8 @@ body:not(.lcars-mode) .staged-details-body pre code {
       } else {
         svg += `<circle cx="${x}" cy="${devY}" r="4.5" fill="var(--branch-dev)"><title>${tip}</title></circle>`;
       }
+      // commit number beneath each node
+      if (d.number != null) svg += `<text x="${x}" y="${devY + 18}" text-anchor="middle" font-size="9" font-weight="500" fill="var(--ink-3, #6b7280)">${fmtCommitNum(d.number)}</text>`;
     }
     svg += '</svg>';
 
