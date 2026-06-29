@@ -7574,10 +7574,18 @@ body:not(.lcars-mode) .staged-details-body pre code {
 
   function processApiRetries(apiRetries) {
     if (!apiRetries || !apiRetries.length) return;
+
+    // First poll of a session has no stored baseline. Do NOT replay the backlog
+    // of past retries — that made stale events (e.g. an old API-outage test
+    // slice) pop up on EVERY fresh page load. Instead silently mark the newest
+    // existing retry as "seen", and only toast retries that arrive live while
+    // the dashboard is open. Past retries stay visible via the queue retry badge.
+    const firstSeed = !lastApiRetryTs;
+
     let newest = lastApiRetryTs;
     for (const ev of apiRetries) {
       if (!ev.ts || ev.ts <= lastApiRetryTs) continue;
-      showApiRetryToast(ev);
+      if (!firstSeed) showApiRetryToast(ev);
       if (!newest || ev.ts > newest) newest = ev.ts;
     }
     if (newest !== lastApiRetryTs) {
