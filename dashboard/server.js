@@ -675,11 +675,20 @@ function getCheckTestUpdates() {
   const readJson = (p, fb) => { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch (_) { return fb; } };
   const { reconcile } = require(path.join(__dirname, '..', 'lib', 'ac-reconcile'));
   const { triage } = require(path.join(__dirname, '..', 'lib', 'check-test-updates'));
-  const manifest  = readJson(path.join(REPO_ROOT, 'regression', 'AC-MANIFEST.lock'), { byTag: {} });
+  const { scanRangeManifest } = require(path.join(__dirname, '..', 'lib', 'ac-range-scan'));
+  // LIVE manifest: the ACs actually being promoted (origin/main..origin/dev `AC:` trailers),
+  // NOT the static regression/AC-MANIFEST.lock. Reconciling that stale, in-sync lock against
+  // COVERAGE.lock is what made this gate go GREEN in milliseconds regardless of the merge.
+  const manifest  = scanRangeManifest({
+    gitLog: (range) => execFileSync('git', ['log', range, '--format=%B'],
+      { cwd: REPO_ROOT, encoding: 'utf8', timeout: 5000 }),
+  });
   const coverage  = readJson(path.join(REPO_ROOT, 'regression', 'COVERAGE.lock'), { bySource: {} });
   const decisions = readJson(path.join(REPO_ROOT, 'regression', 'AC-DECISIONS.json'), {});
   try {
     const report = triage({ reconcile: reconcile({ manifest, coverage }), manifest, decisions });
+    report.range = 'origin/main..origin/dev';
+    report.acsInRange = Object.keys(manifest.byTag || {}).length;
     report.ts = new Date().toISOString();
     return report;
   } catch (e) {
