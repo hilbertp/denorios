@@ -10423,7 +10423,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
   // Turn the server's parsed gate failure into a precise, copy-pasteable block:
   // exactly which test(s) failed and the selector(s) that weren't found.
   function gateFailureDetailText(d) {
-    if (!d || ((!d.tests || !d.tests.length) && (!d.locators || !d.locators.length))) return '';
+    if (!d || ((!d.tests || !d.tests.length) && (!d.locators || !d.locators.length) && (!d.reasons || !d.reasons.length))) return '';
     let s = '';
     if (d.tests && d.tests.length) {
       s += `Failing test${d.tests.length > 1 ? 's' : ''}:\n`;
@@ -10431,6 +10431,11 @@ body:not(.lcars-mode) .staged-details-body pre code {
     }
     if (d.locators && d.locators.length) {
       s += `Selector${d.locators.length > 1 ? 's' : ''} not found: ${d.locators.join('; ')}\n`;
+    }
+    // Test-Update gate / regression flags (which checks tripped the gate).
+    if (d.reasons && d.reasons.length) {
+      s += `What the gate flagged:\n`;
+      for (const r of d.reasons) s += `  - ${r}\n`;
     }
     return s + '\n';
   }

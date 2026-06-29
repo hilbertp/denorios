@@ -784,7 +784,33 @@ function parseGateFailures(log) {
     if (seenL.has(loc)) continue; seenL.add(loc);
     locators.push(loc);
   }
-  return (tests.length || locators.length) ? { tests, locators } : null;
+  // Non-Playwright gate failures (the Test-Update gate, node:test regression) print a
+  // different shape, so the e2e regexes above miss them — that left the dev-lead handoff
+  // prompt generic ("investigate the test-update suite") with no specifics. GH `--log-failed`
+  // prefixes each line with "<job> <step> <ISO-timestamp> "; strip up to the timestamp to
+  // recover the real content (keeping its original indentation), then parse it.
+  const reasons = [], seenR = new Set();
+  const pushR = (r) => { r = (r || '').trim(); if (r && !seenR.has(r)) { seenR.add(r); reasons.push(r); } };
+  const clean = log.split('\n').map(l => l.replace(/^.*?\d{4}-\d{2}-\d{2}T[\d:.]+Z\s?/, ''));
+  // Test-Update gate: "⚠ <Category> (N):" failure headers, each followed by "  - <item>"
+  // lines. The declared/advisory categories ("… (declared)", "Needs review …") carry no ⚠,
+  // so we only capture ⚠-marked categories plus "Rejected trailers" (printed without a ⚠).
+  let cat = null;
+  for (const line of clean) {
+    const cov = line.match(/^\s*⚠\s*(Coverage shrank:.+?)\s*$/);
+    if (cov) { pushR(cov[1]); cat = null; continue; }
+    const hdr = line.match(/^\s*(⚠\s*)?(.+?)\s*\(\d+\):\s*$/);
+    if (hdr) { const name = hdr[2].trim(); cat = (hdr[1] || name === 'Rejected trailers') ? name : null; continue; }
+    const im = line.match(/^\s+-\s+(.+?)\s*$/);
+    if (im && cat) { pushR(`${cat}: ${im[1]}`); continue; }
+    if (line.trim() && !/^\s/.test(line)) cat = null; // a non-indented line ends the block
+  }
+  // node:test regression failures: "✖ <test name> (Nms)".
+  for (const line of clean) {
+    const fm = line.match(/^✖\s+(.+?)(?:\s+\(\d[\d.]*ms\))?\s*$/);
+    if (fm) pushR(`Failing test: ${fm[1].trim()}`);
+  }
+  return (tests.length || locators.length || reasons.length) ? { tests, locators, reasons } : null;
 }
 
 let _promoteFailCache = { runId: null, value: null, fetchedAt: 0 };
