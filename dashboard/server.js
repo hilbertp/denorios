@@ -689,6 +689,8 @@ function getCheckTestUpdates() {
     const report = triage({ reconcile: reconcile({ manifest, coverage }), manifest, decisions });
     report.range = 'origin/main..origin/dev';
     report.acsInRange = Object.keys(manifest.byTag || {}).length;
+    // Annotate each flagged AC with what Julian has authored for it (draft / question / in-flight).
+    for (const it of (report.flagged || [])) it.authoring = authoringStateFor(it.tag);
     report.ts = new Date().toISOString();
     return report;
   } catch (e) {
@@ -706,6 +708,52 @@ function recordAcDecision(tag, decision) {
   else delete cur[tag];
   fs.writeFileSync(p, JSON.stringify(cur, null, 1));
   return cur;
+}
+
+// ── CHECK gate authoring: Julian drafts/updates the test for a flagged AC ──────────────
+// One press of CHECK FOR TEST UPDATES drains the ACs AND kicks Julian off (scripts/
+// author-ac-test.js → claude -p, adversarial QA mission, autonomous) to author the guarding
+// test for each flagged AC. Drafts land in regression/.drafts/ for review — never straight
+// into the live suite, and the operator can't green the gate off an un-tested AC.
+const DRAFTS_DIR = path.join(REPO_ROOT, 'regression', '.drafts');
+function _draftMtime(p) { try { return fs.statSync(p).mtimeMs; } catch (_) { return 0; } }
+
+// What has Julian produced for this AC: drafted | question | authoring | failed | pending.
+function authoringStateFor(tag) {
+  let files = [];
+  try { files = fs.readdirSync(DRAFTS_DIR); } catch (_) { return { state: 'pending' }; }
+  const draft = files.find(f => f.startsWith(`${tag}.draft.`));
+  if (draft) { try { fs.unlinkSync(path.join(DRAFTS_DIR, `${tag}.running`)); } catch (_) {} return { state: 'drafted', draft }; }
+  if (files.includes(`${tag}.QUESTION.md`)) {
+    try { fs.unlinkSync(path.join(DRAFTS_DIR, `${tag}.running`)); } catch (_) {}
+    let question = ''; try { question = fs.readFileSync(path.join(DRAFTS_DIR, `${tag}.QUESTION.md`), 'utf8'); } catch (_) {}
+    return { state: 'question', question };
+  }
+  if (files.includes(`${tag}.running`)) {
+    const age = Date.now() - _draftMtime(path.join(DRAFTS_DIR, `${tag}.running`));
+    return { state: age > 12 * 60 * 1000 ? 'failed' : 'authoring' };
+  }
+  return { state: 'pending' };
+}
+
+// Spawn Julian (detached) for each not-already-handled tag. Returns the tags kicked off.
+function kickOffAuthoring(tags) {
+  const { spawn } = require('child_process');
+  try { fs.mkdirSync(DRAFTS_DIR, { recursive: true }); } catch (_) {}
+  const kicked = [];
+  for (const tag of tags) {
+    if (!/^slice-\d+-ac-\d+$/.test(tag)) continue;
+    const st = authoringStateFor(tag).state;
+    if (st === 'drafted' || st === 'question' || st === 'authoring') continue; // done or in-flight
+    try {
+      fs.writeFileSync(path.join(DRAFTS_DIR, `${tag}.running`), new Date().toISOString());
+      const child = spawn(process.execPath, [path.join(REPO_ROOT, 'scripts', 'author-ac-test.js'), tag],
+        { cwd: REPO_ROOT, detached: true, stdio: 'ignore' });
+      child.unref();
+      kicked.push(tag);
+    } catch (_) {}
+  }
+  return kicked;
 }
 
 // The three gate phases promote.yml runs, in order, before main moves. Matched by
@@ -2772,6 +2820,25 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // CHECK FOR TEST UPDATES → drain the flagged ACs AND kick Julian off (autonomous,
+  // adversarial QA) to author the guarding test for each. Returns immediately; the drafts
+  // land asynchronously in regression/.drafts/ and surface on the next GET (poll).
+  if (pathname === '/api/check-test-updates/author' && req.method === 'POST') {
+    try {
+      const rep = getCheckTestUpdates();
+      const tags = (rep.flagged || []).map(f => f.tag).filter(Boolean);
+      const kicked = kickOffAuthoring(tags);
+      const out = getCheckTestUpdates();
+      out.kicked = kicked;
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify(out));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: String(err) }));
+    }
+    return;
+  }
+
   if (pathname === '/api/regression/report' && req.method === 'GET') {
     try {
       // Prefer the report from the ACTUAL latest GitHub run (artifact) so it can't
@@ -3271,4 +3338,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, STALE_DONE_DAYS, deriveHistoryOutcome, deriveReviewStatus, createRevertCommit, resolveSquashSha, mapPromotePhases, parseGateFailures };
+module.exports = { buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, STALE_DONE_DAYS, deriveHistoryOutcome, deriveReviewStatus, authoringStateFor, kickOffAuthoring, createRevertCommit, resolveSquashSha, mapPromotePhases, parseGateFailures };

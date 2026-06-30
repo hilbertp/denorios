@@ -10706,6 +10706,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
         const _n = (rep.decisions && rep.decisions.length) || (rep.pending && rep.pending.length) || (Array.isArray(rep.acs) ? rep.acs.length : 0) || 1;
         _testUpdatesPending = { sha: _testUpdatesSha, count: _n };
         openTestUpdatesOverlay(rep);
+        _authorAndPoll();   // one press: drain the ACs AND have Julian author the flagged tests
       }
     } catch (e) {
       _promoteSlotError = 'test-update check failed: network error';
@@ -10764,13 +10765,28 @@ body:not(.lcars-mode) .staged-details-body pre code {
       const ac = it.title
         ? `&ldquo;${_esc(it.title)}&rdquo;`
         : `<span class="utc-ac-missing">(${_esc(it.tag)} — no AC text on file)</span>`;
+      // Julian's authoring state for this AC (he drafts autonomously on the CHECK press).
+      const a = it.authoring || { state: 'pending' };
+      let act;
+      if (a.state === 'drafted') {
+        act = '<div class="utc-authored utc-authored-done"><span class="utc-authored-glyph">&#10003;</span> '
+          + `Julian drafted the guard &middot; <code>regression/.drafts/${_esc(a.draft || '')}</code>`
+          + '<div class="utc-authored-sub">Review it, then move it into the suite to apply.</div></div>';
+      } else if (a.state === 'question') {
+        act = '<div class="utc-authored utc-authored-q"><strong>&#9888; Julian needs a product call:</strong>'
+          + `<pre class="utc-q">${_esc((a.question || '').trim())}</pre></div>`;
+      } else if (a.state === 'failed') {
+        act = '<div class="utc-authored utc-authored-fail">Julian&#39;s run didn&#39;t finish &mdash; re-press CHECK to retry.</div>';
+      } else {
+        act = '<div class="utc-authored utc-authoring"><span class="utc-authoring-spin">&#8635;</span> Julian is drafting the test&#8230;</div>';
+      }
       html += '<div class="utc-card">'
         + `<div class="utc-card-meta"><span class="utc-tag">${_esc(it.tag)}</span></div>`
         + `<p class="utc-ac">${ac}</p>`
         + (it.reason ? `<p class="utc-implication">${_esc(it.reason)}</p>` : '')
+        + act
         + '<div class="utc-actions">'
-        + `<button class="utc-btn utc-btn-update" onclick="_decideTestUpdate('${_esc(it.tag)}','update')">Update the test to match</button>`
-        + `<button class="utc-btn utc-btn-keep" onclick="_decideTestUpdate('${_esc(it.tag)}','keep')">Keep as is &mdash; no test update needed</button>`
+        + `<button class="utc-btn utc-btn-keep" onclick="_decideTestUpdate('${_esc(it.tag)}','keep')">No test needed for this AC</button>`
         + '</div></div>';
     }
     body.innerHTML = html;
@@ -10783,6 +10799,28 @@ body:not(.lcars-mode) .staged-details-body pre code {
         body: JSON.stringify({ tag, decision }) });
       _renderTestUpdatesBody(await res.json());
     } catch (e) { /* leave the overlay as-is on a transient error */ }
+  }
+
+  // One CHECK press kicks Julian off to author the flagged tests (autonomous, adversarial
+  // QA), then polls until his drafts — or a product question — land, re-rendering each time.
+  async function _authorAndPoll() {
+    try { await fetch('/api/check-test-updates/author', { method: 'POST' }); } catch (_) {}
+    let tries = 0;
+    const tick = async () => {
+      if (!document.getElementById('test-updates-overlay')) return;   // operator closed it
+      let rep = null;
+      try { rep = await (await fetch('/api/check-test-updates', { cache: 'no-store' })).json(); } catch (_) {}
+      if (rep) {
+        _renderTestUpdatesBody(rep);
+        if (rep.ready) return;                                         // all resolved
+      }
+      const working = !rep || (rep.flagged || []).some(f => {
+        const st = f.authoring && f.authoring.state;
+        return st === 'authoring' || st === 'pending' || !st;
+      });
+      if (working && tries++ < 60) setTimeout(tick, 4000);             // ~4 min ceiling
+    };
+    setTimeout(tick, 4000);
   }
 
   // Step 1 of the gate is "Update tests" — the operator must confirm the regression
