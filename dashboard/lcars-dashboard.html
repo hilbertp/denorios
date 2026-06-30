@@ -3271,6 +3271,29 @@
     animation: toast-in 0.25s ease;
   }
 
+  /* ── AC test-authoring RESULT toast (CHECK gate) ───────── */
+  .authoring-result-toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--ok); color: #ffffff; padding: 12px 16px; border-radius: 10px;
+    font-size: 13px; box-shadow: 0 6px 22px rgba(0,0,0,0.22); z-index: 1100;
+    max-width: 540px; animation: toast-in 0.25s ease;
+  }
+  .art-head { display: flex; align-items: flex-start; gap: 8px; }
+  .art-title { font-weight: 600; flex: 1; line-height: 1.35; }
+  .art-chevron, .art-close {
+    background: rgba(255,255,255,0.18); border: 0; color: #fff; cursor: pointer;
+    border-radius: 6px; min-width: 22px; height: 22px; line-height: 20px; text-align: center;
+    flex: 0 0 auto; font-size: 13px; padding: 0 5px;
+  }
+  .art-chevron:hover, .art-close:hover { background: rgba(255,255,255,0.32); }
+  .art-list { list-style: none; margin: 8px 0 0; padding: 0; }
+  .art-list li { font-size: 12px; line-height: 1.5; opacity: 0.95; padding: 1px 0; }
+  .art-tag { font-family: ui-monospace, SFMono-Regular, monospace; font-weight: 600; background: rgba(255,255,255,0.16); padding: 0 5px; border-radius: 4px; }
+  .art-more-label { font-size: 11px; opacity: 0.85; margin-top: 6px; font-style: italic; }
+  .art-note { font-size: 11.5px; opacity: 0.92; margin-top: 8px; }
+  body.lcars-mode .authoring-result-toast { background: var(--bg-panel); color: var(--ink); border: 1px solid var(--ok); }
+  body.lcars-mode .art-tag { background: rgba(255,255,255,0.08); }
+
   /* ── NOG PANEL — enriched states ─────────────────────── */
   .nog-return-reason {
     font-size: 12px;
@@ -10805,7 +10828,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
   // QA), then polls until his drafts — or a product question — land, re-rendering each time.
   async function _authorAndPoll() {
     try { await fetch('/api/check-test-updates/author', { method: 'POST' }); } catch (_) {}
-    let tries = 0;
+    let tries = 0, _resultShown = false;
     const tick = async () => {
       if (!document.getElementById('test-updates-overlay')) return;   // operator closed it
       let rep = null;
@@ -10813,14 +10836,50 @@ body:not(.lcars-mode) .staged-details-body pre code {
       if (rep) {
         _renderTestUpdatesBody(rep);
         if (rep.ready) return;                                         // all resolved
+        const flagged = rep.flagged || [];
+        const working = flagged.some(f => { const st = f.authoring && f.authoring.state; return st === 'authoring' || st === 'pending' || !st; });
+        if (!working && !_resultShown) {                              // Julian finished this round
+          _resultShown = true;
+          const drafted   = flagged.filter(f => f.authoring && f.authoring.state === 'drafted');
+          const questions = flagged.filter(f => f.authoring && f.authoring.state === 'question').length;
+          if (drafted.length) showAuthoringResultToast(drafted, questions);
+          return;
+        }
       }
-      const working = !rep || (rep.flagged || []).some(f => {
-        const st = f.authoring && f.authoring.state;
-        return st === 'authoring' || st === 'pending' || !st;
-      });
-      if (working && tries++ < 60) setTimeout(tick, 4000);             // ~4 min ceiling
+      if (tries++ < 60) setTimeout(tick, 4000);                        // ~4 min ceiling
     };
     setTimeout(tick, 4000);
+  }
+
+  // Result toast: which ACs Julian used to update/extend the suite — first few shown,
+  // a chevron reveals the rest on request.
+  function _dismissAuthoringResult() { const t = document.getElementById('authoring-result-toast'); if (t) t.remove(); }
+  function _toggleAuthoringResult(btn) {
+    const t = btn.closest('.authoring-result-toast');
+    const rest = t.querySelector('.art-list-rest'), more = t.querySelector('.art-more-label');
+    const open = btn.getAttribute('aria-expanded') === 'true';
+    btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+    btn.innerHTML = open ? '&#9656;' : '&#9662;';                      // ▸ collapsed / ▾ expanded
+    if (rest) rest.hidden = open;
+    if (more) more.hidden = !open;
+  }
+  function showAuthoringResultToast(items, questions) {
+    _dismissAuthoringResult();
+    const ABBR = 2;
+    const head = items.slice(0, ABBR), rest = items.slice(ABBR);
+    const li = (it) => `<li><span class="art-tag">${_esc(it.tag)}</span>${it.title ? ' &mdash; ' + _esc(it.title) : ''}</li>`;
+    const t = document.createElement('div');
+    t.className = 'authoring-result-toast'; t.id = 'authoring-result-toast';
+    t.innerHTML =
+        '<div class="art-head">'
+      +   `<span class="art-title">${items.length} acceptance criteri${items.length === 1 ? 'on was' : 'a were'} used to update or extend the test suite</span>`
+      +   (rest.length ? '<button class="art-chevron" aria-expanded="false" title="Show all" onclick="_toggleAuthoringResult(this)">&#9656;</button>' : '')
+      +   '<button class="art-close" aria-label="Dismiss" onclick="_dismissAuthoringResult()">&times;</button>'
+      + '</div>'
+      + `<ul class="art-list art-list-head">${head.map(li).join('')}</ul>`
+      + (rest.length ? `<div class="art-more-label">+${rest.length} more</div><ul class="art-list art-list-rest" hidden>${rest.map(li).join('')}</ul>` : '')
+      + (questions ? `<div class="art-note">&#9888; ${questions} still need${questions === 1 ? 's' : ''} your input &mdash; see the panel.</div>` : '');
+    document.body.appendChild(t);
   }
 
   // Step 1 of the gate is "Update tests" — the operator must confirm the regression
