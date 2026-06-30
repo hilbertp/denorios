@@ -6742,7 +6742,22 @@ function squashSliceToDev(sliceId, sliceTitle, sliceBranch) {
     return { success: false, error: `squash_failed: ${squashErr.message}` };
   }
 
-  const commitMsg = `slice ${sliceId}: ${sliceTitle}\n\nSlice-Id: ${sliceId}\nSlice-Branch: ${sliceBranch}\n`;
+  // Propagate the slice's AC declarations into the squash commit so the merge-gate AC scan
+  // (lib/ac-range-scan over origin/main..origin/dev) actually sees them. Rom declares each
+  // acceptance criterion as an `AC: slice-N-ac-K: <text>` trailer in his branch commit(s);
+  // the fresh squash message would otherwise drop them and the gate would scan an EMPTY AC
+  // set (a false green — the long-standing last-mile gap). No trailers → behaves as before.
+  let acTrailers = '';
+  try {
+    const bodies = execSync(`git log dev..${sliceBranch} --format=%B`, { cwd: PROJECT_DIR, encoding: 'utf-8' });
+    const byTag = new Map(); // last declaration wins (an amendment supersedes the original)
+    const re = /^AC:\s*(slice-\d+-ac-\d+):\s*(.+?)\s*$/gim;
+    let m;
+    while ((m = re.exec(bodies)) !== null) byTag.set(m[1].toLowerCase(), m[2].trim());
+    for (const [tag, text] of byTag) acTrailers += `AC: ${tag}: ${text}\n`;
+  } catch (_) { /* no branch log → no trailers, squash proceeds unchanged */ }
+
+  const commitMsg = `slice ${sliceId}: ${sliceTitle}\n\nSlice-Id: ${sliceId}\nSlice-Branch: ${sliceBranch}\n${acTrailers}`;
   const commitMsgFile = path.join(PROJECT_DIR, '.squash-commit-msg');
   try {
     fs.writeFileSync(commitMsgFile, commitMsg);
