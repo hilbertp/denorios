@@ -853,10 +853,13 @@ function parseGateFailures(log) {
     if (im && cat) { pushR(`${cat}: ${im[1]}`); continue; }
     if (line.trim() && !/^\s/.test(line)) cat = null; // a non-indented line ends the block
   }
-  // node:test regression failures: "✖ <test name> (Nms)".
+  // node:test regression failures: "✖ <test name> (Nms)" (spec reporter) or TAP
+  // "not ok N - <name>" (some CI configs). Skip the "✖ failing tests:" summary header.
   for (const line of clean) {
     const fm = line.match(/^✖\s+(.+?)(?:\s+\(\d[\d.]*ms\))?\s*$/);
-    if (fm) pushR(`Failing test: ${fm[1].trim()}`);
+    if (fm && !/^failing tests:?$/i.test(fm[1].trim())) pushR(`Failing test: ${fm[1].trim()}`);
+    const tap = line.match(/^not ok \d+ - (.+?)(?:\s+#.*)?\s*$/);
+    if (tap) pushR(`Failing test: ${tap[1].trim()}`);
   }
   return (tests.length || locators.length || reasons.length) ? { tests, locators, reasons } : null;
 }

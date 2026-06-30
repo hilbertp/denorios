@@ -107,14 +107,14 @@ test('J-check-test-updates slice-99831-ac-10 — the standalone /merge-gate page
 // ── The PRIMARY surface: the in-dashboard stage-① overlay (Ziyal's redesign, f1a97fd) ──
 // _renderTestUpdatesBody in lcars-dashboard.html. This is what the operator actually sees;
 // it was unguarded after the redesign — these pin its contract.
-test('J-check-test-updates slice-99831-ac-11 — the in-dashboard overlay renders each flagged AC with its AC text as the evidence + the two rulings', () => {
+test('J-check-test-updates slice-99831-ac-11 — the in-dashboard overlay renders each flagged AC with its AC text as the evidence + its authoring state', () => {
   const src = fs.readFileSync(DASH, 'utf8');
   assert.match(src, /\/api\/check-test-updates/);                          // reads the triage
   assert.match(src, /\/api\/check-test-updates\/decide/);                  // records the ruling
-  assert.match(src, /Update the test to match/);                          // redesigned copy
-  assert.match(src, /Keep as is &mdash; no test update needed|Keep as is — no test update needed/);
-  assert.match(src, /_decideTestUpdate\(/);                               // per-AC wiring…
-  assert.match(src, /,\s*'update'\)/);                                    // …with the two rulings
+  assert.match(src, /\/api\/check-test-updates\/author/);                  // one press kicks Julian off to author
+  assert.match(src, /Julian is drafting|Julian drafted|Julian needs/);    // his authoring state is the on-screen result
+  assert.match(src, /No test needed for this AC/);                        // the operator's "keep" override remains
+  assert.match(src, /_decideTestUpdate\(/);                               // …wired to the keep ruling
   assert.match(src, /,\s*'keep'\)/);
   assert.match(src, /class="utc-ac"/);                                    // the AC text is the on-screen hero
   assert.match(src, /it\.title/);                                         // …sourced from the AC's own text
@@ -131,7 +131,7 @@ test('J-check-test-updates slice-99831-ac-12 — the overlay surfaces ONLY low-c
 
 test('J-check-test-updates slice-99831-ac-13 — CHECK FOR TEST UPDATES gates the merge: locked until the check passes for the CURRENT dev tip', () => {
   const src = fs.readFileSync(DASH, 'utf8');
-  assert.match(src, /id="check-updates-btn"/);                           // the operator button exists
+  assert.match(src, /id="check-updates-btn/);                            // the operator button exists (id may carry a -mini suffix)
   assert.match(src, /onclick="runTestUpdateCheck\(\)"/);                 // …runs the drain/triage
   assert.match(src, /const checkPassed = _testUpdatesReady && _testUpdatesSha && _testUpdatesSha === devSha/); // re-check when dev moves
   assert.match(src, /const enabled = [^;]*checkPassed/);                 // merge enabled ONLY when the check passed

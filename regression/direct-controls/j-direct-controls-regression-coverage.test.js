@@ -267,7 +267,7 @@ test('J-direct-controls-ops-ui slice-99811-ac-2 — the gate surfaces regression
   assert.match(html, /onclick="closeUpdateTestsOverlay\(\)">Cancel</,
     'operator can stop the pipeline right there (Cancel)');
   assert.ok(html.includes('No longer checked'), 'removed checks are surfaced as a masking risk');
-  assert.ok(html.includes('Now also checking'), 'added checks are surfaced');
+  assert.ok(html.includes('new coverage'), 'added checks are surfaced (summarized as a count + files, titles behind a toggle)');
 });
 
 // Slice D: above the plain-language list sits the GATE VERDICT — the engine's

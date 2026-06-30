@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 381,
+  "guardCount": 388,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -232,6 +232,15 @@
         "tag": "slice-340-ac-6",
         "file": "regression/direct-controls/j-devops-station.test.js",
         "guardAcHash": "sha256:84c994374c163ed0b343600152a47ba7960bb36bebe31a40b1228e89a309562b"
+      },
+      {
+        "tag": "slice-342-ac-1",
+        "file": "regression/direct-controls/j-dark-mode-label.test.js",
+        "guardAcHash": "sha256:7ca273aff035552ba8ce07eab3d355c8f85b21d341d2fe4941217f2c3e69395e"
+      },
+      {
+        "tag": "slice-343-ac-1",
+        "file": "regression/.drafts/slice-343-ac-1.draft.test.js"
       },
       {
         "tag": "slice-99777-ac-1",
@@ -504,6 +513,26 @@
       {
         "tag": "slice-316-ac-9",
         "file": "regression/gate-merge/j-merge-button-pass.test.js"
+      },
+      {
+        "tag": "slice-345-ac-1",
+        "file": "regression/gate-merge/j-review-status.test.js"
+      },
+      {
+        "tag": "slice-345-ac-2",
+        "file": "regression/gate-merge/j-review-status.test.js"
+      },
+      {
+        "tag": "slice-345-ac-3",
+        "file": "regression/gate-merge/j-review-status.test.js"
+      },
+      {
+        "tag": "slice-345-ac-4",
+        "file": "regression/gate-merge/j-review-status.test.js"
+      },
+      {
+        "tag": "slice-345-ac-5",
+        "file": "regression/gate-merge/j-review-status.test.js"
       },
       {
         "tag": "slice-901-ac-1",
