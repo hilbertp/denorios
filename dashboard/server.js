@@ -1512,6 +1512,19 @@ function deriveHistoryOutcome(id, rawOutcome, { squashedToDevIds, deferredIds, a
   return rawOutcome;
 }
 
+// Pure: a slice's review status, which drives the History outcome pill. The green
+// "success" pill (reviewStatus === 'accepted') REQUIRES Nog to have ACCEPTED the work
+// (NOG_DECISION verdict) or the slice to have actually MERGED to main. It must NOT be
+// driven by the operator's staged-backlog START approval (HUMAN_APPROVAL) — that is
+// "approved to begin", not "review passed". Conflating the two is the recurring bug where
+// a slice flips to a green success pill the instant Rom finishes, before Nog reviews.
+function deriveReviewStatus({ verdict, mergedToMain }) {
+  if (verdict === 'ACCEPTED') return 'accepted';
+  if (verdict === 'APENDMENT_REQUIRED' || verdict === LEGACY_VERDICT_REQ) return 'apendment_required';
+  if (mergedToMain) return 'accepted';
+  return 'waiting_for_review';
+}
+
 // ── Bridge data builder ──────────────────────────────────────────────────────
 function buildBridgeData() {
   // Heartbeat
@@ -1577,8 +1590,12 @@ function buildBridgeData() {
     if (ev.event === 'NOG_DECISION') {
       reviewedMap[ev.id] = ev.verdict;
     }
-    // HUMAN_APPROVAL or MERGED means the slice landed on main
-    if (ev.event === 'HUMAN_APPROVAL' || ev.event === 'MERGED') {
+    // Only an actual MERGE to main counts as "landed/accepted" here. HUMAN_APPROVAL is the
+    // staged-backlog START approval (approve a slice to BEGIN), NOT Nog accepting finished
+    // work — feeding it to acceptedSet flipped a slice to the green "success" pill the
+    // instant Rom finished, before Nog reviewed. Nog's acceptance rides the NOG_DECISION
+    // verdict instead (see deriveReviewStatus).
+    if (ev.event === 'MERGED' || ev.event === 'SLICE_MERGED_TO_MAIN') {
       acceptedSet.add(ev.id);
     }
   }
@@ -1626,11 +1643,7 @@ function buildBridgeData() {
       const verdict = reviewedMap[entry.id];
       const finalOutcome = deriveHistoryOutcome(entry.id, entry.outcome,
         { squashedToDevIds, deferredIds, acceptedSet });
-      let reviewStatus;
-      if (verdict === 'ACCEPTED')                reviewStatus = 'accepted';
-      else if (verdict === 'APENDMENT_REQUIRED' || verdict === LEGACY_VERDICT_REQ) reviewStatus = 'apendment_required';
-      else if (acceptedSet.has(entry.id))        reviewStatus = 'accepted';
-      else                                       reviewStatus = 'waiting_for_review';
+      const reviewStatus = deriveReviewStatus({ verdict, mergedToMain: acceptedSet.has(entry.id) });
       const onMain = onMainIds.has(String(entry.id));
       return { ...entry, outcome: finalOutcome, reviewStatus, sprint: getSprintForId(entry.id),
                onMain, regressionPassed: onMain,
@@ -3258,4 +3271,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, STALE_DONE_DAYS, deriveHistoryOutcome, createRevertCommit, resolveSquashSha, mapPromotePhases, parseGateFailures };
+module.exports = { buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, STALE_DONE_DAYS, deriveHistoryOutcome, deriveReviewStatus, createRevertCommit, resolveSquashSha, mapPromotePhases, parseGateFailures };

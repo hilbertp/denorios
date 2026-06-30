@@ -7743,7 +7743,11 @@ body:not(.lcars-mode) .staged-details-body pre code {
             c._terminalOutcome = 'ON_DEV';
             c._terminalTs = c.completedAt;
           } else {
-            return null; // Not terminal, skip
+            // Rom finished but Nog has NOT accepted yet: keep it in the logbook with a
+            // "reviewing" pill (outcomeHtml downgrades any non-accepted reviewStatus to
+            // reviewing) — never green, never vanished, until Nog actually accepts.
+            c._terminalOutcome = 'ON_DEV';
+            c._terminalTs = c.completedAt;
           }
         }
         c._terminalRound = getTerminalRound(c.id, events);
