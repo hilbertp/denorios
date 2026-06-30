@@ -3812,6 +3812,12 @@ body.lcars-mode .gate-flow-foot { border-color:#33334d; color:#b6a4e0; }
 .utc-removed { border-color:#fecaca; background:#fef2f2; } .utc-removed .utc-head { color:#b91c1c; }
 .utc-modified { border-color:#fde68a; background:#fffbeb; } .utc-modified .utc-head { color:#92400e; }
 .utc-added { border-color:#a7f3d0; background:#ecfdf5; } .utc-added .utc-head { color:#047857; }
+.utc-add-files { display:flex; flex-wrap:wrap; gap:6px; margin-top:2px; }
+.utc-add-file { font-size:11.5px; color:#065f46; background:#d1fae5; padding:2px 8px; border-radius:6px; }
+.utc-add-file code { font-weight:700; }
+.utc-add-toggle { font-size:11px; margin-left:8px; background:none; border:0; color:#2563eb; cursor:pointer; text-decoration:underline; padding:0; font-weight:600; text-transform:none; letter-spacing:0; }
+.utc-add-titles { margin-top:6px; }
+body.lcars-mode .utc-add-file { background:rgba(22,163,74,.15); color:#7be388; }
 .utc-none { padding:11px 13px; border:1px solid #a7f3d0; background:#ecfdf5; color:#065f46; border-radius:8px; font-size:12.5px; }
 /* Test-Update Gate verdict chip + second-reviewer acknowledgement (Slice D) */
 .utc-verdict { display:flex; flex-wrap:wrap; align-items:baseline; gap:8px; margin:2px 0 10px; }
@@ -10922,10 +10928,31 @@ body:not(.lcars-mode) .staged-details-body pre code {
         + reworded.map(m => `<div class="utc-item">${_esc(m.name)}</div>`).join('') + `</div>`;
     }
     if (tc.added && tc.added.length) {
-      html += `<div class="utc-group utc-added"><div class="utc-head">✓ Now also checking (${tc.added.length})</div>`
-        + tc.added.map(c => `<div class="utc-item">${_esc(c.name)}</div>`).join('') + `</div>`;
+      // Additions are SAFE (new coverage) — summarize: count + which files. The individual
+      // titles (often internal) hide behind a toggle so the gate decision isn't buried in them.
+      const byFile = {};
+      for (const c of tc.added) (byFile[c.file] = byFile[c.file] || []).push(c.name);
+      const chips = Object.keys(byFile).sort().map(f =>
+        `<span class="utc-add-file"><code>${_esc(f.replace(/^.*\//, ''))}</code> +${byFile[f].length}</span>`).join('');
+      const titles = tc.added.map(c => `<div class="utc-item">${_esc(c.name)}</div>`).join('');
+      html += `<div class="utc-group utc-added">`
+        + `<div class="utc-head">✓ ${tc.added.length} new check${tc.added.length === 1 ? '' : 's'} added &mdash; new coverage`
+        + `<button type="button" class="utc-add-toggle" aria-expanded="false" onclick="_toggleAddedDetail(this)">show titles</button></div>`
+        + `<div class="utc-add-files">${chips}</div>`
+        + `<div class="utc-add-titles" hidden>${titles}</div>`
+        + `</div>`;
     }
     return html;
+  }
+
+  function _toggleAddedDetail(btn) {
+    const grp = btn.closest('.utc-group');
+    const titles = grp && grp.querySelector('.utc-add-titles');
+    if (!titles) return;
+    const open = btn.getAttribute('aria-expanded') === 'true';
+    btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+    btn.textContent = open ? 'show titles' : 'hide titles';
+    titles.hidden = open;
   }
 
   // The Test-Update Gate verdict bands (ADR-TEST-UPDATE-GATE, Slice D). RED defaults
