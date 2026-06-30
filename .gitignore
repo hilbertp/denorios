@@ -66,3 +66,6 @@ regression/TESTS-NEEDED.json
 regression/AC-RECONCILE.json
 .claude/roles/bashir/inbox/RECONCILE-NEEDED.md
 .claude/roles/bashir/inbox/NEW-ACS.md
+
+# Test-authoring drafts (proposals for human review, not committed)
+regression/.drafts/
