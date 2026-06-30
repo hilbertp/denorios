@@ -2621,17 +2621,22 @@
   }
   .investigate-panel .close-btn:hover { color: var(--ink-1); }
 
-  /* Collapsed mini strip */
+  /* Collapsed mini strip — merge pressure (left) · branch topo · actions (right) */
   .topo-mini {
     display: none;
     align-items: center;
-    gap: 12px;
-    padding: 6px 20px 10px 20px;
+    gap: 18px;
+    padding: 8px 20px 12px 20px;
     font-size: 12px;
     color: var(--ink-2);
   }
   .topo-collapsed .topo-mini { display: flex; }
   .topo-mini-stat { font-weight: 600; }
+  .topo-mini-gauge { flex: none; display: inline-flex; align-items: center; }
+  .topo-mini-topo  { flex: none; display: inline-flex; align-items: center; gap: 10px; }
+  .topo-mini-actions { margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 8px; }
+  /* Tighten the gate buttons a touch for the compact strip */
+  .topo-mini .promote-gate-btn { font-size: 10px; padding: 4px 11px; }
 
   /* ── RESPONSIVE ────────────────────────────────────────── */
   @media (max-width: 900px) {
@@ -6403,14 +6408,18 @@ body:not(.lcars-mode) .staged-details-body pre code {
         <div class="topo-action-bar"><span id="topo-foot-action"></span></div>
       </div>
       <div class="topo-mini" id="topo-mini">
-        <svg viewBox="0 0 280 32" width="280" height="32" role="img" aria-label="DevOps Station collapsed">
-          <line x1="10" y1="10" x2="270" y2="10" stroke="var(--branch-main)" stroke-width="2" />
-          <line x1="10" y1="22" x2="200" y2="22" stroke="var(--branch-dev)" stroke-width="2" />
-          <line x1="200" y1="22" x2="220" y2="10" stroke="var(--branch-dev)" stroke-width="1.5" stroke-dasharray="3 2" />
-          <circle cx="250" cy="10" r="4" fill="var(--branch-main)" />
-        </svg>
-        <span class="topo-mini-stat" id="topo-mini-stat"></span>
-        <span id="topo-mini-pill"></span>
+        <span class="topo-mini-gauge" id="topo-mini-gauge"></span>
+        <span class="topo-mini-topo">
+          <svg viewBox="0 0 280 32" width="200" height="23" role="img" aria-label="DevOps Station collapsed">
+            <line x1="10" y1="10" x2="270" y2="10" stroke="var(--branch-main)" stroke-width="2" />
+            <line x1="10" y1="22" x2="200" y2="22" stroke="var(--branch-dev)" stroke-width="2" />
+            <line x1="200" y1="22" x2="220" y2="10" stroke="var(--branch-dev)" stroke-width="1.5" stroke-dasharray="3 2" />
+            <circle cx="250" cy="10" r="4" fill="var(--branch-main)" />
+          </svg>
+          <span class="topo-mini-stat" id="topo-mini-stat"></span>
+          <span id="topo-mini-pill"></span>
+        </span>
+        <span class="topo-mini-actions" id="topo-mini-actions"></span>
       </div>
     </div>
   </div>
@@ -10612,10 +10621,12 @@ body:not(.lcars-mode) .staged-details-body pre code {
     'gate. main stays fast-forward-only — nothing is reset or force-pushed. Heads up: if dev is ahead, the ' +
     'revert-forward carries those pending commits to main too — the confirm dialog shows exactly what moves.';
 
-  function renderPromoteAction(bs) {
-    const actionEl = document.getElementById('topo-foot-action');
-    if (!actionEl) return;
-
+  // Builds the two-stage action buttons (CHECK FOR TEST UPDATES → RUN GATE & MERGE).
+  // Rendered into BOTH the expanded footer (suffix '') and the collapsed strip
+  // (suffix '-mini'); IDs are suffixed so the two copies never collide, while the
+  // global onclick handlers mean either copy drives the exact same flow.
+  function promoteActionHtml(bs, suffix) {
+    suffix = suffix || '';
     const gh = bs && bs.github ? bs.github : null;
     const ahead = _ghAhead(gh);
     const running = _gateIsRunning(gh);
@@ -10625,10 +10636,6 @@ body:not(.lcars-mode) .staged-details-body pre code {
     const checkPassed = _testUpdatesReady && _testUpdatesSha && _testUpdatesSha === devSha;
     const checkEnabled = ahead > 0 && !running && !_promoteDispatchInFlight;
     const enabled = ahead > 0 && !running && !_promoteDispatchInFlight && checkPassed;
-    // Rollback targets main's tip (the last promotion); valid whenever main has a
-    // commit and no gate is mid-flight. The backend refuses cleanly otherwise.
-    const mainSha = gh && gh.origin_main_sha ? gh.origin_main_sha : null;
-    const rbEnabled = !!mainSha && !running && !_promoteDispatchInFlight && !_rollbackInFlight;
 
     // Immediate, legible button states: DISPATCHING (click acknowledged,
     // contacting GitHub) -> GATE RUNNING · Ns (live elapsed) -> idle.
@@ -10646,24 +10653,30 @@ body:not(.lcars-mode) .staged-details-body pre code {
     if (_promoteSlotError) {
       html += `<span class="promote-gate-err" role="alert" title="${_promoteEsc(_promoteSlotError)}">${_promoteEsc(_promoteSlotError)}</span>`;
     }
-    // Operator Roll Back button removed (slice 343): rolling back a promotion is a rare
-    // edge case handled on GitHub, not something the everyday operator UI needs.
     // Stage ① — CHECK FOR TEST UPDATES. Runs the AC-drain triage; only when it passes
     // does the merge button below unlock. Shows ✓ once the current dev tip is checked.
-    html += '<button type="button" class="promote-gate-btn check-updates-btn' + (checkPassed ? ' check-updates-done' : '') + '" id="check-updates-btn"' +
+    html += '<button type="button" class="promote-gate-btn check-updates-btn' + (checkPassed ? ' check-updates-done' : '') + '" id="check-updates-btn' + suffix + '"' +
       ' aria-label="Check whether the commits ahead of main need test-suite updates"' +
       ' title="Drains the ACs for the commits ahead of main and checks them against the regression and smoke suites. The merge button stays locked until this passes."' +
       ' onclick="runTestUpdateCheck()"' + (checkEnabled ? '' : ' disabled') + '>' +
       (checkPassed ? '&#10003; TESTS CHECKED' : '&#9678; CHECK FOR TEST UPDATES') +
       '</button>';
-    html += '<button type="button" class="promote-gate-btn' + (running ? ' promote-gate-running' : '') + '" id="promote-gate-btn"' +
+    html += '<button type="button" class="promote-gate-btn' + (running ? ' promote-gate-running' : '') + '" id="promote-gate-btn' + suffix + '"' +
       ' aria-label="Run regression gate and promote dev to main"' +
       ` title="${_promoteEsc(checkPassed ? PROMOTE_BTN_TITLE : 'Locked — run CHECK FOR TEST UPDATES first.')}"` +
       ' onclick="confirmUpdateTests()"' + (enabled ? '' : ' disabled') + '>' +
       label +
       '</button>';
     html += '</span>';
-    actionEl.innerHTML = html;
+    return html;
+  }
+
+  function renderPromoteAction(bs) {
+    const actionEl = document.getElementById('topo-foot-action');
+    if (actionEl) actionEl.innerHTML = promoteActionHtml(bs, '');
+    // Same buttons, mirrored into the collapsed strip's right zone (suffixed IDs).
+    const miniEl = document.getElementById('topo-mini-actions');
+    if (miniEl) miniEl.innerHTML = promoteActionHtml(bs, '-mini');
   }
 
   // ── Stage ① "CHECK FOR TEST UPDATES" — the AC-drain triage that gates the merge ──
@@ -10674,6 +10687,8 @@ body:not(.lcars-mode) .staged-details-body pre code {
   async function runTestUpdateCheck() {
     const btn = document.getElementById('check-updates-btn');
     if (btn) { btn.disabled = true; btn.innerHTML = '&#8635; CHECKING&#8230;'; }
+    const btnMini = document.getElementById('check-updates-btn-mini');
+    if (btnMini) { btnMini.disabled = true; btnMini.innerHTML = '&#8635; CHECKING&#8230;'; }
     _testUpdatesChecking = true;
     if (_lastBranchState && _lastBranchState.github) renderGateFlow(_lastBranchState.github);
     try {
@@ -10981,6 +10996,12 @@ body:not(.lcars-mode) .staged-details-body pre code {
 
     const ahead = bs.dev ? (bs.dev.commits_ahead_of_main || 0) : 0;
     statEl.textContent = `${ahead} ahead`;
+
+    // Mirror the live merge-pressure dial into the collapsed strip's left zone.
+    // Same content as the expanded #topo-foot-rr (no IDs inside → safe to copy).
+    const gaugeEl = document.getElementById('topo-mini-gauge');
+    const rrSrc = document.getElementById('topo-foot-rr');
+    if (gaugeEl && rrSrc) gaugeEl.innerHTML = rrSrc.innerHTML;
 
     if (pillEl) {
       const gh = bs.github || {};
