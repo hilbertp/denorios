@@ -67,9 +67,9 @@ for (const suffix of ['.QUESTION.md', '.rationale.txt']) {
 
 const journeyClause = journey
   ? `The operator has ALREADY answered the journey question for this AC:\n"""\n${journey}\n"""\nAuthor the test to match that answer — do not ask again.`
-  : `USER-GUIDED — if the right user JOURNEY (what exactly to assert, or which of several paths to cover) is genuinely ambiguous, or you are low-confidence, DO NOT GUESS. Write a short, specific question (2-3 concrete options) to ${DRAFT_DIR}/${tag}.QUESTION.md and STOP without writing a draft. The human is consulted on journeys by design.`;
+  : `DECIDE AUTONOMOUSLY. Test-design calls — pin an exact value vs assert a property, how strict to be, which of several equivalent paths to cover — are YOURS as the QA engineer; do NOT bounce them to the operator. Make the call that best surfaces faults, write one line of WHAT you decided and WHY into the rationale, and proceed. Escalate (write ${DRAFT_DIR}/${tag}.QUESTION.md and STOP) ONLY for a genuine PRODUCT-level ambiguity unresolvable from the AC text + the codebase — e.g. the AC contradicts itself, or the correct behaviour depends on intent only the product owner holds. Default strongly to deciding.`;
 
-const prompt = `You are Julian (Bashir), the QA engineer for this repo. The test-update gate flagged an acceptance criterion that needs test coverage. Author (or update) the test that GUARDS it.
+const prompt = `You are Julian (Bashir), the QA engineer for this repo. Your mission is ADVERSARIAL: surface as many wrong/faulty things as fast as possible — you write tests to BREAK the feature, never to rubber-stamp it. You did NOT build this code; your incentive is to catch its faults, which is exactly why it is safe for you (not the implementer) to author the guard. The test-update gate flagged an acceptance criterion that needs coverage. Author (or update) the test that GUARDS it.
 
 AC ${tag}: ${acText || '(text not found in trailers/manifest — infer the intent from the codebase and the tag)'}
 
