@@ -106,14 +106,19 @@ function acHashesIn(src) {
   return out;
 }
 
-// Walk regression/**/*.test.js, repo-relative POSIX paths, sorted.
+// Walk regression/**/*.test.js, repo-relative POSIX paths, sorted. Dot-directories are
+// skipped — chiefly regression/.drafts/ (gitignored, machine-authored proposals pending
+// human review): they are not part of the committed suite, the test runner's `**` glob
+// already skips them, and including them would make the map non-deterministic (drafts come
+// and go mid-run) AND environment-dependent (absent on a clean CI checkout → the integrity
+// gate would flap). The deriver must see exactly what the runner runs.
 function walkTests(repoRoot) {
   const root = path.join(repoRoot, 'regression');
   const out = [];
   (function walk(dir) {
     for (const ent of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name < b.name ? -1 : 1)) {
       const full = path.join(dir, ent.name);
-      if (ent.isDirectory()) walk(full);
+      if (ent.isDirectory()) { if (!ent.name.startsWith('.')) walk(full); }
       else if (ent.isFile() && ent.name.endsWith('.test.js')) out.push(path.relative(repoRoot, full).split(path.sep).join('/'));
     }
   })(root);

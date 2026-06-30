@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 388,
+  "guardCount": 387,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -237,10 +237,6 @@
         "tag": "slice-342-ac-1",
         "file": "regression/direct-controls/j-dark-mode-label.test.js",
         "guardAcHash": "sha256:7ca273aff035552ba8ce07eab3d355c8f85b21d341d2fe4941217f2c3e69395e"
-      },
-      {
-        "tag": "slice-343-ac-1",
-        "file": "regression/.drafts/slice-343-ac-1.draft.test.js"
       },
       {
         "tag": "slice-99777-ac-1",
