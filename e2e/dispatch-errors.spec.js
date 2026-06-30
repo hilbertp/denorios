@@ -70,7 +70,7 @@ for (const c of CASES) {
     await passCheck(page);
     await approveAndRun(page);
 
-    await expect(page.locator('.promote-gate-err')).toContainText(c.expectText);
+    await expect(page.locator('.promote-gate-err:visible').first()).toContainText(c.expectText);
     // It must never read as a started/running gate, nor a promotion, from a failed dispatch.
     await expect(btn).not.toContainText('GATE RUNNING');
     await expect(page.locator('.gflow-cap-ok')).toHaveCount(0);
@@ -87,6 +87,6 @@ test('dispatch error: network failure → "dispatch failed: network error"', asy
   await passCheck(page);
   await approveAndRun(page);
 
-  await expect(page.locator('.promote-gate-err')).toContainText('network error');
+  await expect(page.locator('.promote-gate-err:visible').first()).toContainText('network error');
   await expect(btn).not.toContainText('GATE RUNNING');
 });

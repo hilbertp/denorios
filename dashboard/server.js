@@ -739,6 +739,11 @@ function authoringStateFor(tag) {
 // Spawn Julian (detached) for each not-already-handled tag. Returns the tags kicked off.
 function kickOffAuthoring(tags) {
   const { spawn } = require('child_process');
+  const authorScript = path.join(REPO_ROOT, 'scripts', 'author-ac-test.js');
+  // Never spawn where the author script isn't present (e.g. the e2e seed-fixture tmpdir,
+  // which has no scripts/): it couldn't author anyway, and a stray spawn + .running marker
+  // would pollute the shared test server and flake unrelated specs.
+  if (!fs.existsSync(authorScript)) return [];
   try { fs.mkdirSync(DRAFTS_DIR, { recursive: true }); } catch (_) {}
   const kicked = [];
   for (const tag of tags) {
@@ -747,7 +752,7 @@ function kickOffAuthoring(tags) {
     if (st === 'drafted' || st === 'question' || st === 'authoring') continue; // done or in-flight
     try {
       fs.writeFileSync(path.join(DRAFTS_DIR, `${tag}.running`), new Date().toISOString());
-      const child = spawn(process.execPath, [path.join(REPO_ROOT, 'scripts', 'author-ac-test.js'), tag],
+      const child = spawn(process.execPath, [authorScript, tag],
         { cwd: REPO_ROOT, detached: true, stdio: 'ignore' });
       child.unref();
       kicked.push(tag);
