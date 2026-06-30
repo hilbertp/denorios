@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "main": {
-    "tip_sha": "9dbab40b5398557cdbe4a7494e9e5a08e32912c4",
-    "tip_subject": "promote.yml: success-gate the regression-report upload (fix gate-integrity guard)",
-    "tip_ts": "2026-06-17T15:21:19+03:00"
+    "tip_sha": "f7fd23081c767db25a48c2a6b33e53ba10011e4d",
+    "tip_subject": "fix(dashboard): amend input + API-retry toast follow the LCARS skin",
+    "tip_ts": "2026-06-25T15:23:32+03:00"
   },
   "dev": {
     "tip_sha": null,
@@ -13,8 +13,8 @@
     "deferred_slices": []
   },
   "last_merge": {
-    "sha": "9dbab40b5398557cdbe4a7494e9e5a08e32912c4",
-    "ts": "2026-06-17T15:21:19+03:00"
+    "sha": "f7fd23081c767db25a48c2a6b33e53ba10011e4d",
+    "ts": "2026-06-25T15:23:32+03:00"
   },
   "gate": {
     "status": "IDLE",
@@ -30,6 +30,6 @@
       "surface_volatility": 0,
       "ac_coverage_gap": 0
     },
-    "computed_ts": "2026-06-30T10:35:11.268Z"
+    "computed_ts": "2026-06-30T22:53:20.146Z"
   }
 }

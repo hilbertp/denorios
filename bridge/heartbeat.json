@@ -1,17 +1,17 @@
 {
-  "ts": "2026-06-30T10:35:08.910Z",
-  "pickup_ts": "2026-06-30T10:34:17.377Z",
+  "ts": "2026-06-30T22:53:12.509Z",
+  "pickup_ts": "2026-06-30T22:52:22.948Z",
   "status": "nog_review",
-  "current_slice": "348",
+  "current_slice": "349",
   "current_slice_title": null,
-  "current_slice_goal": "The LCARS dark skin uses a softer near-black (#0b0b14) instead of harsh pure black, for less eye strain.",
-  "slice_elapsed_seconds": 51,
+  "current_slice_goal": "Show a one-line caption under the Gate Sequence panel title stating that main only advances on a green gate.",
+  "slice_elapsed_seconds": 49,
   "last_activity_ts": null,
-  "processed_total": 9,
+  "processed_total": 1,
   "queue": {
     "waiting": 0,
     "active": 0,
     "done": 23,
-    "error": 41
+    "error": 42
   }
 }
