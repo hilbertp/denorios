@@ -1,17 +1,17 @@
 {
-  "ts": "2026-06-17T15:19:59.940Z",
-  "pickup_ts": null,
-  "status": "idle",
-  "current_slice": null,
+  "ts": "2026-06-30T10:35:08.910Z",
+  "pickup_ts": "2026-06-30T10:34:17.377Z",
+  "status": "nog_review",
+  "current_slice": "348",
   "current_slice_title": null,
-  "current_slice_goal": null,
-  "slice_elapsed_seconds": null,
+  "current_slice_goal": "The LCARS dark skin uses a softer near-black (#0b0b14) instead of harsh pure black, for less eye strain.",
+  "slice_elapsed_seconds": 51,
   "last_activity_ts": null,
-  "processed_total": 0,
+  "processed_total": 9,
   "queue": {
     "waiting": 0,
     "active": 0,
-    "done": 21,
-    "error": 40
+    "done": 23,
+    "error": 41
   }
 }
