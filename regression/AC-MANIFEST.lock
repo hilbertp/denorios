@@ -1,7 +1,7 @@
 {
   "generator": "scripts/build-ac-manifest.js",
   "acCount": 168,
-  "legacyCount": 161,
+  "legacyCount": 162,
   "byTag": {
     "slice-042-ac-1": {
       "slice": "042",
@@ -237,11 +237,11 @@
     },
     "slice-342-ac-1": {
       "slice": "342",
-      "text": "PASS — `.lcars-switch-text` span now reads \"Dark Mode (LCARS)\"; toggle behaviour and styling unchanged.",
-      "acHash": "sha256:7ca273aff035552ba8ce07eab3d355c8f85b21d341d2fe4941217f2c3e69395e",
-      "source": "bridge/queue/342-ARCHIVED.md",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
       "status": "active",
-      "legacy": false
+      "legacy": true
     },
     "slice-345-ac-1": {
       "slice": "345",

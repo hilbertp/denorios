@@ -34,12 +34,24 @@ function acHashOf(text) {
 }
 
 function sliceFiles(repoRoot) {
+  // Only git-TRACKED slice files. bridge/queue/*.md and bridge/staged/*.md are gitignored
+  // (local working records — 353 of 375 on-disk files are untracked), so a clean CI checkout
+  // has only the committed subset. Sourcing an AC's text from an on-disk-but-untracked file
+  // makes the manifest non-reproducible: the integrity gate (committed == fresh regeneration)
+  // then passes locally and fails on CI. Consult git so the deriver sees exactly what a clean
+  // checkout sees; a tag whose only source is untracked correctly falls back to legacy-backfill.
+  const tracked = new Set();
+  try {
+    const { execFileSync } = require('child_process');
+    const ls = execFileSync('git', ['-C', repoRoot, 'ls-files', '-z', 'bridge/queue', 'bridge/staged'], { encoding: 'utf8' });
+    for (const rel of ls.split('\0')) if (rel.endsWith('.md')) tracked.add(rel);
+  } catch (_) { /* not a git tree (e.g. a fixture) — fall through to none */ }
   const out = [];
   for (const d of ['queue', 'staged']) {
     const dir = path.join(repoRoot, 'bridge', d);
     let ents = [];
     try { ents = fs.readdirSync(dir); } catch (_) {}
-    for (const f of ents) if (f.endsWith('.md')) out.push(path.join(dir, f));
+    for (const f of ents) if (f.endsWith('.md') && tracked.has(`bridge/${d}/${f}`)) out.push(path.join(dir, f));
   }
   return out.sort();
 }
