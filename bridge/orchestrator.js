@@ -6749,8 +6749,12 @@ function squashSliceToDev(sliceId, sliceTitle, sliceBranch) {
   // set (a false green — the long-standing last-mile gap). No trailers → behaves as before.
   let acTrailers = '';
   try {
-    const bodies = execSync(`git log dev..${sliceBranch} --format=%B`, { cwd: PROJECT_DIR, encoding: 'utf-8' });
-    const byTag = new Map(); // last declaration wins (an amendment supersedes the original)
+    // --reverse = OLDEST-first. git log defaults to newest-first, so last-writer-wins below
+    // would keep the OLDEST text if a tag is amended across commits. Oldest-first makes the
+    // newest declaration win — matching the gate's scanner (lib/ac-range-scan). (Bug found by
+    // Julian while guarding slice-350-ac-1.)
+    const bodies = execSync(`git log dev..${sliceBranch} --reverse --format=%B`, { cwd: PROJECT_DIR, encoding: 'utf-8' });
+    const byTag = new Map(); // last declaration wins = newest, because the log is now oldest-first
     const re = /^AC:\s*(slice-\d+-ac-\d+):\s*(.+?)\s*$/gim;
     let m;
     while ((m = re.exec(bodies)) !== null) byTag.set(m[1].toLowerCase(), m[2].trim());

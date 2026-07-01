@@ -680,7 +680,11 @@ function getCheckTestUpdates() {
   // NOT the static regression/AC-MANIFEST.lock. Reconciling that stale, in-sync lock against
   // COVERAGE.lock is what made this gate go GREEN in milliseconds regardless of the merge.
   const manifest  = scanRangeManifest({
-    gitLog: (range) => execFileSync('git', ['log', range, '--format=%B'],
+    // --reverse = OLDEST-first. git log defaults to newest-first; the scanner's dedup is
+    // last-writer-wins, so without --reverse an AMENDED AC would resolve to its OLDEST text —
+    // and if that old text already had a guard, the amendment false-greens (untested new text
+    // sails through). Oldest-first makes last-writer land on the newest declaration.
+    gitLog: (range) => execFileSync('git', ['log', range, '--reverse', '--format=%B'],
       { cwd: REPO_ROOT, encoding: 'utf8', timeout: 5000 }),
   });
   const coverage  = readJson(path.join(REPO_ROOT, 'regression', 'COVERAGE.lock'), { bySource: {} });

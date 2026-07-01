@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 387,
+  "guardCount": 391,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -177,6 +177,14 @@
       }
     ],
     "bridge/orchestrator.js": [
+      {
+        "tag": "slice-350-ac-3",
+        "file": "regression/gate-merge/j-ac-amend-order.test.js"
+      },
+      {
+        "tag": "slice-350-ac-4",
+        "file": "regression/gate-merge/j-ac-amend-order.test.js"
+      },
       {
         "tag": "slice-99777-ac-1",
         "file": "regression/observability/j-watch-slice-live-log.test.js"
@@ -529,6 +537,14 @@
       {
         "tag": "slice-345-ac-5",
         "file": "regression/gate-merge/j-review-status.test.js"
+      },
+      {
+        "tag": "slice-350-ac-3",
+        "file": "regression/gate-merge/j-ac-amend-order.test.js"
+      },
+      {
+        "tag": "slice-350-ac-4",
+        "file": "regression/gate-merge/j-ac-amend-order.test.js"
       },
       {
         "tag": "slice-901-ac-1",
