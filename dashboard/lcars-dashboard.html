@@ -3733,7 +3733,8 @@ body.lcars-mode .lore-tag { display: inline; }
 .gate-flow { grid-area: gate; margin: 0 0 4px; padding: 12px 14px; border: 1px solid #e5e7eb;
   border-radius: 10px; background: #f9fafb; }
 .gate-flow-head { font-size: 10px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.08em; color: #9ca3af; margin-bottom: 9px; }
+  letter-spacing: 0.08em; color: #9ca3af; margin-bottom: 3px; }
+.gate-flow-subcap { font-size: 10px; color: #b0b7c3; letter-spacing: 0.01em; margin-bottom: 9px; }
 .gate-flow-steps { display: block; }
   /* merge-pressure dial */
   .dvs-gauge { display:inline-flex; align-items:center; gap:13px; }
@@ -3855,6 +3856,7 @@ body.lcars-mode .gate-flow { background:#12121e; border-color:#33334d; }
 body.lcars-mode .gflow-trigger, body.lcars-mode .gflow-step, body.lcars-mode .gflow-target {
   background:#1a1a28; border-color:#33334d; color:#e7d6ff; }
 body.lcars-mode .gate-flow-caption { color:#b6a4e0; }
+body.lcars-mode .gate-flow-subcap { color:#7a6a9a; }
 </style>
 <style id="lob-redesign">
 /* ===== REDESIGN BASE LAYER ===== */
@@ -6419,6 +6421,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
         <!-- ── Gate sequence (single source for the gate flow + per-push CI) ── -->
         <div class="gate-flow" id="gate-flow">
           <div class="gate-flow-head">Gate sequence</div>
+          <div class="gate-flow-subcap">main only advances on a green gate</div>
           <div class="gate-flow-steps" id="gate-flow-steps"></div>
           <div class="gate-flow-caption" id="gate-flow-caption"></div>
           <div class="gate-flow-foot">
