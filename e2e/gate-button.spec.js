@@ -237,12 +237,12 @@ test('during a gate run the REGRESSION row shows the gate step running — not t
 
   const regStep = page.locator('#gate-flow-steps .dvs-node', { hasText: 'regression' });
   await expect(regStep.locator('.dvs-box')).toHaveClass(/act/); // it's the gate's regression, running
-  await expect(regStep).not.toContainText('run #44');          // NOT the stale per-push green ✓
+  await expect(regStep).not.toContainText('run 44');           // NOT the stale per-push green ✓
   await expect(regStep).not.toContainText('passing');
   // The per-push ci.yml run is shown SEPARATELY and clearly labeled — never conflated with the gate.
   const ci = page.locator('#gflow-ci');
   await expect(ci).toContainText('Per-push checks');
-  await expect(ci).toContainText('run #44');
+  await expect(ci).toContainText('run 44');
 });
 
 const RUNNING_WITH_PHASES = JSON.parse(JSON.stringify(AHEAD_BRANCH_STATE));

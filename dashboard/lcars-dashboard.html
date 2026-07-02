@@ -3133,7 +3133,7 @@
     letter-spacing: 0.05em;
   }
   .history-table-header .col-chevron { width: 18px; flex-shrink: 0; }
-  .history-table-header .col-id { width: 36px; flex-shrink: 0; }
+  .history-table-header .col-id { width: 48px; flex-shrink: 0; }
   .history-table-header .col-title { flex: 1; min-width: 0; }
   .history-table-header .col-round { width: 28px; text-align: center; flex-shrink: 0; }
   .history-table-header .col-outcome { width: 80px; text-align: center; flex-shrink: 0; }
@@ -3142,7 +3142,7 @@
   .history-table-header .col-cost { width: 50px; text-align: right; flex-shrink: 0; }
 
   .history-row-main .col-chevron { width: 18px; flex-shrink: 0; text-align: center; }
-  .history-row-main .col-id { width: 36px; flex-shrink: 0; }
+  .history-row-main .col-id { width: 48px; flex-shrink: 0; }
   .history-row-main .col-title { flex: 1; min-width: 0; word-break: break-word; }
   .history-row-main .col-round { width: 28px; text-align: center; flex-shrink: 0; font-size: 11px; color: #6b7280; }
   .history-row-main .col-outcome { width: 80px; text-align: center; flex-shrink: 0; }
@@ -6624,7 +6624,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
         <div class="section-title">History<span class="lore-tag"> (Logbook)</span> <span class="panel-owner" data-role="obrien">Dev Lead</span></div>
         <div class="history-table-header">
           <span class="col-chevron"></span>
-          <span class="col-id">#</span>
+          <span class="col-id">Slice</span>
           <span class="col-title">Title</span>
           <span class="col-round">R</span>
           <span class="col-outcome">Outcome</span>
@@ -6892,7 +6892,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
     } catch (_) {}
 
     if (!data) {
-      aside.innerHTML = `<div class="active-brief-error"><div class="active-brief-error-reason">Build failed</div><div style="font-size:0.82em">No error details available for slice #${escHtml(String(id))}.</div></div>`;
+      aside.innerHTML = `<div class="active-brief-error"><div class="active-brief-error-reason">Build failed</div><div style="font-size:0.82em">No error details available for slice ${escHtml(String(id))}.</div></div>`;
       return;
     }
 
@@ -7105,7 +7105,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
     // Update slice ID + title (separate elements now)
     const sliceIdEl = document.getElementById('nog-slice-id-label');
     const sliceTitleEl = document.getElementById('nog-slice-title');
-    if (sliceIdEl) sliceIdEl.textContent = `#${nogActive.sliceId}`;
+    if (sliceIdEl) sliceIdEl.textContent = `Slice ${nogActive.sliceId}`;
     if (sliceTitleEl) sliceTitleEl.textContent = nogActive.title || '';
 
     // Update round label in subtitle
@@ -7346,7 +7346,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
       const round = getRound(mission.id);
       document.getElementById('blocked-id-badge').textContent = `Slice ${escHtml(mission.id)}`;
       document.getElementById('blocked-title').textContent = mission.title || '\u2014';
-      document.getElementById('blocked-label').textContent = `Blocked \u00b7 Waiting for ${personName('nog')} \u2014 #${escHtml(mission.id)} in review round R${round}`;
+      document.getElementById('blocked-label').textContent = `Blocked \u00b7 Waiting for ${personName('nog')} \u2014 slice ${escHtml(mission.id)} in review round R${round}`;
 
     } else if (activeStageKey && mission) {
       blockedEl.style.display = 'none';
@@ -7480,7 +7480,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
       if (lastError) {
         const last = recent[0];
         if (glyphEl) glyphEl.style.display = 'none';
-        primaryEl.textContent = `Slice #${last.id} failed \u2014 ${last.title || 'Untitled'}`;
+        primaryEl.textContent = `Slice ${last.id} failed \u2014 ${last.title || 'Untitled'}`;
         primaryEl.className = 'active-slice-idle-primary';
         primaryEl.style.color = '#f87171';
         secondaryEl.textContent = humanReason(last.reason || last.error_reason || '');
@@ -7506,7 +7506,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
     const overlay = document.getElementById('stop-confirm-overlay');
     const titleEl = document.getElementById('stop-confirm-title');
     const bodyEl  = document.getElementById('stop-confirm-body');
-    titleEl.textContent = `Stop #${currentMission.id} \u2014 ${currentMission.title || 'Untitled'}?`;
+    titleEl.textContent = `Stop slice ${currentMission.id} \u2014 ${currentMission.title || 'Untitled'}?`;
     bodyEl.textContent  = "The current work will be preserved but the slice returns to pending.";
     overlay.style.display = '';
   }
@@ -7785,7 +7785,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
       .filter(Boolean)
       // Sorted by slice number, newest first (page 1 = highest #). Sorting by
       // terminal timestamp let a re-merged / rolled-back older slice float up
-      // out of numeric order, which read as "unsorted"; slice # is the stable key.
+      // out of numeric order, which read as "unsorted"; the slice number is the stable key.
       .sort((a, b) => parseInt(b.id, 10) - parseInt(a.id, 10));
 
     const totalPages = Math.max(1, Math.ceil(cachedHistoryAllRows.length / HISTORY_PAGE_SIZE));
@@ -7914,7 +7914,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
       return `<div class="history-row" data-history-id="${eid}">
         <div class="history-row-main">
           <span class="col-chevron history-chevron" id="history-chevron-${eid}" onclick="toggleHistoryExpand('${eid}')">${chevron}</span>
-          <span class="col-id history-row-id">#${eid}</span>
+          <span class="col-id history-row-id">${eid}</span>
           <span class="col-title history-row-title">${escHtml(c.title || '')}</span>
           <span class="col-round">${escHtml(roundDisplay)}</span>
           <span class="col-outcome">${outcomeHtml(outcome, c)}</span>
@@ -7976,7 +7976,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
         // Show success toast
         const toast = document.createElement('div');
         toast.className = 'return-toast';
-        toast.textContent = `Slice #${id} returned to stage`;
+        toast.textContent = `Slice ${id} returned to stage`;
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 3000);
         fetchBridge();
@@ -8013,7 +8013,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
   // Which action triggered the in-flight gate — drives whether a green/red gate
   // reads as a merge or a rollback in the confirmation popups. 'merge' | 'rollback'.
   let _gateContext = 'merge';
-  let _rollbackTargetTag = '';   // "#NNN · hash" of the commit being rolled back
+  let _rollbackTargetTag = '';   // "NNN · hash" of the commit being rolled back
 
   function _rbEsc(s) {
     return String(s == null ? '' : s)
@@ -8043,7 +8043,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
       movesHtml = '<div class="rollback-moves"><div class="rb-line">computing what will move to main…</div></div>';
       confirmDisabled = 'disabled';
     } else if (opts.state === 'error') {
-      errHtml = `<p class="rollback-error">Can’t roll back #${_rbEsc(id)} — ${_rbEsc(opts.error)}</p>`;
+      errHtml = `<p class="rollback-error">Can’t roll back slice ${_rbEsc(id)} — ${_rbEsc(opts.error)}</p>`;
       confirmDisabled = 'disabled';
     } else {
       const p = opts.preview;
@@ -8051,7 +8051,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
         `<div class="rb-line"><span class="rb-sha">${_rbEsc(c.sha)}</span><span>${_rbEsc(c.subject || (c.slice_id ? 'slice ' + c.slice_id : ''))}</span></div>`
       ).join('');
       movesHtml = `<div class="rollback-moves">
-        <div class="rb-line"><span class="rb-sha">new</span><span class="rb-revert">↺ revert of slice #${_rbEsc(id)} (undoes ${_rbEsc(p.squash_sha)})</span></div>
+        <div class="rb-line"><span class="rb-sha">new</span><span class="rb-revert">↺ revert of slice ${_rbEsc(id)} (undoes ${_rbEsc(p.squash_sha)})</span></div>
         ${pendingLines}
       </div>`;
       const pendingCount = (p.pending_commits || []).length;
@@ -8061,7 +8061,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
     }
 
     overlay.innerHTML = `<div class="rollback-card" role="dialog" aria-modal="true" aria-label="Confirm rollback">
-      <h3>Roll back slice #${_rbEsc(id)}</h3>
+      <h3>Roll back slice ${_rbEsc(id)}</h3>
       <p class="rb-sub">${title}</p>
       <p class="rb-sub">Adds a <strong>git revert</strong> commit on dev, then re-runs the regression gate. main stays fast-forward-only — nothing is reset or force-pushed, and the gate must pass before main moves.</p>
       ${errHtml}
@@ -8114,7 +8114,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
         }
         const toast = document.createElement('div');
         toast.className = 'return-toast';
-        toast.textContent = `Rolling back #${id} — revert ${data.revert_sha} on dev, gate running`;
+        toast.textContent = `Rolling back slice ${id} — revert ${data.revert_sha} on dev, gate running`;
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 4000);
         setTimeout(fetchBranchState, 1000);
@@ -8125,7 +8125,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
         if (code === 'gate_already_running') {
           msg = 'A gate is already running — wait for it to finish, then roll back. You can’t promote and roll back at once.';
         } else if (code === 'conflict') {
-          const blamed = data.blame && data.blame.slice_id ? `slice #${data.blame.slice_id}` : 'a later slice';
+          const blamed = data.blame && data.blame.slice_id ? `slice ${data.blame.slice_id}` : 'a later slice';
           msg = `Can’t auto-roll-back — ${blamed} changed the same code, so the revert conflicts. This needs a human forward-fix, not an automatic revert.`;
         } else if (code === 'not_on_main') {
           msg = 'This slice isn’t on main yet — there’s nothing on main to roll back.';
@@ -8211,7 +8211,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
     const targetTag = _rbEsc(commitTagBySha(mainSha));
     overlay.innerHTML = `<div class="rollback-card" role="dialog" aria-modal="true" aria-label="Confirm rollback of last promotion">
       <h3>Roll back the last promotion?</h3>
-      <p class="rb-sub">Rollback target: <strong>${targetTag}</strong> — the commit currently at the tip of main.</p>
+      <p class="rb-sub">Rollback target: commit <strong>${targetTag}</strong> — currently the tip of main.</p>
       <p class="rb-sub">Adds a <strong>git revert</strong> on dev, then re-runs the full regression gate. <strong>Main is not changed</strong> until the gate passes — nothing is reset or force-pushed.</p>
       ${errHtml}
       <div style="font-size:12px;color:#6b7280;margin-bottom:6px;">What will fast-forward onto main once the gate is green:</div>
@@ -8235,7 +8235,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
     if (!card.querySelector('.rb-final-warn')) {
       const warn = document.createElement('div');
       warn.className = 'rb-final-warn';
-      warn.innerHTML = `<strong>⚠ Are you sure?</strong> This adds a revert of <strong>${tag}</strong> to dev and re-runs the full gate. It's a real change to dev — main only moves if the gate passes.`;
+      warn.innerHTML = `<strong>⚠ Are you sure?</strong> This adds a revert of commit <strong>${tag}</strong> to dev and re-runs the full gate. It's a real change to dev — main only moves if the gate passes.`;
       actions.parentNode.insertBefore(warn, actions);
     }
     actions.innerHTML =
@@ -8281,7 +8281,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
         if (code === 'gate_already_running') {
           msg = 'A gate is already running — wait for it to finish, then roll back. You can’t promote and roll back at once.';
         } else if (code === 'conflict') {
-          const blamed = data.blame && data.blame.slice_id ? `slice #${data.blame.slice_id}` : 'a later slice';
+          const blamed = data.blame && data.blame.slice_id ? `slice ${data.blame.slice_id}` : 'a later slice';
           msg = `Can’t auto-roll-back — ${blamed} changed the same code, so the revert conflicts. This needs a human forward-fix, not an automatic revert.`;
         } else if (code === 'not_on_main') {
           msg = 'Nothing on main to roll back.';
@@ -8309,7 +8309,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
                  cachedHistoryAllRows.find(c => c.id === id);
     if (!item) return;
 
-    document.getElementById('history-detail-id').textContent = `#${id}`;
+    document.getElementById('history-detail-id').textContent = `Slice ${id}`;
     document.getElementById('history-detail-title').textContent = item.title || 'Untitled';
 
     const outcome = item._terminalOutcome || 'ON_DEV';
@@ -8489,7 +8489,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
       _childIds: [],
     };
     // Reuse the history detail overlay
-    document.getElementById('history-detail-id').textContent = `#${item.id}`;
+    document.getElementById('history-detail-id').textContent = `Slice ${item.id}`;
     document.getElementById('history-detail-title').textContent = item.title;
     document.getElementById('history-detail-context').innerHTML = '<span class="history-ctx-item"><span class="history-ctx-label">Status:</span> <span class="history-ctx-value">In Progress</span></span>';
     renderHistoryDetailBody(item);
@@ -8575,7 +8575,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
       document.getElementById('regression-coverage-updated').textContent =
         `${srcLabel} — ${flag} · ${new Date(data.updated).toLocaleString()}`;
 
-      // Connect the report to the panel: which commit it reflects (#num · hash),
+      // Connect the report to the panel: which commit it reflects (num · hash),
       // a clear pass/fail line, and a copyable investigation prompt on failure.
       const bs = _lastBranchState;
       const devTip = (bs && bs.dev && bs.dev.commits && bs.dev.commits.length)
@@ -8611,12 +8611,12 @@ body:not(.lcars-mode) .staged-details-body pre code {
       // and is NOT updated by the GitHub gate/ci.yml runs — so it can disagree with
       // the live state. Flag the conflict loudly and link the live run.
       const ci = (bs && bs.github && bs.github.ci) ? bs.github.ci : null;
-      const ciRun = ci && ci.run_number ? `#${ci.run_number}` : '';
+      const ciRun = ci && ci.run_number ? String(ci.run_number) : '';
       const ciUrl = ci && ci.url ? ci.url : null;
       let banner = '';
       if (data.source === 'github') {
         // Report is the artifact from the actual run — provenance note, no conflict possible.
-        banner = `<div class="report-source-note">From the live GitHub run${data.run_number ? ` #${data.run_number}` : ''}`
+        banner = `<div class="report-source-note">From the live GitHub run${data.run_number ? ` ${data.run_number}` : ''}`
           + (data.run_url ? ` · <a href="${escHtml(data.run_url)}" target="_blank" rel="noopener">open in GitHub ↗</a>` : '') + `</div>`;
       } else if (data.status === 'pass' && ci && ci.state === 'failing') {
         banner = `<div class="report-stale-warn">⚠ <strong>This saved report says PASS, but the latest CI run ${escHtml(ciRun)} is FAILING.</strong> `
@@ -8998,7 +8998,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
       );
       if (w && w.currentSlice && w.elapsedSeconds != null) {
         const lastAct = w.lastActivityAge_s != null ? ` · last output ${fmtAge(w.lastActivityAge_s)}` : '';
-        tipLines.push(`<span class="health-tooltip-meta">processing #${esc(w.currentSlice)} · ${fmtElapsedCompact(w.elapsedSeconds)}${lastAct}</span>`);
+        tipLines.push(`<span class="health-tooltip-meta">processing slice ${esc(w.currentSlice)} · ${fmtElapsedCompact(w.elapsedSeconds)}${lastAct}</span>`);
       } else if (w && orchStatus !== 'down') {
         tipLines.push(`<span class="health-tooltip-meta">idle · ${w.processedTotal} slices processed</span>`);
       }
@@ -9216,7 +9216,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
       <div class="queue-row${enterClass}" data-id="${eid}" data-state="${rowState}" data-apendment="${isAmd}" draggable="${draggable}">
         <span class="queue-drag-handle ${handleClass}">&#10303;</span>
         ${posHtml}
-        <span class="queue-row-id">#${eid}</span>
+        <span class="queue-row-id">Slice ${eid}</span>
         <span class="sprint-badge">${escHtml(sprintLabel)}</span>
         <span class="queue-row-title">${escHtml(row.title || '')}</span>
         ${retryBadge}${chevronHtml}
@@ -9310,7 +9310,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
         const sat = isDependencySatisfied(depId);
         const cls = sat ? 'queue-dep-satisfied' : 'queue-dep-unsatisfied';
         const icon = sat ? '&#10003;' : '&#9679;';
-        metaParts.push(`<span class="queue-expand-meta-item"><span class="queue-expand-meta-label">Depends on</span> <span class="${cls}">${icon} #${escHtml(depId)}</span></span>`);
+        metaParts.push(`<span class="queue-expand-meta-item"><span class="queue-expand-meta-label">Depends on</span> <span class="${cls}">${icon} slice ${escHtml(depId)}</span></span>`);
       }
     } else if (isQueued) {
       const approvalEvents = cachedRegisterEvents.filter(e =>
@@ -9328,7 +9328,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
         const sat = isDependencySatisfied(depId);
         const cls = sat ? 'queue-dep-satisfied' : 'queue-dep-unsatisfied';
         const icon = sat ? '&#10003;' : '&#9679;';
-        metaParts.push(`<span class="queue-expand-meta-item"><span class="queue-expand-meta-label">Depends on</span> <span class="${cls}">${icon} #${escHtml(depId)}</span></span>`);
+        metaParts.push(`<span class="queue-expand-meta-item"><span class="queue-expand-meta-label">Depends on</span> <span class="${cls}">${icon} slice ${escHtml(depId)}</span></span>`);
       }
     }
 
@@ -9569,7 +9569,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
     // Fetch full content from server
     try {
       const res = await fetch(`/api/queue/${id}/content`);
-      if (!res.ok) { alert('Could not load slice #' + id); return; }
+      if (!res.ok) { alert('Could not load slice ' + id); return; }
       const data = await res.json();
       sliceDetailState = {
         id: data.id,
@@ -9615,7 +9615,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
   function renderSliceDetail() {
     if (!sliceDetailState) return;
     const s = sliceDetailState;
-    document.getElementById('slice-detail-id').textContent = `#${s.id}`;
+    document.getElementById('slice-detail-id').textContent = `Slice ${s.id}`;
     document.getElementById('slice-detail-title').textContent = s.frontmatter.title || 'Untitled';
     document.getElementById('tab-rendered').classList.add('active');
     document.getElementById('tab-source').classList.remove('active');
@@ -9750,7 +9750,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
 
   async function sliceDetailReject() {
     if (!sliceDetailState) return;
-    if (!confirm(`Reject slice #${sliceDetailState.id}? This cannot be undone.`)) return;
+    if (!confirm(`Reject slice ${sliceDetailState.id}? This cannot be undone.`)) return;
     try {
       const res = await fetch(`/api/bridge/staged/${sliceDetailState.id}/reject`, { method: 'POST' });
       if (res.ok) {
@@ -9782,7 +9782,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
 
   async function sliceDetailReturnToStage() {
     if (!sliceDetailState) return;
-    if (!confirm(`Return slice #${sliceDetailState.id} to the dev lead for revision?`)) return;
+    if (!confirm(`Return slice ${sliceDetailState.id} to the dev lead for revision?`)) return;
     try {
       const res = await fetch(`/api/queue/${sliceDetailState.id}/return-to-stage`, { method: 'POST' });
       if (res.ok) {
@@ -9809,7 +9809,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
 
   async function sliceDetailRemove() {
     if (!sliceDetailState) return;
-    if (!confirm(`Remove slice #${sliceDetailState.id} from the queue? This cannot be undone.`)) return;
+    if (!confirm(`Remove slice ${sliceDetailState.id} from the queue? This cannot be undone.`)) return;
     try {
       const res = await fetch(`/api/queue/${sliceDetailState.id}/remove`, { method: 'POST' });
       if (res.ok) {
@@ -9999,7 +9999,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
   async function openSliceInvestigation(id) {
     if (!id) return;
     const overlay = document.getElementById('inv-panel-overlay');
-    document.getElementById('inv-panel-id').textContent = `#${id}`;
+    document.getElementById('inv-panel-id').textContent = `Slice ${id}`;
     document.getElementById('inv-panel-title').textContent = '';
     overlay.style.display = '';
     invPanelOpen = true;
@@ -10190,12 +10190,13 @@ body:not(.lcars-mode) .staged-details-body pre code {
     } catch (_) {}
   })();
 
-  // Human-friendly running commit number: #001 … #999 (server-assigned, stable).
+  // Human-friendly running commit number: 001 … 999 (server-assigned, stable).
   // Returns '' when no number is available so callers fall back to hash-only.
   function fmtCommitNum(n) {
-    return (n != null && n !== '') ? '#' + String(n).padStart(3, '0') : '';
+    return (n != null && n !== '') ? String(n).padStart(3, '0') : '';
   }
-  // "#017 · 00c0790" — prefer the number, always keep the hash for traceability.
+  // "017 · 00c0790" — prefer the number, always keep the hash for traceability.
+  // Callers say the word "commit" next to this label; the label itself stays bare.
   function commitLabel(number, sha7) {
     const tag = fmtCommitNum(number);
     return (tag ? tag + ' · ' : '') + (sha7 || '');
@@ -10212,7 +10213,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
     if (lm && ((lm.sha || '').slice(0, 7) === s || (lm.full_sha || '').slice(0, 7) === s)) return lm.number;
     return null;
   }
-  // "#017 · 00c0790" given just a hash.
+  // "017 · 00c0790" given just a hash.
   function commitTagBySha(sha7) {
     return commitLabel(commitNumBySha(sha7), String(sha7 || '').slice(0, 7));
   }
@@ -10299,10 +10300,10 @@ body:not(.lcars-mode) .staged-details-body pre code {
       const hSha  = (head.sha || '').slice(0, 7);
       const hSubj = head.subject ? _promoteEsc(head.subject) : '';
       const hAge  = head.age_s != null ? formatAgeShort(head.age_s) : '';
-      info += `<div class="topo-c-row"><span class="topo-c-k">newest</span><span class="topo-c-sha">${hSha}</span><span class="topo-c-subj">${hSubj || ('origin/dev ' + fmtCommitNum(head.number))}</span>${hAge ? `<span class="topo-c-age">· ${hAge}</span>` : ''}</div>`;
+      info += `<div class="topo-c-row"><span class="topo-c-k">newest</span><span class="topo-c-sha">${hSha}</span><span class="topo-c-subj">${hSubj || ('origin/dev' + (fmtCommitNum(head.number) ? ' commit ' + fmtCommitNum(head.number) : ''))}</span>${hAge ? `<span class="topo-c-age">· ${hAge}</span>` : ''}</div>`;
     }
     if (mainSha) {
-      info += `<div class="topo-c-row"><span class="topo-c-k">base</span><span class="topo-c-sha">${mainSha7}</span><span class="topo-c-subj">origin/main ${fmtCommitNum(mainNum)}</span>${mainAge ? `<span class="topo-c-age">· ${mainAge}</span>` : ''}</div>`;
+      info += `<div class="topo-c-row"><span class="topo-c-k">base</span><span class="topo-c-sha">${mainSha7}</span><span class="topo-c-subj">origin/main${fmtCommitNum(mainNum) ? ' commit ' + fmtCommitNum(mainNum) : ''}</span>${mainAge ? `<span class="topo-c-age">· ${mainAge}</span>` : ''}</div>`;
     }
     info += '</div>';
 
@@ -10509,7 +10510,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
       + `Identify whether the failure is caused by test environment drift, missing dependencies, flaky tests, or an actual code regression.\n\n`
       + `Context:\n`
       + `- Branch: dev\n`
-      + `- Rollback target: ${_rollbackTargetTag || '<unknown>'}\n`
+      + `- Rollback target: commit ${_rollbackTargetTag || '<unknown>'}\n`
       + `- Failed step: ${phase}\n`
       + `- CI run / report: ${url}`;
   }
@@ -11440,7 +11441,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
     if (ciEl) {
       const ci = gh && gh.ci ? gh.ci : null;
       const runLbl = ci && ci.run_number
-        ? (ci.url ? ` · <a href="${ci.url}" target="_blank" rel="noopener">run #${ci.run_number}</a>` : ` · run #${ci.run_number}`)
+        ? (ci.url ? ` · <a href="${ci.url}" target="_blank" rel="noopener">run ${ci.run_number}</a>` : ` · run ${ci.run_number}`)
         : '';
       let dot = '#9ca3af', txt = 'no recent run';
       if (ci && ci.state === 'passing') {
@@ -11567,14 +11568,14 @@ body:not(.lcars-mode) .staged-details-body pre code {
     } else if (ci.state === 'running') {
       regGlyph.className = 'ci-strip-glyph running';
       regGlyph.innerHTML = '↻'; // ↻
-      regText.innerHTML  = `<span>running…</span>${ci.run_number ? ` <span class="ci-strip-meta">· run #${ci.run_number}</span>` : ''} <span class="ci-strip-meta">· full suite on a clean runner</span>`;
+      regText.innerHTML  = `<span>running…</span>${ci.run_number ? ` <span class="ci-strip-meta">· run ${ci.run_number}</span>` : ''} <span class="ci-strip-meta">· full suite on a clean runner</span>`;
       regLink.href = ci.url || '#';
       regLink.style.display = ci.url ? '' : 'none';
       regLink.textContent = '↗ view';
     } else if (ci.state === 'passing') {
       regGlyph.className = 'ci-strip-glyph ok';
       regGlyph.innerHTML = '✓'; // ✓
-      regText.innerHTML  = `<span>passing</span>${ci.run_number ? ` <span class="ci-strip-meta">· run #${ci.run_number}</span>` : ''}${ciAge ? ` <span class="ci-strip-meta">· ${ciAge}</span>` : ''}${staleNote}`;
+      regText.innerHTML  = `<span>passing</span>${ci.run_number ? ` <span class="ci-strip-meta">· run ${ci.run_number}</span>` : ''}${ciAge ? ` <span class="ci-strip-meta">· ${ciAge}</span>` : ''}${staleNote}`;
       regLink.href = ci.url || '#';
       regLink.style.display = ci.url ? '' : 'none';
       regLink.textContent = '↗ view';
@@ -11582,7 +11583,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
       regGlyph.className = 'ci-strip-glyph err';
       regGlyph.innerHTML = '✗'; // ✗
       const detail = ci.failed_suite ? `<span class="ci-strip-meta">· ${ci.failed_suite}</span>` : '';
-      regText.innerHTML  = `<span>failing</span>${ci.run_number ? ` <span class="ci-strip-meta">· run #${ci.run_number}</span>` : ''}${ciAge ? ` <span class="ci-strip-meta">· ${ciAge}</span>` : ''} ${detail}${staleNote}`;
+      regText.innerHTML  = `<span>failing</span>${ci.run_number ? ` <span class="ci-strip-meta">· run ${ci.run_number}</span>` : ''}${ciAge ? ` <span class="ci-strip-meta">· ${ciAge}</span>` : ''} ${detail}${staleNote}`;
       regLink.href = ci.url || '#';
       regLink.style.display = ci.url ? '' : 'none';
       regLink.textContent = '↗ open in CI';

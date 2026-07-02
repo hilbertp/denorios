@@ -116,10 +116,10 @@ function renderReport({ summary, failures }, failed, ts) {
   } else {
     lines.push(`## ❌ What regressed (${failures.length})`);
     lines.push('');
-    lines.push('Engineering team: each item below is a failing acceptance check. The `#slice` is the slice whose behavior broke — author a fix slice for it before promoting to main.');
+    lines.push('Engineering team: each item below is a failing acceptance check. The slice number names the slice whose behavior broke — author a fix slice for it before promoting to main.');
     lines.push('');
     for (const f of failures) {
-      const head = f.slice ? `#${f.slice} · AC ${f.ac} — ${f.name}` : `⚠️ Naming violation — ${f.name}`;
+      const head = f.slice ? `Slice ${f.slice} · AC ${f.ac} — ${f.name}` : `⚠️ Naming violation — ${f.name}`;
       lines.push(`### ${head}`);
       if (f.excerpt) {
         lines.push('');
@@ -127,7 +127,7 @@ function renderReport({ summary, failures }, failed, ts) {
         lines.push(f.excerpt);
         lines.push('```');
       }
-      if (f.slice) lines.push(`**Owner:** slice #${f.slice} → O'Brien cuts a fix slice.`);
+      if (f.slice) lines.push(`**Owner:** slice ${f.slice} → O'Brien cuts a fix slice.`);
       else lines.push(`**Note:** test name does not follow \`slice-<id>-ac-<index>\` — Bashir to rename so failures route to a slice.`);
       lines.push('');
     }
@@ -152,7 +152,7 @@ function renderObrienHandoff({ summary, failures }, ts) {
   lines.push('## Failures');
   lines.push('');
   for (const f of failures) {
-    lines.push(`- **${f.slice ? `#${f.slice} AC ${f.ac}` : 'naming violation'}** — ${f.name}`);
+    lines.push(`- **${f.slice ? `Slice ${f.slice} AC ${f.ac}` : 'naming violation'}** — ${f.name}`);
     if (f.excerpt) {
       const first = f.excerpt.split('\n').find(l => /error|assert|expect|mismatch|✖|Error/i.test(l)) || f.excerpt.split('\n')[0];
       if (first) lines.push(`  - ${first.trim().slice(0, 200)}`);
