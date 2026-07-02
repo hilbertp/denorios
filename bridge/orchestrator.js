@@ -1181,19 +1181,25 @@ function fuseSafeCheckoutBranch(id, branchName) {
   let removed = 0;
   for (const file of diffFiles) {
     const diskPath = path.join(PROJECT_DIR, file);
+    let content = null;
     try {
-      const content = execSync(`git show ${branchName}:${file}`, { cwd: PROJECT_DIR, encoding: 'buffer' });
-      const dir = path.dirname(diskPath);
-      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(diskPath, content);
-      overwritten++;
+      content = execSync(`git show ${branchName}:${file}`, { cwd: PROJECT_DIR, encoding: 'buffer' });
     } catch (_) {
       // File doesn't exist on target branch — move to trash
       if (fs.existsSync(diskPath)) {
         try { fs.renameSync(diskPath, path.join(TRASH_DIR, path.basename(file) + '.branch-checkout')); } catch (__) {}
         removed++;
       }
+      continue;
     }
+    // A failed write MUST abort the checkout. Swallowing it leaves the old
+    // branch's content on disk under the new HEAD; the drift merge then dies
+    // on phantom "local changes" and the pre-checkout autocommit sweeps
+    // foreign content onto the slice branch (slices 348/349, Layer-2 lock).
+    const dir = path.dirname(diskPath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(diskPath, content);
+    overwritten++;
   }
 
   // Step 4: move HEAD pointer
@@ -6650,6 +6656,22 @@ function abortGate() {
  * Never throws — conflict or failure returns a value.
  */
 function squashSliceToDev(sliceId, sliceTitle, sliceBranch) {
+  // Layer-2 lock (scripts/lock-main.sh) keeps dashboard/, docs/contracts/ and
+  // bridge/*.js read-only in the main working tree. This path rewrites those
+  // files (checkout overwrite + drift merge + squash), so open the lock first
+  // and ALWAYS re-lock in the finally below — the same contract CLAUDE.md
+  // documents for the watcher merge path. Without it git cannot unlink the
+  // locked files and the drift merge dies as a phantom merge_conflict
+  // (slices 348/349). Repos without the lock scripts (test fixtures) skip both.
+  const hasLayer2 = fs.existsSync(path.join(PROJECT_DIR, 'scripts', 'unlock-main.sh'));
+  if (hasLayer2) {
+    try {
+      execSync('bash scripts/unlock-main.sh', { cwd: PROJECT_DIR, stdio: 'pipe' });
+    } catch (unlockErr) {
+      return { success: false, error: `unlock_failed: ${unlockErr.message}` };
+    }
+  }
+  try {
   // This path checks out + commits in the MAIN working tree (drift-merge + squash
   // commit on dev), so the Layer-1 pre-commit hook requires DS9_WATCHER_MERGE=1 —
   // this IS the watcher merge path. Callers (acceptAndMerge, drainDeferredAfterGate)
@@ -6687,11 +6709,17 @@ function squashSliceToDev(sliceId, sliceTitle, sliceBranch) {
 
     const conflictPaths = conflictingFiles.length > 0 ? conflictingFiles.join(',') : 'unknown';
 
+    // No unmerged paths = the merge never started (locked files, dirty tree,
+    // unlinkable paths) — surface git's own words so the operator sees the
+    // real failure instead of a phantom "conflict" with an empty file list.
+    const gitStderr = String((mergeErr && mergeErr.stderr) || (mergeErr && mergeErr.message) || '').trim().slice(0, 500);
+
     // Emit a loud register event — slice must never be silently stranded
     registerEvent(sliceId, 'ERROR', {
       slice_id: String(sliceId),
       reason: 'merge_conflict',
       conflicting_files: conflictingFiles,
+      git_error: gitStderr,
     });
 
     // Write a visible ERROR file so the slice is not left accepted-but-unmerged
@@ -6713,12 +6741,18 @@ function squashSliceToDev(sliceId, sliceTitle, sliceBranch) {
       '',
       '## Merge conflict during drift-resolve',
       '',
-      `The drift-resolve step (\`git merge --no-ff dev\` into \`${sliceBranch}\`) hit a content conflict.`,
+      `The drift-resolve step (\`git merge --no-ff dev\` into \`${sliceBranch}\`) failed.`,
       'The merge was aborted. This slice requires manual intervention.',
       '',
       '## Conflicting files',
       '',
       conflictedList,
+      '',
+      '## Git error',
+      '',
+      '```',
+      gitStderr || '(no stderr captured)',
+      '```',
     ].join('\n');
     const errorPath = path.join(QUEUE_DIR, `${sliceId}-ERROR.md`);
     try { fs.writeFileSync(errorPath, errorContent); } catch (_) {}
@@ -6821,6 +6855,12 @@ function squashSliceToDev(sliceId, sliceTitle, sliceBranch) {
 
   // Step 5: Return success
   return { success: true, dev_sha: devSha };
+  } finally {
+    // Re-lock Layer 2 on every path — success, error return, or throw.
+    if (hasLayer2) {
+      try { execSync('bash scripts/lock-main.sh', { cwd: PROJECT_DIR, stdio: 'pipe' }); } catch (_) {}
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
