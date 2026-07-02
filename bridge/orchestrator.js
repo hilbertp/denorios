@@ -497,7 +497,7 @@ function printStartupBlock(recoveryActions) {
 
   print('');
   print(hLine(B.dbl));
-  print(`  Liberation of Bajor${SYM.sep}Watcher`);
+  print(`  Denorios${SYM.sep}Watcher`);
   print(`  Started: ${ts}${SYM.sep}Polling every ${pollSec}s${SYM.sep}Inactivity kill: ${inactivityMin}min`);
   print(hLine(B.dbl));
 
@@ -6766,7 +6766,7 @@ function squashSliceToDev(sliceId, sliceTitle, sliceBranch) {
   try {
     fs.writeFileSync(commitMsgFile, commitMsg);
     // Reference the message file RELATIVE to cwd (= PROJECT_DIR). The absolute path
-    // contains spaces ("01 - The Liberation of Bajor"); interpolating it unquoted made
+    // could contain spaces; interpolating it unquoted made
     // git read each word as a separate pathspec and the squash commit failed.
     execSync('git commit -F .squash-commit-msg', { cwd: PROJECT_DIR, stdio: 'pipe' });
   } catch (commitErr) {

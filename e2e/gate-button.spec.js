@@ -101,7 +101,7 @@ test('RUN GATE acknowledges the click instantly (DISPATCHING → GATE RUNNING) w
 // server-side, so it lands on this same flag path. main must stay untouched.
 const FAILURE_RUN = {
   status: 'failure', run_id: 77,
-  url: 'https://github.com/hilbertp/liberation-of-bajor/actions/runs/77',
+  url: 'https://github.com/hilbertp/denorios/actions/runs/77',
   head_sha7: 'bbbbbbb', updated_at: '2026-06-13T12:30:00.000Z',
   phases: [
     { key: 'regression', label: 'regression', status: 'failed', duration_s: 2 },

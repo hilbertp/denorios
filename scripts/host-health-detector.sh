@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# host-health-detector.sh — Native process health detector for Liberation of Bajor
+# host-health-detector.sh — Native process health detector for Denorios
 #
 # Polls orchestrator PID liveness (bridge/.run.pid) + dashboard /api/health
 # every 10 seconds. Writes bridge/host-health.json atomically.
@@ -97,7 +97,7 @@ is_healthy() {
 }
 
 send_notification() {
-  osascript -e 'display notification "Orchestrator or API is unreachable. Run ./scripts/start.sh." with title "Liberation of Bajor — service down"' 2>/dev/null || true
+  osascript -e 'display notification "Orchestrator or API is unreachable. Run ./scripts/start.sh." with title "Denorios — service down"' 2>/dev/null || true
 }
 
 # Main loop

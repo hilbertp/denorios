@@ -202,8 +202,8 @@ test('Each service row has a hover tooltip element', () => {
 
 test('Detector missing → references health plist for install', () => {
   assert.ok(
-    dashboardSource.includes('com.liberation-of-bajor.health.plist'),
-    'Missing install reference to scripts/com.liberation-of-bajor.health.plist'
+    dashboardSource.includes('com.denorios.health.plist'),
+    'Missing install reference to scripts/com.denorios.health.plist'
   );
 });
 
@@ -365,8 +365,8 @@ test('Detector missing: tooltip references health plist for install', async () =
   const health = { watcher: freshWatcher, hostHealth: null, ts: new Date().toISOString() };
   const { elements } = await runPanel({ health });
   assert.ok(
-    elements['svc-detector-tooltip'].innerHTML.includes('com.liberation-of-bajor.health.plist'),
-    'Tooltip should reference com.liberation-of-bajor.health.plist for install instructions'
+    elements['svc-detector-tooltip'].innerHTML.includes('com.denorios.health.plist'),
+    'Tooltip should reference com.denorios.health.plist for install instructions'
   );
 });
 

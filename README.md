@@ -1,12 +1,14 @@
-# Liberation of Bajor
+# Denorios
 
-A local file queue where AI agents coordinate autonomously — one writes briefs, a watcher picks them up, another executes them, a third reviews the result.
+An agentic software-delivery system — a local file queue where AI agents coordinate autonomously: one writes briefs, a watcher picks them up, another executes them, a third reviews the result, and a gated pipeline promotes the work to main.
+
+*Developed under the project name "The Liberation of Bajor"; historical documents and the event register retain that name.*
 
 ## Quick start
 
 ```bash
-git clone https://github.com/hilbertp/liberation-of-bajor
-cd liberation-of-bajor
+git clone https://github.com/hilbertp/denorios
+cd denorios
 ./scripts/start.sh
 ```
 
@@ -42,7 +44,7 @@ O'Brien stages a slice file for Philipp's review. Once approved, the watcher mov
 ```
 bridge/
   queue/          # Brief and report files (the live state machine)
-  staged/         # Staging area for Philipp's brief review (Rubicon)
+  staged/         # Staging area for Philipp's brief review
   register.jsonl  # Append-only event log (watcher + evaluator)
   timesheet.jsonl # Append-only T&T log for all roles (human and watcher)
   orchestrator.js # Detects approved slices, invokes Rom, dispatches Nog/Bashir

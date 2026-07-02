@@ -252,7 +252,7 @@ function writeRoleConversations(obj) {
 function roleBootstrapPrompt(role) {
   const meta = CREW[role];
   const roleFile = role === 'rom' ? '.claude/CLAUDE.md' : `.claude/roles/${role}/ROLE.md`;
-  return `You are ${meta.name} (${meta.title}) on the Liberation of Bajor project. `
+  return `You are ${meta.name} (${meta.title}) on the Denorios project. `
        + `Read ${roleFile} and operate in that role for this conversation.`;
 }
 

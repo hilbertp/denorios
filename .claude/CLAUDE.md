@@ -1,4 +1,4 @@
-# CLAUDE.md — Liberation of Bajor
+# CLAUDE.md — Denorios
 
 *Run `/check-handoffs` first. Project instructions for Rom. This file is your anchor — the watcher injects nothing.*
 
@@ -6,7 +6,7 @@
 
 ## What this project is
 
-The Liberation of Bajor is a local file queue that lets O'Brien (Cowork, dev team lead) and Rom (Claude Code, implementor) coordinate without passing messages through Sisko. O'Brien stages slice files for Philipp's approval; a watcher process detects approved slices and invokes Rom via `claude -p`; Rom executes and writes a report file; Nog reviews the work; Bashir runs the regression gate before merge. The entire queue is plain files on disk — no external services, no network layer. Files are the API.
+Denorios (developed under the project name "The Liberation of Bajor") is a local file queue that lets O'Brien (Cowork, dev team lead) and Rom (Claude Code, implementor) coordinate without passing messages through Sisko. O'Brien stages slice files for Philipp's approval; a watcher process detects approved slices and invokes Rom via `claude -p`; Rom executes and writes a report file; Nog reviews the work; Bashir runs the regression gate before merge. The entire queue is plain files on disk — no external services, no network layer. Files are the API.
 
 ---
 

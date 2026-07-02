@@ -35,7 +35,7 @@ function branchState({ mainSha, ahead, promoteStatus, promoteSha, ph }) {
       promote: { sha: mainSha, age_s: 60 },
       rr: { score: 10, level: 'low', commits: ahead, churn: 40, churn_ins: 30, churn_del: 10, critical_files: [], breakdown: {} },
       ci: { state: 'passing', run_number: 50, url: 'https://example.test/ci/50', head_sha: DEV, updated_at: '2026-06-13T12:00:00.000Z' },
-      promote_run: { status: promoteStatus, run_id: 99, url: 'https://github.com/hilbertp/liberation-of-bajor/actions/runs/99', head_sha7: promoteSha, updated_at: '2026-06-13T12:30:00.000Z', phases: ph },
+      promote_run: { status: promoteStatus, run_id: 99, url: 'https://github.com/hilbertp/denorios/actions/runs/99', head_sha7: promoteSha, updated_at: '2026-06-13T12:30:00.000Z', phases: ph },
       error: null,
     },
   };

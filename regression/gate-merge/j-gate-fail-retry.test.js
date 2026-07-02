@@ -66,7 +66,7 @@ function promoteRun(status, conclusion, overrides = {}) {
     status,
     conclusion,
     databaseId: 4242,
-    url: 'https://github.com/example/liberation-of-bajor/actions/runs/4242',
+    url: 'https://github.com/example/denorios/actions/runs/4242',
     headSha: gitState.devSha,
     ...overrides,
   };
@@ -237,7 +237,7 @@ test('J-gate-fail-retry slice-316-ac-8 — after a failed gate /api/branch-state
   assert.ok(gh, 'github overlay present');
   assert.equal(gh.promote_run.status, 'failure', 'failed gate surfaced as failure');
   assert.equal(gh.promote_run.url,
-    'https://github.com/example/liberation-of-bajor/actions/runs/4242',
+    'https://github.com/example/denorios/actions/runs/4242',
     'Actions run URL preserved as the deep link / audit record');
   assert.equal(gh.origin_main_sha, gitState.mainSha.slice(0, 7),
     'a red gate never moves main: origin/main tip unchanged');

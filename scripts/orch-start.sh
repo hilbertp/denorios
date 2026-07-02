@@ -1,7 +1,7 @@
 #!/bin/bash
 # orch-start.sh — Load (or reload) the orchestrator launchd agent
-PLIST="$HOME/Library/LaunchAgents/dev.liberation.orchestrator.plist"
-REPO_PLIST="$(cd "$(dirname "$0")" && pwd)/dev.liberation.orchestrator.plist"
+PLIST="$HOME/Library/LaunchAgents/dev.denorios.orchestrator.plist"
+REPO_PLIST="$(cd "$(dirname "$0")" && pwd)/dev.denorios.orchestrator.plist"
 
 # Symlink plist into LaunchAgents if not already there
 if [ ! -L "$PLIST" ]; then
@@ -32,4 +32,4 @@ fi
 # Unload first (ignore error if not loaded), then load
 launchctl unload "$PLIST" 2>/dev/null
 launchctl load "$PLIST"
-echo "Orchestrator agent loaded. Use 'launchctl list dev.liberation.orchestrator' to check status."
+echo "Orchestrator agent loaded. Use 'launchctl list dev.denorios.orchestrator' to check status."

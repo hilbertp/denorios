@@ -1,4 +1,4 @@
-# Contributor Guide — The Liberation of Bajor
+# Contributor Guide — Denorios
 
 *How AI roles and humans collaborate in this project. Read this if you're new to the team or need a refresher on how things flow.*
 
@@ -6,7 +6,7 @@
 
 ## The Team
 
-The Liberation of Bajor is an AI agent orchestration pipeline. One human (Philipp) works with a team of AI roles, each in its own Cowork session window.
+Denorios (formerly "The Liberation of Bajor") is an AI agent orchestration pipeline. One human (Philipp) works with a team of AI roles, each in its own Cowork session window.
 
 ```mermaid
 graph TD

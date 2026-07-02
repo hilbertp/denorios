@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# stop.sh — Stop Liberation of Bajor processes started by scripts/start.sh.
+# stop.sh — Stop Denorios processes started by scripts/start.sh.
 #
 # Reads bridge/.run.pid, SIGTERMs both PIDs, waits up to 10 seconds, then
 # SIGKILLs any that haven't exited. Removes the PID file on success.
@@ -49,7 +49,7 @@ stop_pid() {
   fi
 }
 
-echo "Stopping Liberation of Bajor..."
+echo "Stopping Denorios..."
 stop_pid "$DASHBOARD_PID"    "dashboard"
 stop_pid "$ORCHESTRATOR_PID" "orchestrator"
 

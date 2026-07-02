@@ -1,4 +1,4 @@
-# Liberation of Bajor — Product & Features Reference
+# Denorios — Product & Features Reference
 
 *What we've built, how the team works, and where we're going.*
 *For contributors, for Ziyal's UX planning, and for Philipp to keep the overview.*
@@ -10,7 +10,7 @@
 
 ### What this is
 
-Liberation of Bajor is a human-AI hybrid product team running on files. One human works with AI roles that own real functions — product management, architecture, product design, delivery coordination, implementation, evaluation. They communicate through markdown files on disk. Work flows through a pipeline that anyone can see, audit, and extend.
+Denorios (formerly "The Liberation of Bajor") is a human-AI hybrid product team running on files. One human works with AI roles that own real functions — product management, architecture, product design, delivery coordination, implementation, evaluation. They communicate through markdown files on disk. Work flows through a pipeline that anyone can see, audit, and extend.
 
 The model comes from Marty Cagan's *Inspired*: a small, empowered, cross-functional product team where product, design, and engineering collaborate to solve problems worth solving. Not a feature factory. Not a ticket queue. A team that discovers what to build, validates it cheaply, kills what doesn't work, and only then commits to delivery.
 

@@ -45,7 +45,7 @@ const detectorSource = fs.readFileSync(
 );
 
 const plistSource = fs.readFileSync(
-  path.join(REPO_ROOT, 'scripts', 'com.liberation-of-bajor.health.plist'),
+  path.join(REPO_ROOT, 'scripts', 'com.denorios.health.plist'),
   'utf-8'
 );
 
@@ -323,8 +323,8 @@ console.log('\n── launchd plist ──');
 
 test('Plist has correct Label', () => {
   assert.ok(
-    plistSource.includes('<string>com.liberation-of-bajor.health</string>'),
-    'Label should be com.liberation-of-bajor.health'
+    plistSource.includes('<string>com.denorios.health</string>'),
+    'Label should be com.denorios.health'
   );
 });
 

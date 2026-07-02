@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# start.sh — Native launcher for Liberation of Bajor (orchestrator + dashboard).
+# start.sh — Native launcher for Denorios (orchestrator + dashboard).
 #
 # Starts node dashboard/server.js and node bridge/orchestrator.js as background
 # processes, writes PIDs to bridge/.run.pid, and tails startup to stdout.
@@ -79,7 +79,7 @@ ORCHESTRATOR_PID=$!
 printf '%s\n%s\n' "$DASHBOARD_PID" "$ORCHESTRATOR_PID" > "$PID_FILE"
 
 echo ""
-echo "Liberation of Bajor — native launch"
+echo "Denorios — native launch"
 echo "  Dashboard:     http://localhost:4747"
 echo "  Dashboard log: $DASHBOARD_LOG"
 echo "  Orchestrator:  PID $ORCHESTRATOR_PID"
