@@ -1,17 +1,17 @@
 {
-  "ts": "2026-06-30T22:53:12.509Z",
-  "pickup_ts": "2026-06-30T22:52:22.948Z",
+  "ts": "2026-07-03T01:07:18.217Z",
+  "pickup_ts": "2026-07-03T01:03:53.852Z",
   "status": "nog_review",
-  "current_slice": "349",
+  "current_slice": "350",
   "current_slice_title": null,
-  "current_slice_goal": "Show a one-line caption under the Gate Sequence panel title stating that main only advances on a green gate.",
-  "slice_elapsed_seconds": 49,
+  "current_slice_goal": "Slices display as S349, the squash commit carries the slice number, the running commit counter is retired, non-slice commits show sha only.",
+  "slice_elapsed_seconds": 204,
   "last_activity_ts": null,
   "processed_total": 1,
   "queue": {
-    "waiting": 0,
+    "waiting": 2,
     "active": 0,
     "done": 23,
-    "error": 42
+    "error": 41
   }
 }

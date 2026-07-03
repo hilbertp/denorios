@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.liberation-of-bajor.health</string>
+    <string>com.denorios.health</string>
 
     <key>ProgramArguments</key>
     <array>
