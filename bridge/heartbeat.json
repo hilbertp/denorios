@@ -1,17 +1,17 @@
 {
-  "ts": "2026-07-03T01:07:18.217Z",
-  "pickup_ts": "2026-07-03T01:03:53.852Z",
+  "ts": "2026-07-03T01:22:28.387Z",
+  "pickup_ts": "2026-07-03T01:20:24.222Z",
   "status": "nog_review",
-  "current_slice": "350",
+  "current_slice": "352",
   "current_slice_title": null,
-  "current_slice_goal": "Slices display as S349, the squash commit carries the slice number, the running commit counter is retired, non-slice commits show sha only.",
-  "slice_elapsed_seconds": 204,
+  "current_slice_goal": "Operator-dispatched release workflow that gate-verifies a chosen main SHA, fast-forwards stable to it, tags vX.Y.Z, and creates a GitHub release; npm publish step dormant without NPM_TOKEN.",
+  "slice_elapsed_seconds": 124,
   "last_activity_ts": null,
-  "processed_total": 1,
+  "processed_total": 5,
   "queue": {
-    "waiting": 2,
+    "waiting": 1,
     "active": 0,
     "done": 23,
-    "error": 41
+    "error": 42
   }
 }
