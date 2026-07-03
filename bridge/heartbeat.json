@@ -1,17 +1,17 @@
 {
-  "ts": "2026-07-03T01:22:28.387Z",
-  "pickup_ts": "2026-07-03T01:20:24.222Z",
+  "ts": "2026-07-03T01:25:28.398Z",
+  "pickup_ts": "2026-07-03T01:23:39.293Z",
   "status": "nog_review",
-  "current_slice": "352",
+  "current_slice": "351",
   "current_slice_title": null,
-  "current_slice_goal": "Operator-dispatched release workflow that gate-verifies a chosen main SHA, fast-forwards stable to it, tags vX.Y.Z, and creates a GitHub release; npm publish step dormant without NPM_TOKEN.",
-  "slice_elapsed_seconds": 124,
+  "current_slice_goal": "Make npm pack produce a clean safe tarball (no personal/state files) and add engines, a test script, and a thin denorios bin CLI; package stays private.",
+  "slice_elapsed_seconds": 109,
   "last_activity_ts": null,
-  "processed_total": 5,
+  "processed_total": 7,
   "queue": {
-    "waiting": 1,
+    "waiting": 0,
     "active": 0,
     "done": 23,
-    "error": 42
+    "error": 43
   }
 }

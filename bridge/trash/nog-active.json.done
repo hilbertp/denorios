@@ -1,1 +1,1 @@
-{"sliceId":"352","title":"Release tier — stable branch, release.yml, versioned tags","round":1,"invokedAt":"2026-07-03T01:20:24.251Z","phase":"code_review"}
+{"sliceId":"351","title":"Publishable package skeleton — files whitelist, bin CLI, npm test","round":2,"invokedAt":"2026-07-03T01:23:39.322Z","phase":"code_review"}
