@@ -163,3 +163,10 @@
 - **Date:** 2026-09-01
 - **Idea:** Show Julian's test updating as a visible step in Ops — the user should see "Julian is updating the tests for slices X/Y" happen, and get a clear success-or-failure prompt when it finishes. Related ruling direction: the slice → review → history/dev → test-update → merge journey should stay sequential and visible; work happening in parallel and invisibly in the GUI is a problem. Also: after a merge, rows for merged slices should immediately show as merged (the stale-refresh window read as "commits popping up on a new branch").
 - **Why it matters:** Trust in the pipeline comes from watching it. Today Julian's step is invisible, the merge lock is only a warning, and a stale panel right after merging looks like unexplained new commits — all three erode confidence in an otherwise correct process.
+
+## Merge gate: detect renamed checks instead of red-flagging them
+
+- **Source:** Bashir (from Philipp's review of the S353 merge warning screen, 2026-09-01)
+- **Date:** 2026-09-01
+- **Idea:** The gate recognises an untagged check by its exact title text, so *renaming* one reads as "removed" plus "added" — a RED FLAG on honest work. Pair a disappearing title with a near-identical appearing one and label it **renamed**, showing before → after together. Two further fixes on the same screen: describe each item in plain behaviour language rather than the raw test title (a non-author cannot judge "MAIN_PUSHED_TO_ORIGIN emitted with ahead_count=3"), and stop policing `test/`, which the gate never actually runs.
+- **Why it matters:** This is the second false red flag in one day. A gate that cries wolf on renames trains the operator to tick the confirmation box reflexively — and then it gets ticked on the day a check is genuinely disabled. False positives don't just annoy; they destroy the gate's only real asset, which is being believed.
