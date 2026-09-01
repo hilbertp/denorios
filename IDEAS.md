@@ -156,3 +156,10 @@
 - **Date:** 2026-09-01
 - **Idea:** For a genuinely-unguarded AC flagged in the stage-① overlay, add the missing affirmative actions: "Apply Julian's draft" (move the linked `regression/.drafts/<tag>` proposal into the suite, run it, rebuild COVERAGE.lock, re-check) and "Author the guard" (dispatch the auto-author for that tag first). Commissioning handoff with pipeline context: `.claude/roles/obrien/inbox/HANDOFF-BRANCH-GATE-AND-CHECK-OVERLAY-FROM-BASHIR.md`.
 - **Why it matters:** The overlay currently offers only the escape hatch, so an honest operator with a missing test has no path forward — the exact dead end Philipp hit. The affirmative path turns the Test-Update Gate's flags into one-click fixes instead of judgment traps.
+
+## Make Julian's test-update work visible in Ops (+ real merge lock)
+
+- **Source:** Philipp (2026-09-01, reviewing the merge and the test-update flow)
+- **Date:** 2026-09-01
+- **Idea:** Show Julian's test updating as a visible step in Ops — the user should see "Julian is updating the tests for slices X/Y" happen, and get a clear success-or-failure prompt when it finishes. Related ruling direction: the slice → review → history/dev → test-update → merge journey should stay sequential and visible; work happening in parallel and invisibly in the GUI is a problem. Also: after a merge, rows for merged slices should immediately show as merged (the stale-refresh window read as "commits popping up on a new branch").
+- **Why it matters:** Trust in the pipeline comes from watching it. Today Julian's step is invisible, the merge lock is only a warning, and a stale panel right after merging looks like unexplained new commits — all three erode confidence in an otherwise correct process.
