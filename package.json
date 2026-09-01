@@ -2,7 +2,25 @@
   "name": "denorios",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "denorios": "bin/denorios.js"
+  },
+  "files": [
+    "bin/",
+    "bridge/*.js",
+    "bridge/templates/",
+    "dashboard/",
+    "lib/",
+    "scripts/",
+    "docs/contracts/",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
+    "test": "node --test 'regression/**/*.test.js'",
     "reconcile:register": "node scripts/reconcile-register.js",
     "test:e2e": "playwright test"
   },
