@@ -3,20 +3,35 @@
 const { test, expect } = require('@playwright/test');
 
 // Journey: operator flips LCARS Mode (dark skin) on/off and it persists.
+//
+// slice-348-ac-1 (Julian, adversarial guard): slice 348 softened the LCARS body from
+// pure black (#000) to near-black charcoal #0b0b14 → computed rgb(11, 11, 20). The old
+// assertion here pinned rgb(0, 0, 0); that now CONFLICTS with the AC, so it is updated to
+// the new value — intent preserved (the skin still actually goes dark), not weakened.
+// I pin the EXACT computed rgb the AC names AND explicitly assert it is NOT pure black, so
+// a revert to #000 (or any drift away from #0b0b14) goes red. I also guard the
+// .dashboard-container, which slice 348 recoloured in the same breath, so a half-revert
+// (body softened, container left black — or vice-versa) can't slip through green.
 
-test('LCARS toggle switches skin, persists across reload, and toggles back', async ({ page }) => {
+test('J-lcars-bg slice-348-ac-1 — LCARS toggle switches to near-black charcoal (not pure black), persists across reload, and toggles back', async ({ page }) => {
   await page.goto('/');
   const body = page.locator('body');
   await expect(body).not.toHaveClass(/lcars-mode/);
 
   await page.locator('.lcars-switch').click();
   await expect(body).toHaveClass(/lcars-mode/);
-  // background actually goes dark
-  await expect(body).toHaveCSS('background-color', 'rgb(0, 0, 0)');
+
+  // slice-348-ac-1: the body background is the near-black charcoal #0b0b14 → rgb(11, 11, 20),
+  // and explicitly NOT pure black #000 (the value slice 348 replaced).
+  await expect(body).toHaveCSS('background-color', 'rgb(11, 11, 20)');
+  await expect(body).not.toHaveCSS('background-color', 'rgb(0, 0, 0)');
+  // the container recoloured in the same slice must match — no half-revert to black.
+  await expect(page.locator('.dashboard-container')).toHaveCSS('background-color', 'rgb(11, 11, 20)');
 
   // persists across reload
   await page.reload();
   await expect(page.locator('body')).toHaveClass(/lcars-mode/);
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(11, 11, 20)');
 
   // toggle back off
   await page.locator('.lcars-switch').click();

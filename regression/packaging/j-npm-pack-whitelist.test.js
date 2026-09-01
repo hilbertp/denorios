@@ -10,6 +10,7 @@
  *
  * AC tag: slice-351-ac-1
  */
+// @ac-hash: slice-351-ac-1 sha256:6b15b22994ad7d865f027f207459ab262eccfd4cca0b376eed23f2977e9210e6
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');

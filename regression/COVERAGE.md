@@ -1,6 +1,6 @@
 # Regression Catalogue — Coverage
 
-*Maintained by Bashir (QA). Last updated 2026-06-13, after the e2e browser layer + the promote-gate visibility/drift fixes.*
+*Maintained by Bashir (QA). Last updated 2026-09-01, after the packaging + S-numbering coverage pass (slices 348/350/351/352 — see the dated section at the end). Suite-facts table below reflects the 2026-06-13 baseline; current totals: **356 regression tests (352 pass / 4 skipped), 42 e2e tests, both green.***
 
 ## Two test layers
 
@@ -125,3 +125,25 @@ Skipped tests are findings, never fabricated green. Each skip's comment block in
 4. Make `LOGS_DIR` injectable in the orchestrator so log persistence is integration-tested.
 5. Add a thin browser-level smoke (Playwright against the tmpdir-rooted server) for the UI-only journey rows headless tests can't reach.
 6. Harden and re-include `test/` in CI per the ADR note, so the orchestrator's internals are gated too.
+
+---
+
+## 2026-09-01 — packaging + S-numbering coverage pass (slices 348, 350, 351, 352)
+
+New features landed on dev (packaging initiative + S-numbering); the suites were updated to guard them:
+
+**Moved (intended behaviour changes, assertions re-pointed, never loosened):**
+- `e2e/lcars-mode.spec.js` — slice-348-ac-1: LCARS body/container background moved from pure black to charcoal `#0b0b14` (`rgb(11,11,20)`). Now pins the exact new value, asserts NOT-black (a revert goes red), and guards `.dashboard-container` against half-reverts.
+- `regression/gate-merge/j-ac-amend-order.test.js` — un-squatted stale `slice-350-ac-3/-ac-4` tags that collided with the real slice 350 AC set (the tags were assigned against a *planned* AC set that never shipped). The tests guard the ac-range-scan contract; their honest tag is `J-ac-amend-order`.
+
+**New guards:**
+- `e2e/s-numbering.spec.js` — slice-350-ac-1 (label half: topology S-number node label + sha line; History S-identity, old "slice N" label banned) and slice-350-ac-2 (loose commits labeled sha-alone, no sequence number). Retired counter format (`commit N ·`) asserted absent.
+- `regression/observability/j-s-numbering-retirement.test.js` — slice-350-ac-1 (retirement half): no product source references `commit-numbers.json`; static reads of the four rewired surfaces + full product-dir sweep.
+- `regression/packaging/j-denorios-cli.test.js` — slice-351-ac-2 (`denorios status` reports orchestrator+dashboard state, exits 0) and slice-351-ac-3 (`npm test` runs the regression suite).
+- `regression/packaging/j-npm-pack-whitelist.test.js` + `j-release-workflow-shape.test.js` (authored by Rom with the slices, audited + `@ac-hash`-annotated by QA): slice-351-ac-1, slice-352-ac-1..4.
+
+**Documented gaps (routed, not hidden):**
+- **slice-350-ac-3** (squash subject `S{id}: {title}`) — guarded only by `test/squash-slice-to-dev.test.js` + `test/accept-and-merge-squash-to-dev.test.js`, which are intentionally outside the CI gate. No CI-portable guard exists.
+- **slice-350-ac-4** (legacy `slice N:` subjects resolve in rollback preview / revert blame) — **no guard anywhere**. A real guard needs the preview endpoint against a git fixture; flagged rather than built fragile.
+- **Classifier blind spot:** `package.json`, `.github/workflows/release.yml`, and `bin/` are INERT-bucketed in `lib/tests-needed.js`, and the coverage walker only walks `regression/` — so the packaging guards and all e2e guards can never corroborate in `COVERAGE.lock`. Pipeline A therefore flags slice-351/352 ACs "decide" despite real coverage. Bucket/walker design is Worf's strand; flagged to him.
+- **Open question (Philipp):** ac-1's literal `"S{n} · {sha7}"` format renders on History surfaces; the topology renders the same identity as node label `S350` + line `abc1234 S350: …`. The e2e test asserts the intent; tighten to the literal form if that's the ruling.

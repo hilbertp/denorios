@@ -10,6 +10,11 @@
 //  - full gate (test-update, regression, e2e) runs before any push/tag step (AC-2)
 //  - stable fast-forward and tag/release steps exist after the gate (AC-3)
 //  - npm publish step skips gracefully when NPM_TOKEN is absent (AC-4)
+//
+// @ac-hash: slice-352-ac-1 sha256:7edcdd37b7fea6a340afdb3caea7866d43295285430a715a1b2832d2d3ebdaf9
+// @ac-hash: slice-352-ac-2 sha256:1054fcabd6227882c957af0faa17389a3e8bb6a84767205f10b70d1205489337
+// @ac-hash: slice-352-ac-3 sha256:cf6d14fa05f7f0a0d9d920a210a0a61f9f5412bb4f69a3f0b11bbd678f98b153
+// @ac-hash: slice-352-ac-4 sha256:f1e26b876693915563ef11eae52ad25bea26d31e5a9e3851a9ff45c2500134dc
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');

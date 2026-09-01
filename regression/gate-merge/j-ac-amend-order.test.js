@@ -35,7 +35,12 @@ function repoWithAmendedAc() {
   return tmp;
 }
 
-test('J-ac-amend-order slice-350-ac-3 — an amended AC resolves to the NEWEST text with --reverse, oldest without (the bug)', () => {
+// NOTE (2026-09-01, Julian): these two tests briefly carried slice-350-ac-3/-ac-4 tags,
+// assigned against a PLANNED slice-350 AC set. The real slice 350 (S-numbering) shipped
+// different ACs under those indices, so the stale tags collided in the AC classifier and
+// misread as "update-test". They guard the ac-range-scan contract, not slice 350 — the
+// J-journey tag is their honest identity.
+test('J-ac-amend-order — an amended AC resolves to the NEWEST text with --reverse, oldest without (the bug)', () => {
   const tmp = repoWithAmendedAc();
   const scan = (extra) => scanRangeManifest({
     gitLog: (r) => execSync(`git log ${r} ${extra} --format=%B`, { cwd: tmp, encoding: 'utf8' }),
@@ -45,7 +50,7 @@ test('J-ac-amend-order slice-350-ac-3 — an amended AC resolves to the NEWEST t
   assert.equal(scan(''),          'OLD original text', 'git default newest-first → oldest wins (this is the false-green bug)');
 });
 
-test('J-ac-amend-order slice-350-ac-4 — the live callers feed the scan oldest-first (--reverse)', () => {
+test('J-ac-amend-order — the live callers feed the scan oldest-first (--reverse)', () => {
   const server = fs.readFileSync(SERVER, 'utf8');
   const orch   = fs.readFileSync(ORCH, 'utf8');
   assert.match(server, /'log',\s*range,\s*'--reverse'/, 'gate scan git-log (server.js) must carry --reverse');

@@ -178,12 +178,9 @@
     ],
     "bridge/orchestrator.js": [
       {
-        "tag": "slice-350-ac-3",
-        "file": "regression/gate-merge/j-ac-amend-order.test.js"
-      },
-      {
-        "tag": "slice-350-ac-4",
-        "file": "regression/gate-merge/j-ac-amend-order.test.js"
+        "tag": "slice-350-ac-1",
+        "file": "regression/observability/j-s-numbering-retirement.test.js",
+        "guardAcHash": "sha256:f1aedeee46ff306b61d631f636ff511524e8b437262aba9e8f6ea72fdf96f0d1"
       },
       {
         "tag": "slice-99777-ac-1",
@@ -245,6 +242,11 @@
         "tag": "slice-342-ac-1",
         "file": "regression/direct-controls/j-dark-mode-label.test.js",
         "guardAcHash": "sha256:7ca273aff035552ba8ce07eab3d355c8f85b21d341d2fe4941217f2c3e69395e"
+      },
+      {
+        "tag": "slice-350-ac-1",
+        "file": "regression/observability/j-s-numbering-retirement.test.js",
+        "guardAcHash": "sha256:f1aedeee46ff306b61d631f636ff511524e8b437262aba9e8f6ea72fdf96f0d1"
       },
       {
         "tag": "slice-99777-ac-1",
@@ -539,12 +541,9 @@
         "file": "regression/gate-merge/j-review-status.test.js"
       },
       {
-        "tag": "slice-350-ac-3",
-        "file": "regression/gate-merge/j-ac-amend-order.test.js"
-      },
-      {
-        "tag": "slice-350-ac-4",
-        "file": "regression/gate-merge/j-ac-amend-order.test.js"
+        "tag": "slice-350-ac-1",
+        "file": "regression/observability/j-s-numbering-retirement.test.js",
+        "guardAcHash": "sha256:f1aedeee46ff306b61d631f636ff511524e8b437262aba9e8f6ea72fdf96f0d1"
       },
       {
         "tag": "slice-901-ac-1",
@@ -1489,6 +1488,13 @@
       {
         "tag": "slice-99828-ac-5",
         "file": "regression/gate-merge/j-reconcile-bundle-blindness.test.js"
+      }
+    ],
+    "scripts/regression-report.js": [
+      {
+        "tag": "slice-350-ac-1",
+        "file": "regression/observability/j-s-numbering-retirement.test.js",
+        "guardAcHash": "sha256:f1aedeee46ff306b61d631f636ff511524e8b437262aba9e8f6ea72fdf96f0d1"
       }
     ],
     "scripts/test-drift.js": [
