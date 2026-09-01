@@ -1,0 +1,145 @@
+name: Release to stable
+
+# Operator-dispatched release per ADR-PACKAGING: picks a main SHA,
+# gate-verifies it, fast-forwards stable to it, tags vX.Y.Z, and
+# creates a GitHub release. npm publish is dormant until NPM_TOKEN is set.
+#
+# Cannot hook push:[main] — GITHUB_TOKEN pushes from promote.yml do not
+# trigger workflow events. Releasing is always an intentional operator act.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Semver X.Y.Z to tag this release'
+        required: true
+        type: string
+      sha:
+        description: 'Candidate SHA to release (default: current origin/main tip)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  gate-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate version format (X.Y.Z)
+        run: |
+          set -euo pipefail
+          VERSION="${{ github.event.inputs.version }}"
+          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Invalid version '$VERSION' — expected semver X.Y.Z"
+            exit 1
+          fi
+          echo "Version $VERSION is valid semver"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.sha || 'main' }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify candidate is an ancestor of origin/main (releases only point at promoted history)
+        run: |
+          set -euo pipefail
+          CANDIDATE="$(git rev-parse HEAD)"
+          echo "CANDIDATE_SHA=$CANDIDATE" >> "$GITHUB_ENV"
+          git fetch origin main
+          if ! git merge-base --is-ancestor "$CANDIDATE" origin/main; then
+            echo "::error::Candidate $CANDIDATE is not an ancestor of origin/main — releases must point at promoted history"
+            exit 1
+          fi
+          echo "Candidate $CANDIDATE is a valid ancestor of origin/main"
+
+      - name: Refuse if tag v${{ github.event.inputs.version }} already exists
+        run: |
+          set -euo pipefail
+          VERSION="${{ github.event.inputs.version }}"
+          git fetch --tags origin
+          if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
+            echo "::error::Tag v${VERSION} already exists — bump the version"
+            exit 1
+          fi
+          echo "Tag v${VERSION} does not exist — proceeding"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Test-Update Gate (verdict — fail closed on RED)
+        run: |
+          set -euo pipefail
+          git fetch origin main dev
+          node scripts/tests-needed.js --strict
+
+      - name: Run regression gate (fast node:test suite)
+        run: |
+          set -euo pipefail
+          echo "Running regression suite against $CANDIDATE_SHA"
+          mkdir -p bridge/state
+          node --test 'regression/**/*.test.js' 2>&1 | tee bridge/state/regression-stdout.log
+
+      - name: Install dependencies (browser e2e gate)
+        run: npm install
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser e2e gate (Playwright click-paths)
+        run: |
+          set -euo pipefail
+          echo "Running browser e2e suite against $CANDIDATE_SHA"
+          npx playwright test
+
+      - name: Fast-forward stable to the candidate sha
+        run: |
+          set -euo pipefail
+          git fetch origin stable 2>/dev/null || true
+          if git rev-parse origin/stable >/dev/null 2>&1; then
+            if ! git merge-base --is-ancestor origin/stable "$CANDIDATE_SHA"; then
+              echo "::error::stable diverged; $CANDIDATE_SHA is not a fast-forward of stable — reconcile stable/main"
+              exit 1
+            fi
+          fi
+          git push origin "$CANDIDATE_SHA:refs/heads/stable"
+          echo "stable fast-forwarded to $CANDIDATE_SHA"
+
+      - name: Create tag v${{ github.event.inputs.version }} and GitHub release
+        run: |
+          set -euo pipefail
+          VERSION="${{ github.event.inputs.version }}"
+          git fetch --tags origin
+          PREV_TAG="$(git tag --list 'v*' --sort=-version:refname | head -1 || true)"
+          git tag "v${VERSION}" "$CANDIDATE_SHA"
+          git push origin "v${VERSION}"
+          if [ -n "$PREV_TAG" ]; then
+            gh release create "v${VERSION}" \
+              --title "v${VERSION}" \
+              --generate-notes \
+              --notes-start-tag "$PREV_TAG" \
+              --target "$CANDIDATE_SHA"
+          else
+            gh release create "v${VERSION}" \
+              --title "v${VERSION}" \
+              --generate-notes \
+              --target "$CANDIDATE_SHA"
+          fi
+
+      - name: Publish to npm (skipped if no NPM_TOKEN or package is private)
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${NPM_TOKEN:-}" ]; then
+            echo "::notice::publish skipped — no NPM_TOKEN configured"
+            exit 0
+          fi
+          if node -e "process.exit(require('./package.json').private ? 1 : 0)"; then
+            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+            npm publish
+          else
+            echo "::notice::publish skipped — package.json is private:true; flip private:false when ready"
+          fi
