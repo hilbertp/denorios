@@ -24,40 +24,6 @@ const TOKENS_CSS   = path.join(__dirname, 'tokens.css');
 const TEST_DRIFT_PAGE = path.join(__dirname, 'test-drift.html');
 const MERGE_GATE_PAGE = path.join(__dirname, 'merge-gate.html');
 const BRANCH_STATE = path.join(REPO_ROOT, 'bridge', 'state', 'branch-state.json');
-const COMMIT_NUMBERS = path.join(REPO_ROOT, 'bridge', 'state', 'commit-numbers.json');
-
-// Human-friendly running commit numbers (#001…). A persistent map full_sha→n,
-// assigned the first time a commit is seen, in chronological order so older
-// commits get lower numbers. Stable once assigned; the hash stays authoritative.
-// Mutates result.dev_commits[].number and result.promote.number; strips _ct.
-function assignCommitNumbers(result) {
-  let state;
-  try { state = JSON.parse(fs.readFileSync(COMMIT_NUMBERS, 'utf8')); } catch (_) { state = null; }
-  if (!state || typeof state !== 'object' || !state.bySha) state = { next: 1, bySha: {} };
-
-  const cands = [];
-  if (result.promote && result.promote.full_sha) {
-    cands.push({ obj: result.promote, sha: result.promote.full_sha, ct: result.promote._ct || 0 });
-  }
-  (result.dev_commits || []).forEach(c => {
-    if (c.full_sha) cands.push({ obj: c, sha: c.full_sha, ct: c._ct || 0 });
-  });
-  cands.sort((a, b) => (a.ct || 0) - (b.ct || 0)); // oldest first → lowest numbers
-
-  let dirty = false;
-  cands.forEach(c => {
-    if (state.bySha[c.sha] == null) { state.bySha[c.sha] = state.next++; dirty = true; }
-  });
-  if (dirty) {
-    try {
-      fs.mkdirSync(path.dirname(COMMIT_NUMBERS), { recursive: true });
-      fs.writeFileSync(COMMIT_NUMBERS, JSON.stringify(state));
-    } catch (_) { /* numbering is best-effort; hash still shows */ }
-  }
-  cands.forEach(c => { c.obj.number = state.bySha[c.sha] != null ? state.bySha[c.sha] : null; });
-  if (result.promote) delete result.promote._ct;
-  (result.dev_commits || []).forEach(c => { delete c._ct; });
-}
 
 const FIRST_OUTPUT  = path.join(REPO_ROOT, 'bridge', 'first-output.json');
 const NOG_ACTIVE    = path.join(REPO_ROOT, 'bridge', 'nog-active.json');
@@ -378,24 +344,29 @@ function _getGitTips() {
         const sha = sp1 !== -1 ? line.slice(0, sp1) : line;
         const ct = sp2 !== -1 ? parseInt(line.slice(sp1 + 1, sp2), 10) * 1000 : NaN;
         const subj = sp2 !== -1 ? line.slice(sp2 + 1) : '';
-        const m = subj.match(/^slice[/\s]+(\d+)/i);
+        const m = subj.match(/^S(\d+):/i) || subj.match(/^slice[/\s]+(\d+)/i);
         return { sha: sha.slice(0, 7), full_sha: sha, slice_id: m ? m[1] : null,
                  _ct: isNaN(ct) ? 0 : ct,
                  subject: subj, age_s: isNaN(ct) ? null : Math.round((now - ct) / 1000) };
       });
     }
 
-    const mainLog = execFileSync('git', ['log', 'origin/main', '--max-count=1', '--format=%H %ct'],
+    const mainLog = execFileSync('git', ['log', 'origin/main', '--max-count=1', '--format=%H %ct %s'],
       { cwd: REPO_ROOT, encoding: 'utf8', timeout: 5000 }).trim();
     if (mainLog) {
-      const [sha, ctStr] = mainLog.split(' ');
-      const ct = parseInt(ctStr, 10) * 1000;
+      const sp1 = mainLog.indexOf(' ');
+      const sp2 = sp1 !== -1 ? mainLog.indexOf(' ', sp1 + 1) : -1;
+      const sha = sp1 !== -1 ? mainLog.slice(0, sp1) : mainLog;
+      const ct = sp2 !== -1 ? parseInt(mainLog.slice(sp1 + 1, sp2), 10) * 1000 : NaN;
+      const subj = sp2 !== -1 ? mainLog.slice(sp2 + 1) : '';
+      const mp = subj.match(/^S(\d+):/i) || subj.match(/^slice[/\s]+(\d+)/i);
       result.promote = { sha: sha ? sha.slice(0, 7) : null, full_sha: sha || null,
                          _ct: isNaN(ct) ? 0 : ct,
-                         age_s: isNaN(ct) ? null : Math.round((now - ct) / 1000) };
+                         age_s: isNaN(ct) ? null : Math.round((now - ct) / 1000),
+                         slice_id: mp ? mp[1] : null };
     }
-    // Assign stable, human-friendly running numbers (#001…) in chronological order.
-    assignCommitNumbers(result);
+    (result.dev_commits || []).forEach(c => { delete c._ct; });
+    if (result.promote) delete result.promote._ct;
     result.fetched_at = new Date(now).toISOString();
   } catch (e) {
     result.error = String(e.message || e).slice(0, 200);
@@ -987,7 +958,7 @@ function _blameConflict(squashSha, conflictFiles) {
     const sp = out.indexOf(' ');
     const sha = sp === -1 ? out : out.slice(0, sp);
     const subject = sp === -1 ? '' : out.slice(sp + 1);
-    const m = subject.match(/slice[/\s]+(\d+)/i);
+    const m = subject.match(/^S(\d+):/i) || subject.match(/slice[/\s]+(\d+)/i);
     return { sha: sha.slice(0, 7), subject, slice_id: m ? m[1] : null };
   } catch (_) {
     return null;
@@ -3329,7 +3300,7 @@ const server = http.createServer(async (req, res) => {
       // with the live promote result so the topology dot reflects origin/main now.
       if (gh.promote && gh.promote.sha) {
         base.last_merge = { sha: gh.promote.sha, full_sha: gh.promote.full_sha,
-                            number: gh.promote.number, age_s: gh.promote.age_s };
+                            slice_id: gh.promote.slice_id || null, age_s: gh.promote.age_s };
       } else {
         base.last_merge = null;
       }

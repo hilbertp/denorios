@@ -6895,7 +6895,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
     } catch (_) {}
 
     if (!data) {
-      aside.innerHTML = `<div class="active-brief-error"><div class="active-brief-error-reason">Build failed</div><div style="font-size:0.82em">No error details available for slice ${escHtml(String(id))}.</div></div>`;
+      aside.innerHTML = `<div class="active-brief-error"><div class="active-brief-error-reason">Build failed</div><div style="font-size:0.82em">No error details available for S${escHtml(String(id))}.</div></div>`;
       return;
     }
 
@@ -7347,13 +7347,13 @@ body:not(.lcars-mode) .staged-details-body pre code {
       sliceStartTime = null;
 
       const round = getRound(mission.id);
-      document.getElementById('blocked-id-badge').textContent = `Slice ${escHtml(mission.id)}`;
+      document.getElementById('blocked-id-badge').textContent = `S${escHtml(mission.id)}`;
       document.getElementById('blocked-title').textContent = mission.title || '\u2014';
       document.getElementById('blocked-label').textContent = `Blocked \u00b7 Waiting for ${personName('nog')} \u2014 slice ${escHtml(mission.id)} in review round R${round}`;
 
     } else if (activeStageKey && mission) {
       blockedEl.style.display = 'none';
-      badgeEl.textContent  = `Slice ${escHtml(mission.id)}`;
+      badgeEl.textContent  = `S${escHtml(mission.id)}`;
       badgeEl.style.display = '';
       titleEl.textContent  = mission.title || '\u2014';
       const goalEl = document.getElementById('pipeline-mission-goal');
@@ -7483,7 +7483,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
       if (lastError) {
         const last = recent[0];
         if (glyphEl) glyphEl.style.display = 'none';
-        primaryEl.textContent = `Slice ${last.id} failed \u2014 ${last.title || 'Untitled'}`;
+        primaryEl.textContent = `S${last.id} failed \u2014 ${last.title || 'Untitled'}`;
         primaryEl.className = 'active-slice-idle-primary';
         primaryEl.style.color = '#f87171';
         secondaryEl.textContent = humanReason(last.reason || last.error_reason || '');
@@ -7587,12 +7587,12 @@ body:not(.lcars-mode) .staged-details-body pre code {
     const attempt  = ev.retryCount  ?? 1;
     const maxRetry = ev.maxRetries  ?? 3;
     const sliceId  = ev.id ?? '?';
-    const title    = ev.title ? `"${ev.title}"` : `Slice ${sliceId}`;
+    const title    = ev.title ? `"${ev.title}"` : `S${sliceId}`;
 
     const toast = document.createElement('div');
     toast.className = 'api-retry-toast';
     toast.innerHTML = `
-      <div class="api-retry-toast-title">&#9888; Slice ${escHtml(String(sliceId))} moved back to queue</div>
+      <div class="api-retry-toast-title">&#9888; S${escHtml(String(sliceId))} moved back to queue</div>
       <div class="api-retry-toast-body">
         Anthropic's AI service returned an error (HTTP&nbsp;500 — temporary outage on their end, not a problem with your slice).
         The slice has been automatically re-queued and will retry when the service recovers.
@@ -7917,7 +7917,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
       return `<div class="history-row" data-history-id="${eid}">
         <div class="history-row-main">
           <span class="col-chevron history-chevron" id="history-chevron-${eid}" onclick="toggleHistoryExpand('${eid}')">${chevron}</span>
-          <span class="col-id history-row-id">${eid}</span>
+          <span class="col-id history-row-id">S${eid}</span>
           <span class="col-title history-row-title">${escHtml(c.title || '')}</span>
           <span class="col-round">${escHtml(roundDisplay)}</span>
           <span class="col-outcome">${outcomeHtml(outcome, c)}</span>
@@ -7979,7 +7979,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
         // Show success toast
         const toast = document.createElement('div');
         toast.className = 'return-toast';
-        toast.textContent = `Slice ${id} returned to stage`;
+        toast.textContent = `S${id} returned to stage`;
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 3000);
         fetchBridge();
@@ -8035,7 +8035,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
     overlay.id = 'rollback-overlay';
     overlay.onclick = (e) => { if (e.target === overlay) closeRollbackOverlay(); };
 
-    const title = _rbEsc(row.title || ('slice ' + id));
+    const title = _rbEsc(row.title || ('S' + id));
     let movesHtml = '';
     let gotchaHtml = '';
     let errHtml = '';
@@ -8051,10 +8051,10 @@ body:not(.lcars-mode) .staged-details-body pre code {
     } else {
       const p = opts.preview;
       const pendingLines = (p.pending_commits || []).map(c =>
-        `<div class="rb-line"><span class="rb-sha">${_rbEsc(c.sha)}</span><span>${_rbEsc(c.subject || (c.slice_id ? 'slice ' + c.slice_id : ''))}</span></div>`
+        `<div class="rb-line"><span class="rb-sha">${_rbEsc(c.sha)}</span><span>${_rbEsc(c.subject || (c.slice_id ? 'S' + c.slice_id : ''))}</span></div>`
       ).join('');
       movesHtml = `<div class="rollback-moves">
-        <div class="rb-line"><span class="rb-sha">new</span><span class="rb-revert">↺ revert of slice ${_rbEsc(id)} (undoes ${_rbEsc(p.squash_sha)})</span></div>
+        <div class="rb-line"><span class="rb-sha">new</span><span class="rb-revert">↺ revert of S${_rbEsc(id)} (undoes ${_rbEsc(p.squash_sha)})</span></div>
         ${pendingLines}
       </div>`;
       const pendingCount = (p.pending_commits || []).length;
@@ -8064,7 +8064,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
     }
 
     overlay.innerHTML = `<div class="rollback-card" role="dialog" aria-modal="true" aria-label="Confirm rollback">
-      <h3>Roll back slice ${_rbEsc(id)}</h3>
+      <h3>Roll back S${_rbEsc(id)}</h3>
       <p class="rb-sub">${title}</p>
       <p class="rb-sub">Adds a <strong>git revert</strong> commit on dev, then re-runs the regression gate. main stays fast-forward-only — nothing is reset or force-pushed, and the gate must pass before main moves.</p>
       ${errHtml}
@@ -8128,7 +8128,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
         if (code === 'gate_already_running') {
           msg = 'A gate is already running — wait for it to finish, then roll back. You can’t promote and roll back at once.';
         } else if (code === 'conflict') {
-          const blamed = data.blame && data.blame.slice_id ? `slice ${data.blame.slice_id}` : 'a later slice';
+          const blamed = data.blame && data.blame.slice_id ? `S${data.blame.slice_id}` : 'a later slice';
           msg = `Can’t auto-roll-back — ${blamed} changed the same code, so the revert conflicts. This needs a human forward-fix, not an automatic revert.`;
         } else if (code === 'not_on_main') {
           msg = 'This slice isn’t on main yet — there’s nothing on main to roll back.';
@@ -8199,7 +8199,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
     } else {
       const p = opts.preview;
       const pendingLines = (p.pending_commits || []).map(c =>
-        `<div class="rb-line"><span class="rb-sha">${_rbEsc(c.sha)}</span><span>${_rbEsc(c.subject || (c.slice_id ? 'slice ' + c.slice_id : ''))}</span></div>`
+        `<div class="rb-line"><span class="rb-sha">${_rbEsc(c.sha)}</span><span>${_rbEsc(c.subject || (c.slice_id ? 'S' + c.slice_id : ''))}</span></div>`
       ).join('');
       movesHtml = `<div class="rollback-moves">
         <div class="rb-line"><span class="rb-sha">new</span><span class="rb-revert">↺ revert of ${shortSha} (main’s last promotion)</span></div>
@@ -8284,7 +8284,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
         if (code === 'gate_already_running') {
           msg = 'A gate is already running — wait for it to finish, then roll back. You can’t promote and roll back at once.';
         } else if (code === 'conflict') {
-          const blamed = data.blame && data.blame.slice_id ? `slice ${data.blame.slice_id}` : 'a later slice';
+          const blamed = data.blame && data.blame.slice_id ? `S${data.blame.slice_id}` : 'a later slice';
           msg = `Can’t auto-roll-back — ${blamed} changed the same code, so the revert conflicts. This needs a human forward-fix, not an automatic revert.`;
         } else if (code === 'not_on_main') {
           msg = 'Nothing on main to roll back.';
@@ -8312,7 +8312,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
                  cachedHistoryAllRows.find(c => c.id === id);
     if (!item) return;
 
-    document.getElementById('history-detail-id').textContent = `Slice ${id}`;
+    document.getElementById('history-detail-id').textContent = `S${id}`;
     document.getElementById('history-detail-title').textContent = item.title || 'Untitled';
 
     const outcome = item._terminalOutcome || 'ON_DEV';
@@ -8583,7 +8583,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
       const bs = _lastBranchState;
       const devTip = (bs && bs.dev && bs.dev.commits && bs.dev.commits.length)
         ? bs.dev.commits[bs.dev.commits.length - 1] : null;
-      const testedTag = devTip ? commitLabel(devTip.number, devTip.sha) : '';
+      const testedTag = devTip ? commitLabel(devTip.slice_id, devTip.sha) : '';
       const statusLine = data.status === 'fail'
         ? '<span style="color:#b91c1c;font-weight:700">● Failing</span>'
         : data.status === 'pass' ? '<span style="color:#047857;font-weight:700">● Passing</span>'
@@ -9572,7 +9572,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
     // Fetch full content from server
     try {
       const res = await fetch(`/api/queue/${id}/content`);
-      if (!res.ok) { alert('Could not load slice ' + id); return; }
+      if (!res.ok) { alert('Could not load S' + id); return; }
       const data = await res.json();
       sliceDetailState = {
         id: data.id,
@@ -9753,7 +9753,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
 
   async function sliceDetailReject() {
     if (!sliceDetailState) return;
-    if (!confirm(`Reject slice ${sliceDetailState.id}? This cannot be undone.`)) return;
+    if (!confirm(`Reject S${sliceDetailState.id}? This cannot be undone.`)) return;
     try {
       const res = await fetch(`/api/bridge/staged/${sliceDetailState.id}/reject`, { method: 'POST' });
       if (res.ok) {
@@ -9785,7 +9785,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
 
   async function sliceDetailReturnToStage() {
     if (!sliceDetailState) return;
-    if (!confirm(`Return slice ${sliceDetailState.id} to the dev lead for revision?`)) return;
+    if (!confirm(`Return S${sliceDetailState.id} to the dev lead for revision?`)) return;
     try {
       const res = await fetch(`/api/queue/${sliceDetailState.id}/return-to-stage`, { method: 'POST' });
       if (res.ok) {
@@ -9812,7 +9812,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
 
   async function sliceDetailRemove() {
     if (!sliceDetailState) return;
-    if (!confirm(`Remove slice ${sliceDetailState.id} from the queue? This cannot be undone.`)) return;
+    if (!confirm(`Remove S${sliceDetailState.id} from the queue? This cannot be undone.`)) return;
     try {
       const res = await fetch(`/api/queue/${sliceDetailState.id}/remove`, { method: 'POST' });
       if (res.ok) {
@@ -10193,32 +10193,25 @@ body:not(.lcars-mode) .staged-details-body pre code {
     } catch (_) {}
   })();
 
-  // Human-friendly running commit number: 001 … 999 (server-assigned, stable).
-  // Returns '' when no number is available so callers fall back to hash-only.
-  function fmtCommitNum(n) {
-    return (n != null && n !== '') ? String(n).padStart(3, '0') : '';
+  // "S349 · abc1234" — if the commit has a slice_id; otherwise just "abc1234".
+  function commitLabel(slice_id, sha7) {
+    return (slice_id ? `S${slice_id} · ` : '') + (sha7 || '');
   }
-  // "017 · 00c0790" — prefer the number, always keep the hash for traceability.
-  // Callers say the word "commit" next to this label; the label itself stays bare.
-  function commitLabel(number, sha7) {
-    const tag = fmtCommitNum(number);
-    return (tag ? tag + ' · ' : '') + (sha7 || '');
-  }
-  // Resolve a commit's running number from its (short) hash, using the live state.
-  function commitNumBySha(sha7) {
+  // Resolve a commit's slice_id from its (short) hash using the live branch state.
+  function commitSliceIdBySha(sha7) {
     const bs = _lastBranchState;
     const s = String(sha7 || '').slice(0, 7);
     if (!bs || !s) return null;
     const list = (bs.dev && bs.dev.commits) ? bs.dev.commits : [];
     const hit = list.find(c => (c.sha || '').slice(0, 7) === s || (c.full_sha || '').slice(0, 7) === s);
-    if (hit && hit.number != null) return hit.number;
+    if (hit && hit.slice_id != null) return hit.slice_id;
     const lm = bs.last_merge;
-    if (lm && ((lm.sha || '').slice(0, 7) === s || (lm.full_sha || '').slice(0, 7) === s)) return lm.number;
+    if (lm && ((lm.sha || '').slice(0, 7) === s || (lm.full_sha || '').slice(0, 7) === s)) return lm.slice_id || null;
     return null;
   }
-  // "017 · 00c0790" given just a hash.
+  // "S349 · abc1234" given just a hash (or just "abc1234" if no slice known).
   function commitTagBySha(sha7) {
-    return commitLabel(commitNumBySha(sha7), String(sha7 || '').slice(0, 7));
+    return commitLabel(commitSliceIdBySha(sha7), String(sha7 || '').slice(0, 7));
   }
 
   function renderTopoSvg(bs) {
@@ -10234,7 +10227,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
     // origin/main (base)
     const mainSha   = (lastMerge ? lastMerge.sha : mainTip) || null;
     const mainSha7  = (mainSha || '').slice(0, 7);
-    const mainNum   = lastMerge ? lastMerge.number : (bs.main ? bs.main.number : null);
+    const mainSliceId = lastMerge ? lastMerge.slice_id : null;
     const mainAge   = lastMerge && lastMerge.age_s != null ? formatAgeShort(lastMerge.age_s) : '';
     const isMerge   = !!lastMerge;
 
@@ -10291,8 +10284,8 @@ body:not(.lcars-mode) .staged-details-body pre code {
       } else {
         svg += `<circle cx="${x}" cy="${devY}" r="4.5" fill="var(--branch-dev)"><title>${tip}</title></circle>`;
       }
-      // commit number beneath each node
-      if (d.number != null) svg += `<text x="${x}" y="${devY + 18}" text-anchor="middle" font-size="9" font-weight="500" fill="var(--ink-3, #6b7280)">${fmtCommitNum(d.number)}</text>`;
+      // slice label beneath each node
+      if (d.slice_id != null) svg += `<text x="${x}" y="${devY + 18}" text-anchor="middle" font-size="9" font-weight="500" fill="var(--ink-3, #6b7280)">S${d.slice_id}</text>`;
     }
     svg += '</svg>';
 
@@ -10303,10 +10296,10 @@ body:not(.lcars-mode) .staged-details-body pre code {
       const hSha  = (head.sha || '').slice(0, 7);
       const hSubj = head.subject ? _promoteEsc(head.subject) : '';
       const hAge  = head.age_s != null ? formatAgeShort(head.age_s) : '';
-      info += `<div class="topo-c-row"><span class="topo-c-k">newest</span><span class="topo-c-sha">${hSha}</span><span class="topo-c-subj">${hSubj || ('origin/dev' + (fmtCommitNum(head.number) ? ' commit ' + fmtCommitNum(head.number) : ''))}</span>${hAge ? `<span class="topo-c-age">· ${hAge}</span>` : ''}</div>`;
+      info += `<div class="topo-c-row"><span class="topo-c-k">newest</span><span class="topo-c-sha">${hSha}</span><span class="topo-c-subj">${hSubj || (head.slice_id ? 'S' + head.slice_id : 'origin/dev')}</span>${hAge ? `<span class="topo-c-age">· ${hAge}</span>` : ''}</div>`;
     }
     if (mainSha) {
-      info += `<div class="topo-c-row"><span class="topo-c-k">base</span><span class="topo-c-sha">${mainSha7}</span><span class="topo-c-subj">origin/main${fmtCommitNum(mainNum) ? ' commit ' + fmtCommitNum(mainNum) : ''}</span>${mainAge ? `<span class="topo-c-age">· ${mainAge}</span>` : ''}</div>`;
+      info += `<div class="topo-c-row"><span class="topo-c-k">base</span><span class="topo-c-sha">${mainSha7}</span><span class="topo-c-subj">origin/main${mainSliceId ? ' S' + mainSliceId : ''}</span>${mainAge ? `<span class="topo-c-age">· ${mainAge}</span>` : ''}</div>`;
     }
     info += '</div>';
 

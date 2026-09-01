@@ -6797,7 +6797,7 @@ function squashSliceToDev(sliceId, sliceTitle, sliceBranch) {
     for (const [tag, text] of byTag) acTrailers += `AC: ${tag}: ${text}\n`;
   } catch (_) { /* no branch log → no trailers, squash proceeds unchanged */ }
 
-  const commitMsg = `slice ${sliceId}: ${sliceTitle}\n\nSlice-Id: ${sliceId}\nSlice-Branch: ${sliceBranch}\n${acTrailers}`;
+  const commitMsg = `S${sliceId}: ${sliceTitle}\n\nSlice-Id: ${sliceId}\nSlice-Branch: ${sliceBranch}\n${acTrailers}`;
   const commitMsgFile = path.join(PROJECT_DIR, '.squash-commit-msg');
   try {
     fs.writeFileSync(commitMsgFile, commitMsg);

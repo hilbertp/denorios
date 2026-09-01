@@ -48,7 +48,7 @@ test.describe('History-row rollback', () => {
     // The per-slice confirm card names what the revert undoes.
     const card = page.locator('.rollback-card');
     await expect(card).toBeVisible();
-    await expect(card.locator('.rb-revert')).toContainText('slice 8200');
+    await expect(card.locator('.rb-revert')).toContainText('S8200');
 
     // Confirm → inert dispatch + a toast naming the revert. No real revert/promote.
     await card.locator('#rollback-confirm-btn').click();

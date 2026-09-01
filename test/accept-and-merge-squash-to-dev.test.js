@@ -135,11 +135,11 @@ test('A — IDLE gate: squashSliceToDev called and slice lands on dev', () => {
 
     // Verify slice is on dev
     const devLog = execSync('git log --oneline dev', { cwd: workDir, encoding: 'utf-8' });
-    assert.ok(devLog.includes('slice 042'), `dev log should contain slice commit: ${devLog}`);
+    assert.ok(devLog.includes('S042'), `dev log should contain slice commit: ${devLog}`);
 
     // Verify main is unchanged (only initial commit)
     const mainLog = execSync('git log --oneline main', { cwd: workDir, encoding: 'utf-8' });
-    assert.ok(!mainLog.includes('slice 042'), `main should NOT contain slice commit: ${mainLog}`);
+    assert.ok(!mainLog.includes('S042'), `main should NOT contain slice commit: ${mainLog}`);
 
     // Verify trailers in commit message
     const devMsg = execSync('git log -1 --format=%B dev', { cwd: workDir, encoding: 'utf-8' });

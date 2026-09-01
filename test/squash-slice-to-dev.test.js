@@ -141,7 +141,7 @@ test('A — happy path: squash commit on dev with correct subject, trailers, and
     // Verify commit subject and trailers on dev
     const body = execSync('git log -1 --format=%B dev', { cwd: repoDir, encoding: 'utf-8' }).trim();
     const subject = body.split('\n')[0];
-    assert.strictEqual(subject, 'slice 042: Test Feature');
+    assert.strictEqual(subject, 'S042: Test Feature');
     assert.ok(body.includes('Slice-Id: 042'), `Expected Slice-Id trailer in: ${body}`);
     assert.ok(body.includes('Slice-Branch: slice/042'), `Expected Slice-Branch trailer in: ${body}`);
 
@@ -192,7 +192,7 @@ test('B — conflict path: ERROR file written, register event emitted, conflicti
     // Verify no partial state — dev should still be at its original tip
     const devLog = execSync('git log --oneline dev', { cwd: repoDir, encoding: 'utf-8' }).trim();
     assert.ok(devLog.includes('dev conflict'), 'dev should retain its original commits');
-    assert.ok(!devLog.includes('slice 042'), 'dev should NOT have any squash commit');
+    assert.ok(!devLog.includes('S042'), 'dev should NOT have any squash commit');
 
     // branch-state should be untouched
     const state = JSON.parse(fs.readFileSync(branchStatePath, 'utf-8'));
@@ -245,7 +245,7 @@ test('C — trailer format: Slice-Id and Slice-Branch are machine-parseable per 
     assert.strictEqual(sliceBranchLine, 'Slice-Branch: slice/042', `Slice-Branch format mismatch: "${sliceBranchLine}"`);
 
     // Trailers must be separated from subject by a blank line
-    const subjectIdx = lines.findIndex(l => l.startsWith('slice 042:'));
+    const subjectIdx = lines.findIndex(l => l.startsWith('S042:'));
     const sliceIdIdx = lines.indexOf(sliceIdLine);
     assert.ok(subjectIdx >= 0, 'Subject line must exist');
     assert.ok(sliceIdIdx > subjectIdx + 1, 'Trailers must be separated from subject by at least one blank line');
