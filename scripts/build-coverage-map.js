@@ -125,30 +125,71 @@ function walkTests(repoRoot) {
   return out.sort();
 }
 
+// Walk e2e/**/*.spec.js — the browser suite. E2e specs never statically read
+// product sources (they drive the rendered dashboard), so they participate in
+// the map ONLY through the annotation-declared form below.
+function walkSpecs(repoRoot) {
+  const root = path.join(repoRoot, 'e2e');
+  const out = [];
+  (function walk(dir) {
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { return; }
+    for (const ent of entries) {
+      const full = path.join(dir, ent.name);
+      if (ent.isDirectory()) { if (!ent.name.startsWith('.')) walk(full); }
+      else if (ent.isFile() && ent.name.endsWith('.spec.js')) out.push(path.relative(repoRoot, full).split(path.sep).join('/'));
+    }
+  })(root);
+  return out.sort();
+}
+
 function buildCoverageMap(repoRoot) {
   const bySource = Object.create(null);
-  for (const rel of walkTests(repoRoot)) {
+  for (const rel of [...walkTests(repoRoot), ...walkSpecs(repoRoot)]) {
     const src = fs.readFileSync(path.join(repoRoot, rel), 'utf8');
-    const sources = sourcesReadBy(src, path.join(repoRoot, rel), repoRoot);
-    if (!sources.size) continue;
     const tags = tagsIn(src);
     if (!tags.length) continue;
     const acHashes = acHashesIn(src);
-    for (const s of sources) {
-      (bySource[s] = bySource[s] || []).push(...tags.map(tag => (
-        acHashes[tag] ? { tag, file: rel, guardAcHash: acHashes[tag] } : { tag, file: rel }
-      )));
+
+    // Form 1 — read-corroborated (regression only): the test readFileSync's a
+    // BEHAVIOUR source; every tag in the file registers under that source.
+    if (rel.endsWith('.test.js')) {
+      const sources = sourcesReadBy(src, path.join(repoRoot, rel), repoRoot);
+      for (const s of sources) {
+        (bySource[s] = bySource[s] || []).push(...tags.map(tag => (
+          acHashes[tag] ? { tag, file: rel, guardAcHash: acHashes[tag] } : { tag, file: rel }
+        )));
+      }
+    }
+
+    // Form 2 — annotation-declared (regression + e2e): a `// @ac-hash: <tag>
+    // sha256:<hex>` annotation whose tag also appears in a test title is an
+    // explicit, auditable claim "this test guards this spec". It registers
+    // under the TEST FILE'S OWN PATH, so guards over sources the bucket map
+    // calls INERT (package.json, release.yml, bin/) and guards that live in
+    // the browser suite still count as coverage in the AC classifier — without
+    // widening what counts as a corroborated PRODUCT source (corroborated()
+    // looks up product paths; a test-file key can never collide with one).
+    for (const tag of tags) {
+      if (!acHashes[tag]) continue;
+      (bySource[rel] = bySource[rel] || []).push({ tag, file: rel, guardAcHash: acHashes[tag] });
     }
   }
   const sorted = {};
   let guardCount = 0;
+  const TEST_KEY_RE = /^(regression\/.+\.test\.js|e2e\/.+\.spec\.js)$/;
   for (const s of Object.keys(bySource).sort()) {
     const seen = new Set();
     const list = bySource[s]
       .sort((a, b) => (a.tag === b.tag ? (a.file < b.file ? -1 : a.file > b.file ? 1 : 0) : (a.tag < b.tag ? -1 : 1)))
       .filter(e => { const k = e.tag + '|' + e.file; if (seen.has(k)) return false; seen.add(k); return true; });
     sorted[s] = list;
-    guardCount += list.length;
+    // guardCount is the anti-shrink ratchet's currency (lib/tests-needed.js
+    // compares it base-vs-head) and counts READ-CORROBORATED (form-1) entries
+    // ONLY. Annotation-declared (form-2) entries are classification signals,
+    // not corroboration — letting them into the count would allow annotation
+    // churn to mask a real loss of product-source coverage.
+    if (!TEST_KEY_RE.test(s)) guardCount += list.length;
   }
   return { generator: 'scripts/build-coverage-map.js', guardCount, bySource: sorted };
 }

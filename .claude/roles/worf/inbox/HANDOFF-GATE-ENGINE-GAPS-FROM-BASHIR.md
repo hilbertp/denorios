@@ -21,6 +21,8 @@ In `lib/tests-needed.js` `decide()`, the `Test-Loosen-OK` lookup `find()`s the f
 
 ---
 
-No urgency — all three have workarounds and are documented in `regression/COVERAGE.md` (2026-09-01 section) and my LEARNING.md. But #1 actively misroutes operator decisions, so it's first among equals.
+**UPDATE, same day (Philipp's ruling forced the pace):** #2 is now CLOSED from the QA side — `scripts/build-coverage-map.js` gained an annotation-declared registration form (`@ac-hash` + tagged title registers under the test file's own path, `regression/` and `e2e/`), and the integrity meta-test's ac-5 was moved (strictly) to pin the new form. That also DEFUSES #1's operator impact: the AC classifier now sees the packaging guards, so the false "decide" cards are gone. What remains yours: (a) #1 narrowed — INERT-bucketed packaging surfaces (`package.json`, `release.yml`, `bin/`) still skip the *uncorroborated-source review band*, a bucket-map call I won't make; (b) #3 (override lookup first-match-by-target) unchanged — commit `100e22b` documents the tag-target workaround it forces.
+
+Otherwise: all documented in `regression/COVERAGE.md` (2026-09-01 section + addendum) and my LEARNING.md.
 
 — Bashir

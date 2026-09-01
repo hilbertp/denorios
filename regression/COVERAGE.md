@@ -147,3 +147,13 @@ New features landed on dev (packaging initiative + S-numbering); the suites were
 - **slice-350-ac-4** (legacy `slice N:` subjects resolve in rollback preview / revert blame) — **no guard anywhere**. A real guard needs the preview endpoint against a git fixture; flagged rather than built fragile.
 - **Classifier blind spot:** `package.json`, `.github/workflows/release.yml`, and `bin/` are INERT-bucketed in `lib/tests-needed.js`, and the coverage walker only walks `regression/` — so the packaging guards and all e2e guards can never corroborate in `COVERAGE.lock`. Pipeline A therefore flags slice-351/352 ACs "decide" despite real coverage. Bucket/walker design is Worf's strand; flagged to him.
 - **Open question (Philipp):** ac-1's literal `"S{n} · {sha7}"` format renders on History surfaces; the topology renders the same identity as node label `S350` + line `abc1234 S350: …`. The e2e test asserts the intent; tighten to the literal form if that's the ruling.
+
+### Addendum, same day — classifier blind spot CLOSED (Philipp's ruling)
+
+Clicking CHECK FOR TEST UPDATES still flagged 10 ACs "No test guards this AC" despite the coverage above — the classifier only counted guards that statically `readFileSync` a BEHAVIOUR-bucketed source inside `regression/`. Per Philipp's ruling ("the gate must recognize done test updates"), `scripts/build-coverage-map.js` now has a second, annotation-declared registration form: a `// @ac-hash: <tag> sha256:<hex>` annotation whose tag also appears in a test title registers under the test file's own path — in `regression/` AND `e2e/`. Product-source corroboration semantics are untouched (test-file keys can't collide with product paths); the integrity meta-test's ac-5 was MOVED (not loosened) to pin the new form strictly: self-referential file, hash mandatory, junk keys still rejected.
+
+Also closed the two remaining S-numbering gaps with real guards:
+- `gate-merge/j-s-numbering-squash-subject.test.js` — slice-350-ac-3 in CI (fixture git repo + orchestrator `_testSet*` hooks; subject `S{id}: {title}`, trailers unchanged).
+- `gate-merge/j-s-numbering-legacy-resolve.test.js` — slice-350-ac-4 end-to-end against the real server (shared `compileServer` harness, extracted to `j-merge-button-pass-helpers.js`): rollback preview attributes pending commits from BOTH subject forms, and a genuinely conflicting revert blames the legacy-subject slice.
+
+Result: Pipeline A resolves all 13 in-range ACs (11 pass, 2 kept) — zero decision cards, merge gate unlocked. Remaining for Worf: INERT-bucket promotion (affects only the needs-review band now) and the override first-match quirk.

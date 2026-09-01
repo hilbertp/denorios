@@ -215,6 +215,51 @@ function runBlockOf(stepText) {
   return raw.map(l => (l.trim() ? l.slice(min) : '')).join('\n');
 }
 
+// ── server-in-tmpdir compiler ────────────────────────────────────────────────
+// Compile dashboard/server.js against a tmp fixture root (REPO_ROOT rewritten,
+// lifecycle shim stubbed, auto-listen disabled) and return its exports. Shared
+// by J-merge-button-pass and J-s-numbering-legacy-resolve; extracted 2026-09-01.
+function compileServer(root) {
+  const Module = require('node:module');
+  const serverSrcPath = path.join(__dirname, '..', '..', 'dashboard', 'server.js');
+  const dashboardDir = path.join(root, 'dashboard');
+  const lifecyclePath = path.join(root, 'bridge', 'lifecycle-translate.js');
+  fs.writeFileSync(lifecyclePath, `
+'use strict';
+module.exports = {
+  translateEvent(ev) { return ev; },
+  resetDedupeState() {},
+};
+`, 'utf8');
+  fs.writeFileSync(path.join(dashboardDir, 'lcars-dashboard.html'), '<html></html>', 'utf8');
+  fs.writeFileSync(path.join(dashboardDir, 'tokens.css'), '', 'utf8');
+
+  const src = fs.readFileSync(serverSrcPath, 'utf8')
+    .replace(
+      /const REPO_ROOT\s*=[\s\S]*?path\.resolve\(__dirname,\s*'\.\.'\);/,
+      `const REPO_ROOT = ${JSON.stringify(root)};`
+    )
+    .replace(
+      /const DASHBOARD\s*=\s*path\.join\(__dirname,\s*'lcars-dashboard\.html'\);/,
+      `const DASHBOARD = ${JSON.stringify(path.join(dashboardDir, 'lcars-dashboard.html'))};`
+    )
+    .replace(
+      /const TOKENS_CSS\s*=\s*path\.join\(__dirname,\s*'tokens\.css'\);/,
+      `const TOKENS_CSS = ${JSON.stringify(path.join(dashboardDir, 'tokens.css'))};`
+    )
+    .replace(
+      /require\(path\.join\(REPO_ROOT,\s*'bridge',\s*'lifecycle-translate'\)\)/,
+      `require(${JSON.stringify(lifecyclePath)})`
+    )
+    .replace(/if \(require\.main === module\)/, 'if (false)')
+    .replace(/module\.exports = \{ /, 'module.exports = { server, _bustGitHubCache, ');
+
+  const mod = new Module('patched-dashboard-server');
+  mod.paths = module.paths;
+  mod._compile(src, path.join(dashboardDir, 'server.js'));
+  return mod.exports;
+}
+
 module.exports = {
   GIT_ENV,
   git,
@@ -223,6 +268,7 @@ module.exports = {
   advanceDev,
   divergeMain,
   installGhStub,
+  compileServer,
   setPromoteRuns,
   setDispatchFail,
   readDispatches,

@@ -12,6 +12,8 @@ const { test, expect } = require('@playwright/test');
 // a revert to #000 (or any drift away from #0b0b14) goes red. I also guard the
 // .dashboard-container, which slice 348 recoloured in the same breath, so a half-revert
 // (body softened, container left black — or vice-versa) can't slip through green.
+//
+// @ac-hash: slice-348-ac-1 sha256:d26b9f47d07ddd4b2106766f0a8a2038870624e6cc7af1bb3af2c683318da052
 
 test('J-lcars-bg slice-348-ac-1 — LCARS toggle switches to near-black charcoal (not pure black), persists across reload, and toggles back', async ({ page }) => {
   await page.goto('/');

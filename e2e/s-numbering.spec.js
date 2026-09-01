@@ -18,6 +18,9 @@ const { seedRolledBackableSlice } = seedFixture;
 //
 // Assertions read page.innerText (visible text only) rather than getByText — the branch
 // graph duplicates every sha inside hidden SVG <title> tooltips, which getByText matches.
+//
+// @ac-hash: slice-350-ac-1 sha256:f1aedeee46ff306b61d631f636ff511524e8b437262aba9e8f6ea72fdf96f0d1
+// @ac-hash: slice-350-ac-2 sha256:d50f5fd02f6f499ec112e18416ff8915b2ae1008ee94b0e496fd659d4dcb618a
 
 const SLICE_COMMIT = { sha: 'abc1234', slice_id: '350', subject: 'S350: S-numbering' };
 const LOOSE_COMMIT = { sha: 'def5678', slice_id: null, subject: 'docs: loose commit, no slice' };

@@ -796,6 +796,25 @@
         "file": "regression/gate-merge/j-test-drift.test.js"
       }
     ],
+    "e2e/lcars-mode.spec.js": [
+      {
+        "tag": "slice-348-ac-1",
+        "file": "e2e/lcars-mode.spec.js",
+        "guardAcHash": "sha256:d26b9f47d07ddd4b2106766f0a8a2038870624e6cc7af1bb3af2c683318da052"
+      }
+    ],
+    "e2e/s-numbering.spec.js": [
+      {
+        "tag": "slice-350-ac-1",
+        "file": "e2e/s-numbering.spec.js",
+        "guardAcHash": "sha256:f1aedeee46ff306b61d631f636ff511524e8b437262aba9e8f6ea72fdf96f0d1"
+      },
+      {
+        "tag": "slice-350-ac-2",
+        "file": "e2e/s-numbering.spec.js",
+        "guardAcHash": "sha256:d50f5fd02f6f499ec112e18416ff8915b2ae1008ee94b0e496fd659d4dcb618a"
+      }
+    ],
     "lib/ac-block.js": [
       {
         "tag": "slice-99824-ac-1",
@@ -1290,6 +1309,107 @@
       {
         "tag": "slice-99827-ac-8",
         "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
+      }
+    ],
+    "regression/direct-controls/j-dark-mode-label.test.js": [
+      {
+        "tag": "slice-342-ac-1",
+        "file": "regression/direct-controls/j-dark-mode-label.test.js",
+        "guardAcHash": "sha256:7ca273aff035552ba8ce07eab3d355c8f85b21d341d2fe4941217f2c3e69395e"
+      }
+    ],
+    "regression/direct-controls/j-devops-station.test.js": [
+      {
+        "tag": "slice-340-ac-1",
+        "file": "regression/direct-controls/j-devops-station.test.js",
+        "guardAcHash": "sha256:54145d8ac9e223dd388d5884524a07ebefcca5efdfb862b3319fe24713686ee8"
+      },
+      {
+        "tag": "slice-340-ac-2",
+        "file": "regression/direct-controls/j-devops-station.test.js",
+        "guardAcHash": "sha256:adedf07750fbf6fd7a2b31c5b59d4a14fdf5b45250dd542b310b54674414c95c"
+      },
+      {
+        "tag": "slice-340-ac-3",
+        "file": "regression/direct-controls/j-devops-station.test.js",
+        "guardAcHash": "sha256:198c9b94e2242fbe2d20475c472bac1081bc5a861b60b8264e3ec3e6109a799e"
+      },
+      {
+        "tag": "slice-340-ac-4",
+        "file": "regression/direct-controls/j-devops-station.test.js",
+        "guardAcHash": "sha256:0ff6f9b8978b57f8af5e809fb2967b322efb19c56179f7bcbed736146f17c7a4"
+      },
+      {
+        "tag": "slice-340-ac-5",
+        "file": "regression/direct-controls/j-devops-station.test.js",
+        "guardAcHash": "sha256:cfbb898656a6c5ebce52ee060be8363588171275979b6089106d21a82ca77b45"
+      },
+      {
+        "tag": "slice-340-ac-6",
+        "file": "regression/direct-controls/j-devops-station.test.js",
+        "guardAcHash": "sha256:84c994374c163ed0b343600152a47ba7960bb36bebe31a40b1228e89a309562b"
+      }
+    ],
+    "regression/gate-merge/j-s-numbering-legacy-resolve.test.js": [
+      {
+        "tag": "slice-350-ac-4",
+        "file": "regression/gate-merge/j-s-numbering-legacy-resolve.test.js",
+        "guardAcHash": "sha256:f22483194781ee1702b5b2fd60d8e3870984a658aa99c8361507cde21f69995c"
+      }
+    ],
+    "regression/gate-merge/j-s-numbering-squash-subject.test.js": [
+      {
+        "tag": "slice-350-ac-3",
+        "file": "regression/gate-merge/j-s-numbering-squash-subject.test.js",
+        "guardAcHash": "sha256:132ee7f47f6ed32af361bb72fd530efe8abf463f6c31c44be539f0a14f022225"
+      }
+    ],
+    "regression/observability/j-s-numbering-retirement.test.js": [
+      {
+        "tag": "slice-350-ac-1",
+        "file": "regression/observability/j-s-numbering-retirement.test.js",
+        "guardAcHash": "sha256:f1aedeee46ff306b61d631f636ff511524e8b437262aba9e8f6ea72fdf96f0d1"
+      }
+    ],
+    "regression/packaging/j-denorios-cli.test.js": [
+      {
+        "tag": "slice-351-ac-2",
+        "file": "regression/packaging/j-denorios-cli.test.js",
+        "guardAcHash": "sha256:50db92403312971e214b166f59683aea7d29376587cc966d1d0f2479bf98a456"
+      },
+      {
+        "tag": "slice-351-ac-3",
+        "file": "regression/packaging/j-denorios-cli.test.js",
+        "guardAcHash": "sha256:195fc0d5f29a6050b522efc2b798f0ef437309bf1343dd6a24b50cc4864d8dbd"
+      }
+    ],
+    "regression/packaging/j-npm-pack-whitelist.test.js": [
+      {
+        "tag": "slice-351-ac-1",
+        "file": "regression/packaging/j-npm-pack-whitelist.test.js",
+        "guardAcHash": "sha256:6b15b22994ad7d865f027f207459ab262eccfd4cca0b376eed23f2977e9210e6"
+      }
+    ],
+    "regression/packaging/j-release-workflow-shape.test.js": [
+      {
+        "tag": "slice-352-ac-1",
+        "file": "regression/packaging/j-release-workflow-shape.test.js",
+        "guardAcHash": "sha256:7edcdd37b7fea6a340afdb3caea7866d43295285430a715a1b2832d2d3ebdaf9"
+      },
+      {
+        "tag": "slice-352-ac-2",
+        "file": "regression/packaging/j-release-workflow-shape.test.js",
+        "guardAcHash": "sha256:1054fcabd6227882c957af0faa17389a3e8bb6a84767205f10b70d1205489337"
+      },
+      {
+        "tag": "slice-352-ac-3",
+        "file": "regression/packaging/j-release-workflow-shape.test.js",
+        "guardAcHash": "sha256:cf6d14fa05f7f0a0d9d920a210a0a61f9f5412bb4f69a3f0b11bbd678f98b153"
+      },
+      {
+        "tag": "slice-352-ac-4",
+        "file": "regression/packaging/j-release-workflow-shape.test.js",
+        "guardAcHash": "sha256:f1e26b876693915563ef11eae52ad25bea26d31e5a9e3851a9ff45c2500134dc"
       }
     ],
     "scripts/ac-reconcile.js": [

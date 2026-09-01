@@ -57,14 +57,13 @@ const fs   = require('node:fs');
 const os   = require('node:os');
 const path = require('node:path');
 const http = require('node:http');
-const Module = require('node:module');
 const { spawnSync } = require('node:child_process');
 
 const { makeTmpDir, removeTmpDir } = require('../helpers/tmp-dir');
 const { parseRegisterLines } = require('../helpers/register-helper');
 const {
   GIT_ENV, git, initGitFixture, advanceDev, divergeMain,
-  installGhStub, setPromoteRuns, setDispatchFail, readDispatches,
+  installGhStub, compileServer, setPromoteRuns, setDispatchFail, readDispatches,
   topLevelBlock, parseJobSteps, runBlockOf,
 } = require('./j-merge-button-pass-helpers');
 
@@ -74,6 +73,23 @@ const SERVER_SRC     = path.join(REPO_ROOT_REAL, 'dashboard', 'server.js');
 const FULL_SUITE_CMD = "node --test 'regression/**/*.test.js'";
 
 const promoteSrc = fs.readFileSync(PROMOTE_YML, 'utf8');
+// This read is load-bearing twice over: (1) it corroborates dashboard/server.js
+// in COVERAGE.lock for this file's slice-316 guards (the read moved out of this
+// file with the compileServer extraction, silently dropping 12 guards — caught
+// by the anti-shrink audit, restored here); (2) the anchor test below pins the
+// exact source patterns the shared compileServer harness rewrites.
+const serverSrc = fs.readFileSync(SERVER_SRC, 'utf8');
+
+test('J-merge-button-pass — dashboard/server.js keeps the compile-contract anchors the Tier-2 harness rewrites', () => {
+  assert.match(serverSrc, /const REPO_ROOT\s*=[\s\S]*?path\.resolve\(__dirname,\s*'\.\.'\);/,
+    'REPO_ROOT declaration anchor — compileServer rewrites this to the fixture root');
+  assert.match(serverSrc, /const DASHBOARD\s*=\s*path\.join\(__dirname,\s*'lcars-dashboard\.html'\);/,
+    'DASHBOARD path anchor');
+  assert.match(serverSrc, /if \(require\.main === module\)/,
+    'auto-listen guard anchor — compileServer disables it');
+  assert.match(serverSrc, /module\.exports = \{ /,
+    'exports anchor — compileServer injects server and _bustGitHubCache here');
+});
 
 // ── shared Tier 2 fixture (server against tmpRoot; #99992: tmpdirs only) ────
 
@@ -88,44 +104,8 @@ let branchStatePath;
 let fixture;         // { mainSha } seed
 let devSha = null;   // set once dev advances (sequential top-level tests)
 
-function compileServer(root) {
-  const dashboardDir = path.join(root, 'dashboard');
-  const lifecyclePath = path.join(root, 'bridge', 'lifecycle-translate.js');
-  fs.writeFileSync(lifecyclePath, `
-'use strict';
-module.exports = {
-  translateEvent(ev) { return ev; },
-  resetDedupeState() {},
-};
-`, 'utf8');
-  fs.writeFileSync(path.join(dashboardDir, 'lcars-dashboard.html'), '<html></html>', 'utf8');
-  fs.writeFileSync(path.join(dashboardDir, 'tokens.css'), '', 'utf8');
-
-  const src = fs.readFileSync(SERVER_SRC, 'utf8')
-    .replace(
-      /const REPO_ROOT\s*=[\s\S]*?path\.resolve\(__dirname,\s*'\.\.'\);/,
-      `const REPO_ROOT = ${JSON.stringify(root)};`
-    )
-    .replace(
-      /const DASHBOARD\s*=\s*path\.join\(__dirname,\s*'lcars-dashboard\.html'\);/,
-      `const DASHBOARD = ${JSON.stringify(path.join(dashboardDir, 'lcars-dashboard.html'))};`
-    )
-    .replace(
-      /const TOKENS_CSS\s*=\s*path\.join\(__dirname,\s*'tokens\.css'\);/,
-      `const TOKENS_CSS = ${JSON.stringify(path.join(dashboardDir, 'tokens.css'))};`
-    )
-    .replace(
-      /require\(path\.join\(REPO_ROOT,\s*'bridge',\s*'lifecycle-translate'\)\)/,
-      `require(${JSON.stringify(lifecyclePath)})`
-    )
-    .replace(/if \(require\.main === module\)/, 'if (false)')
-    .replace(/module\.exports = \{ /, 'module.exports = { server, _bustGitHubCache, ');
-
-  const mod = new Module('patched-dashboard-server');
-  mod.paths = module.paths;
-  mod._compile(src, path.join(dashboardDir, 'server.js'));
-  return mod.exports;
-}
+// compileServer moved to ./j-merge-button-pass-helpers (shared with
+// J-s-numbering-legacy-resolve, 2026-09-01). Behaviour identical.
 
 function request(method, urlPath, payload) {
   return new Promise((resolve, reject) => {

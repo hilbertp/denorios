@@ -149,3 +149,10 @@
 - **Date:** 2026-04-12
 - **Idea:** Visualize watcher entries in `bridge/timesheet.jsonl` (formerly `slicelog.jsonl`) in the Ops Center dashboard — token cost per commission, human hours estimates, amendment cycle counts, compaction flags, and efficiency trends over time. Dax's ADR explicitly deferred this. The data schema is now live and accumulating in the unified timesheet.
 - **Why it matters:** The tracking infrastructure exists but the data is invisible unless someone runs `jq` by hand. A dashboard panel turns raw economics into a live signal Philipp can watch to understand where cost and effort are concentrated.
+
+## CHECK overlay: "Apply Julian's draft" / "Author the guard" actions
+
+- **Source:** Bashir (from Philipp's 2026-09-01 ruling — the overlay's only lever was "No test needed for this AC", which he refused to click against a real coverage need)
+- **Date:** 2026-09-01
+- **Idea:** For a genuinely-unguarded AC flagged in the stage-① overlay, add the missing affirmative actions: "Apply Julian's draft" (move the linked `regression/.drafts/<tag>` proposal into the suite, run it, rebuild COVERAGE.lock, re-check) and "Author the guard" (dispatch the auto-author for that tag first). Commissioning handoff with pipeline context: `.claude/roles/obrien/inbox/HANDOFF-BRANCH-GATE-AND-CHECK-OVERLAY-FROM-BASHIR.md`.
+- **Why it matters:** The overlay currently offers only the escape hatch, so an honest operator with a missing test has no path forward — the exact dead end Philipp hit. The affirmative path turns the Test-Update Gate's flags into one-click fixes instead of judgment traps.

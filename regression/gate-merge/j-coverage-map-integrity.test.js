@@ -50,18 +50,43 @@ test('J-tests-needed slice-99822-ac-3 — the deriver has no wall-clock or rando
 
 test('J-tests-needed slice-99822-ac-4 — guardCount is self-consistent with bySource', () => {
   const lock = readLock();
-  assert.equal(lock.guardCount, guardCountOf(lock), 'guardCount must equal the total number of mapped guards');
+  // TIGHTENED 2026-09-01: the old check compared guardCount to guardCountOf(),
+  // which prefers the very field under test — a tautology. Recount directly:
+  // guardCount is the anti-shrink ratchet's currency and counts only the
+  // read-corroborated (product-source-keyed) entries; annotation-declared
+  // entries (test-file keys) are classification signals and MUST NOT move it.
+  const TEST_KEY_RE = /^(regression\/.+\.test\.js|e2e\/.+\.spec\.js)$/;
+  const form1 = Object.keys(lock.bySource)
+    .filter(k => !TEST_KEY_RE.test(k))
+    .reduce((n, k) => n + lock.bySource[k].length, 0);
+  assert.equal(lock.guardCount, form1, 'guardCount must equal the number of read-corroborated guards');
   assert.equal(typeof lock.guardCount, 'number');
   assert.ok(lock.guardCount > 0, 'an empty coverage map would corroborate nothing');
 });
 
-test('J-tests-needed slice-99822-ac-5 — every key is a BEHAVIOUR source and every guard is a real slice tag', () => {
+// MOVED 2026-09-01 (Philipp's ruling: the AC classifier must recognize real
+// guards over INERT-bucketed sources and in the browser suite). A key is now
+// EITHER a BEHAVIOUR source (form 1, read-corroborated) OR a test/spec file's
+// own path (form 2, annotation-declared) — and the form-2 shape is pinned
+// STRICTLY: self-referential file, hash on every entry, no other keys admitted.
+test('J-tests-needed slice-99822-ac-5 — every key is a BEHAVIOUR source or a self-referential annotated guard file; every guard is a real slice tag', () => {
   const { bySource } = readLock();
   for (const src of Object.keys(bySource)) {
-    assert.equal(bucketOf(src), 'BEHAVIOUR', `${src} is mapped but is not a BEHAVIOUR source`);
+    const isTestFileKey = /^(regression\/.+\.test\.js|e2e\/.+\.spec\.js)$/.test(src);
+    if (isTestFileKey) {
+      // Form 2 — annotation-declared: every entry must be the file's own
+      // explicit @ac-hash claim. No hashless or foreign entries sneak in here.
+      for (const g of bySource[src]) {
+        assert.equal(g.file, src, `annotation-declared guard on ${src} must be self-referential (got ${g.file})`);
+        assert.match(String(g.guardAcHash || ''), /^sha256:[0-9a-f]{6,64}$/,
+          `annotation-declared guard ${g.tag} on ${src} must carry its @ac-hash`);
+      }
+    } else {
+      assert.equal(bucketOf(src), 'BEHAVIOUR', `${src} is mapped but is not a BEHAVIOUR source`);
+    }
     for (const g of bySource[src]) {
       assert.match(g.tag, /^slice-\d+-ac-\d+$/, `guard tag ${g.tag} on ${src} is not a slice-N-ac-M tag`);
-      assert.match(g.file, /^regression\/.+\.test\.js$/, `guard file ${g.file} on ${src} is not a regression test`);
+      assert.match(g.file, /^(regression\/.+\.test\.js|e2e\/.+\.spec\.js)$/, `guard file ${g.file} on ${src} is not a suite test/spec`);
     }
   }
 });
