@@ -6,25 +6,10 @@
     "tip_ts": "2026-06-25T15:23:32+03:00"
   },
   "dev": {
-    "tip_sha": "d4b11f5f5c89cd2df9f02d674f531c9f741504cc",
-    "tip_ts": "2026-07-02T16:22:07.749Z",
-    "commits_ahead_of_main": 2,
-    "commits": [
-      {
-        "sha": "f84902f36170beb492be2963008b77701e64276e",
-        "slice_id": "349",
-        "title": "Gate Sequence safety caption",
-        "ts": "2026-07-02T16:11:01.688Z",
-        "is_pending_squash": false
-      },
-      {
-        "sha": "d4b11f5f5c89cd2df9f02d674f531c9f741504cc",
-        "slice_id": "348",
-        "title": "Soften LCARS background from pure black to near-black charcoal",
-        "ts": "2026-07-02T16:22:07.749Z",
-        "is_pending_squash": false
-      }
-    ],
+    "tip_sha": null,
+    "tip_ts": null,
+    "commits_ahead_of_main": 0,
+    "commits": [],
     "deferred_slices": []
   },
   "last_merge": {
@@ -38,13 +23,13 @@
     "last_pass": null
   },
   "regression_risk": {
-    "rr": 6,
+    "rr": 0,
     "band": "green",
     "inputs": {
-      "slice_pressure": 0.2,
+      "slice_pressure": 0,
       "surface_volatility": 0,
       "ac_coverage_gap": 0
     },
-    "computed_ts": "2026-07-03T01:25:33.494Z"
+    "computed_ts": "2026-09-01T19:56:52.231Z"
   }
 }

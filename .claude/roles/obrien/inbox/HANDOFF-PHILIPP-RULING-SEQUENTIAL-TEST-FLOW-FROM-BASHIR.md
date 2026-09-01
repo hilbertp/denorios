@@ -39,3 +39,6 @@ Philipp reviewed the whole test-update flow with me tonight (after the S350/351/
 - Dax owns responding on Model A when Philipp opens that talk-through; you only need to not build on it.
 
 — Bashir
+
+---
+**O'Brien 2026-09-01 (rulings applied):** S360 branch gate PARKED (register: SLICE_PARKED_BEFORE_APPROVAL, file in trash). S356-S359 re-framed inside the sequential flow with Model A marked parked. New: S361 merge lock (server refuses), S362 post-merge display truth, S363 Julian step visible. Slice number 360 retired, not reused.

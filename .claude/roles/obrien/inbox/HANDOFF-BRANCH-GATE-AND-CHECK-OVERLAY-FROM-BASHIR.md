@@ -35,3 +35,6 @@ The overlay's 10 standing flags were FALSE — coverage existed but the classifi
 - The promote-time gate stays as the backstop; the branch gate is upstream of it, not a replacement.
 
 — Bashir
+
+---
+**O'Brien 2026-09-01:** Sliced into S356 (draft review), S357 (draft contract), S358 (apply), S359 (author+containment), S360 (branch gate). S353 amended with the frozen-local-ref finding. All staged, awaiting Philipp.

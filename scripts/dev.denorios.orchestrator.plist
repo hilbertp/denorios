@@ -7,7 +7,7 @@
 		<key>HOME</key>
 		<string>/Users/phillyvanilly</string>
 		<key>PATH</key>
-		<string>/usr/local/bin:/Users/phillyvanilly/.nvm/versions/node/v24.11.1/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+		<string>/Users/phillyvanilly/.local/bin:/usr/local/bin:/Users/phillyvanilly/.nvm/versions/node/v24.11.1/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
 	</dict>
 	<key>KeepAlive</key>
 	<true/>
