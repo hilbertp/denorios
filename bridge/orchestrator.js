@@ -6219,7 +6219,9 @@ function startGate() {
 
   // 5. Build Bashir prompt and spawn
   const prompt = buildBashirPrompt(branchState);
-  const bashirArgs = ['-p', '--permission-mode', 'bypassPermissions'];
+  // Bashir does not share config.claudeArgs (no stream-json here), so the model and
+  // effort must be set explicitly or he silently falls back to ANTHROPIC_MODEL.
+  const bashirArgs = ['-p', '--permission-mode', 'bypassPermissions', '--model', 'claude-opus-5', '--effort', 'max'];
 
   log('info', 'gate', { msg: 'Spawning Bashir', args: bashirArgs, cwd: PROJECT_DIR });
 
