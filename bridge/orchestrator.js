@@ -31,6 +31,12 @@ const DEFAULTS = {
   claudeArgs: ['-p', '--verbose', '--permission-mode', 'bypassPermissions', '--output-format', 'stream-json'],
   projectDir: '..',
   maxRetries: 0,
+  // Branch topology. Slices are born on — and compared against — the INTEGRATION
+  // branch; the TRUNK is only what the promote gate fast-forwards. Cutting slices
+  // from the trunk is what froze the local ref 42 commits back and manufactured
+  // conflicts in slices 348-352 (slice 353).
+  integrationBranch: 'dev',
+  trunkBranch: 'main',
 };
 
 function loadConfig() {
@@ -49,6 +55,32 @@ function loadConfig() {
 }
 
 const { config, hasDeprecatedTimeoutMs } = loadConfig();
+
+// Branch topology, resolved once. Every git command on the slice path reads these
+// — no literal branch name belongs in a lineage, scope or review comparison.
+const INTEGRATION_BRANCH = config.integrationBranch;
+const TRUNK_BRANCH       = config.trunkBranch;
+
+/**
+ * branchNamesFrom(porcelainish)
+ *
+ * Parses `git branch --contains` / `--merged` output into exact branch names,
+ * stripping the `* ` current-branch marker, the `+ ` worktree marker and
+ * indentation. Callers MUST compare with === against a whole name.
+ *
+ * Substring matching here is a live bug, not a hypothetical: this repo carries
+ * `dev-linear` and `dev-linear2`, so `output.includes('dev')` is satisfied by a
+ * branch that has nothing to do with the integration branch.
+ */
+function branchNamesFrom(raw) {
+  return String(raw || '')
+    .split('\n')
+    .map(line => line.replace(/^[*+]?\s*/, '').trim())
+    // Detached-HEAD rows read "(HEAD detached at abc1234)" — not a branch name.
+    .filter(name => name && !name.startsWith('('))
+    // "branch -> other" (symbolic ref rows) — keep the left-hand name only.
+    .map(name => name.split(' -> ')[0].trim());
+}
 
 // ---------------------------------------------------------------------------
 // Resolved paths
@@ -1268,9 +1300,9 @@ function createBranchFromMain(id, branchName) {
  * verifyBranchState(id, expectedBranch)
  *
  * Post-invocation gate. Verifies that:
- *   1. HEAD is on the expected branch (not main, not detached).
- *   2. The branch has commits ahead of main (Rom actually did work).
- *   3. The branch's base is reachable from main (not forked from stale state).
+ *   1. HEAD is on the expected branch (not the integration branch, not detached).
+ *   2. The branch has commits ahead of the integration branch (Rom actually did work).
+ *   3. The branch's base is an ancestor of the integration tip (not a stale fork).
  *
  * Returns { ok, issues[] }.
  */
@@ -1284,25 +1316,39 @@ function verifyBranchState(id, expectedBranch, cwd) {
     issues.push(`HEAD is on '${current}', expected '${expectedBranch}'`);
   }
 
-  // Check 2: commits ahead of main
+  // Check 2: commits ahead of the integration branch
   try {
-    const ahead = gitFinalizer.runGit(`git rev-list main..${expectedBranch} --count`, { slice_id: id || '0', op: 'verifyBranch_ahead', cwd, encoding: 'utf-8' }).trim();
+    const ahead = gitFinalizer.runGit(`git rev-list ${INTEGRATION_BRANCH}..${expectedBranch} --count`, { slice_id: id || '0', op: 'verifyBranch_ahead', cwd, encoding: 'utf-8' }).trim();
     if (parseInt(ahead, 10) === 0) {
-      issues.push(`Branch ${expectedBranch} has no commits ahead of main`);
+      issues.push(`Branch ${expectedBranch} has no commits ahead of ${INTEGRATION_BRANCH}`);
     }
   } catch (_) {
-    issues.push(`Could not count commits ahead of main for ${expectedBranch}`);
+    issues.push(`Could not count commits ahead of ${INTEGRATION_BRANCH} for ${expectedBranch}`);
   }
 
-  // Check 3: merge-base is on main (branch forked from main, not from some other branch)
+  // Check 3: the branch forked from a commit that is an ANCESTOR of the integration tip.
+  //
+  // This is deliberately weaker than "the merge-base IS the tip". The integration
+  // branch advances while a slice is in flight, so by the time a slice finishes its
+  // fork point is an older commit by construction — asserting tip-equality would
+  // trip a false "stale fork" on essentially every slice.
   try {
-    const mergeBase = gitFinalizer.runGit(`git merge-base main ${expectedBranch}`, { slice_id: id || '0', op: 'verifyBranch_mergeBase', cwd, encoding: 'utf-8' }).trim();
-    const mainTip   = gitFinalizer.runGit('git rev-parse main', { slice_id: id || '0', op: 'verifyBranch_mainTip', cwd, encoding: 'utf-8' }).trim();
-    // The merge-base should be the main tip at branch creation time.
-    // Verify it's reachable from main.
-    const isOnMain = gitFinalizer.runGit(`git branch --contains ${mergeBase}`, { slice_id: id || '0', op: 'verifyBranch_contains', cwd, encoding: 'utf-8' });
-    if (!isOnMain.includes('main')) {
-      issues.push(`Branch merge-base ${mergeBase.slice(0,8)} is not on main — possible stale fork`);
+    const mergeBase = gitFinalizer.runGit(`git merge-base ${INTEGRATION_BRANCH} ${expectedBranch}`, { slice_id: id || '0', op: 'verifyBranch_mergeBase', cwd, encoding: 'utf-8' }).trim();
+    let isAncestor = true;
+    try {
+      // Exit 0 = ancestor, exit 1 = not. Never trust output here, only the code.
+      gitFinalizer.runGit(`git merge-base --is-ancestor ${mergeBase} ${INTEGRATION_BRANCH}`, { slice_id: id || '0', op: 'verifyBranch_isAncestor', cwd, execOpts: { stdio: ['pipe', 'pipe', 'pipe'] } });
+    } catch (_) {
+      isAncestor = false;
+    }
+    if (!isAncestor) {
+      // Diagnostic only — name the branches that DO contain the fork point, matched
+      // as whole names (see branchNamesFrom: `dev-linear` must never read as `dev`).
+      let containing = [];
+      try {
+        containing = branchNamesFrom(gitFinalizer.runGit(`git branch --contains ${mergeBase}`, { slice_id: id || '0', op: 'verifyBranch_contains', cwd, encoding: 'utf-8' }));
+      } catch (_) {}
+      issues.push(`Branch merge-base ${mergeBase.slice(0,8)} is not an ancestor of ${INTEGRATION_BRANCH} — possible stale fork (contained in: ${containing.join(', ') || 'no branch'})`);
     }
   } catch (_) {
     issues.push('Could not verify merge-base');
@@ -1371,72 +1417,133 @@ function selfRestart(reason) {
 }
 
 /**
- * ensureMainIsFresh(id)
+ * fastForwardIntegrationRef(id, branch, remoteSha)
  *
- * Fetches from origin and synchronises local main so the branch we're
- * about to create includes all remote work. If the fetch fails (offline,
- * no remote), log a warning but continue — local main is still valid.
+ * Moves the LOCAL `branch` ref to `remoteSha`. HEAD-independent by construction:
+ * the caller has already established this is a pure fast-forward (ahead === 0),
+ * and the outcome is the same wherever HEAD happens to be sitting.
+ *
+ * Two mechanisms, because git allows exactly one of them per HEAD state:
+ *   - HEAD is ON the branch  → `merge --ff-only` (moves ref + index + worktree
+ *     together). `fetch origin b:b` and `update-ref` are both wrong here: git
+ *     refuses the first outright, and the second strands the index at the old
+ *     tree so every file reads as modified.
+ *   - HEAD is elsewhere      → move the ref explicitly and never touch HEAD's
+ *     working tree. This is the case the orchestrator actually hits (HEAD sits
+ *     on the integration branch normally, but on the SLICE branch on the
+ *     conflicted-squash return path — where a `merge --ff-only` would
+ *     fast-forward the slice instead).
+ */
+function fastForwardIntegrationRef(id, branch, remoteSha) {
+  let head = '';
+  try {
+    head = gitFinalizer.runGit('git rev-parse --abbrev-ref HEAD', { slice_id: id, op: 'ffIntegration_head', encoding: 'utf-8' }).trim();
+  } catch (_) {}
+
+  if (head === branch) {
+    gitFinalizer.runGit(`git merge --ff-only origin/${branch}`, { slice_id: id, op: 'ffIntegration_ffMerge', execOpts: { stdio: 'pipe' } });
+    return;
+  }
+
+  // `fetch origin b:b` is still refused if ANY worktree holds b — fall back to a
+  // direct ref move, which is safe precisely because HEAD is not on b here.
+  try {
+    gitFinalizer.runGit(`git fetch origin ${branch}:${branch}`, { slice_id: id, op: 'ffIntegration_fetchRef', execOpts: { stdio: 'pipe', timeout: 15000 } });
+  } catch (_) {
+    gitFinalizer.runGit(`git update-ref refs/heads/${branch} ${remoteSha}`, { slice_id: id, op: 'ffIntegration_updateRef', execOpts: { stdio: 'pipe' } });
+  }
+}
+
+/**
+ * ensureIntegrationIsFresh(id)
+ *
+ * Fetches from origin and synchronises the local INTEGRATION branch, so the
+ * worktree we're about to cut from it carries all landed work. If the fetch
+ * fails (offline, no remote), log a warning but continue — the local ref is
+ * still a valid base.
  *
  * Four cases after fetch:
  *   in-sync  (ahead=0, behind=0) → nothing to do
  *   ahead    (ahead>0, behind=0) → push local commits to origin
- *   behind   (ahead=0, behind>0) → fast-forward local main from origin
+ *   behind   (ahead=0, behind>0) → fast-forward the local ref from origin
  *   diverged (ahead>0, behind>0) → throw Error; operator must resolve
+ *
+ * Every mutating path proves its post-condition by COMPARING REFS, never by
+ * trusting a git exit code. The predecessor of this function did the opposite:
+ * it ran `git merge --ff-only origin/main` (which acts on HEAD, not on `main`)
+ * while HEAD sat on another branch, got a truthy "Already up to date", then
+ * re-read the untouched sha and logged `Fast-forwarded main: f7fd230 → f7fd230`.
+ * That false success is why the local ref stood 42 commits frozen while the
+ * guard reported green, and it is the bug slice 353 exists to kill.
  *
  * The push/ff paths are wrapped in the Layer-2 unlock/relock protocol
  * inherited from slice 202. True divergence bails before any unlock.
  */
-function ensureMainIsFresh(id) {
+function ensureIntegrationIsFresh(id) {
+  const B = INTEGRATION_BRANCH;
+
   try {
-    gitFinalizer.runGit('git fetch origin main', { slice_id: id, op: 'ensureMainIsFresh_fetch', execOpts: { stdio: 'pipe', timeout: 15000 } });
+    gitFinalizer.runGit(`git fetch origin ${B}`, { slice_id: id, op: 'ensureIntegrationIsFresh_fetch', execOpts: { stdio: 'pipe', timeout: 15000 } });
   } catch (err) {
-    log('warn', 'git_safety', { id, msg: 'fetch origin/main failed — proceeding with local main', error: err.message });
+    log('warn', 'git_safety', { id, msg: `fetch origin/${B} failed — proceeding with local ${B}`, error: err.message });
     return;
   }
 
-  const local  = gitFinalizer.runGit('git rev-parse main',        { slice_id: id, op: 'ensureMainIsFresh_localSha', encoding: 'utf-8' }).trim();
-  const remote = gitFinalizer.runGit('git rev-parse origin/main', { slice_id: id, op: 'ensureMainIsFresh_remoteSha', encoding: 'utf-8' }).trim();
+  const local  = gitFinalizer.runGit(`git rev-parse ${B}`,        { slice_id: id, op: 'ensureIntegrationIsFresh_localSha', encoding: 'utf-8' }).trim();
+  const remote = gitFinalizer.runGit(`git rev-parse origin/${B}`, { slice_id: id, op: 'ensureIntegrationIsFresh_remoteSha', encoding: 'utf-8' }).trim();
 
   if (local === remote) {
-    log('info', 'git_safety', { id, msg: 'main is up to date with origin' });
+    log('info', 'git_safety', { id, msg: `${B} is up to date with origin` });
     return;
   }
 
-  const aheadCount  = Number(gitFinalizer.runGit('git rev-list --count origin/main..main',        { slice_id: id, op: 'ensureMainIsFresh_aheadCount',  encoding: 'utf-8' }).trim());
-  const behindCount = Number(gitFinalizer.runGit('git rev-list --count main..origin/main',        { slice_id: id, op: 'ensureMainIsFresh_behindCount', encoding: 'utf-8' }).trim());
+  const aheadCount  = Number(gitFinalizer.runGit(`git rev-list --count origin/${B}..${B}`, { slice_id: id, op: 'ensureIntegrationIsFresh_aheadCount',  encoding: 'utf-8' }).trim());
+  const behindCount = Number(gitFinalizer.runGit(`git rev-list --count ${B}..origin/${B}`, { slice_id: id, op: 'ensureIntegrationIsFresh_behindCount', encoding: 'utf-8' }).trim());
 
   // True divergence: local has commits origin doesn't AND origin has commits local doesn't.
   // This is an operator situation — bail immediately without touching either side.
   if (aheadCount > 0 && behindCount > 0) {
-    log('error', 'git_safety', { id, msg: 'true divergence detected', ahead: aheadCount, behind: behindCount });
-    throw new Error(`main diverged from origin: local ahead ${aheadCount}, behind ${behindCount}. Operator intervention required.`);
+    log('error', 'git_safety', { id, msg: 'true divergence detected', branch: B, ahead: aheadCount, behind: behindCount });
+    throw new Error(`${B} diverged from origin: local ahead ${aheadCount}, behind ${behindCount}. Operator intervention required.`);
   }
 
-  // ── Layer 2 enforcement: unlock source paths before git mutations, re-lock after ──
+  // -- Layer 2 enforcement: unlock source paths before git mutations, re-lock after --
   const unlockScript = path.join(PROJECT_DIR, 'scripts', 'unlock-main.sh');
   const lockScript   = path.join(PROJECT_DIR, 'scripts', 'lock-main.sh');
   const unlockStart = Date.now();
   try { execSync(`bash "${unlockScript}"`, { cwd: PROJECT_DIR, stdio: 'pipe' }); } catch (_) {}
-  emitGateTelemetry('lock-cycle', { cycle_phase: 'unlock', triggering_op: 'dev-to-main', held_duration_ms: Date.now() - unlockStart });
+  emitGateTelemetry('lock-cycle', { cycle_phase: 'unlock', triggering_op: 'integration-refresh', held_duration_ms: Date.now() - unlockStart });
 
   try {
     if (aheadCount > 0 && behindCount === 0) {
       // Local ahead only — push to origin; do NOT reset
-      log('info', 'git_safety', { id, msg: `local ahead of origin by ${aheadCount}; pushing`, ahead: aheadCount });
-      gitFinalizer.runGit('git push origin main', { slice_id: id, op: 'ensureMainIsFresh_push', execOpts: { stdio: 'pipe' } });
-      const after = gitFinalizer.runGit('git rev-parse main', { slice_id: id, op: 'ensureMainIsFresh_verifyPush', encoding: 'utf-8' }).trim();
-      registerEvent(id, 'MAIN_PUSHED_TO_ORIGIN', { sha: after, ahead_count: aheadCount });
-      log('info', 'git_safety', { id, msg: `Pushed main to origin: ${after.slice(0, 8)}, ${aheadCount} commit(s)` });
+      log('info', 'git_safety', { id, msg: `local ${B} ahead of origin by ${aheadCount}; pushing`, ahead: aheadCount });
+      gitFinalizer.runGit(`git push origin ${B}`, { slice_id: id, op: 'ensureIntegrationIsFresh_push', execOpts: { stdio: 'pipe' } });
+
+      // POST-CONDITION: origin must now carry our sha. Re-reading the LOCAL ref
+      // here would prove nothing — it never moves on a push.
+      const afterRemote = gitFinalizer.runGit(`git rev-parse origin/${B}`, { slice_id: id, op: 'ensureIntegrationIsFresh_verifyPush', encoding: 'utf-8' }).trim();
+      if (afterRemote !== local) {
+        throw new Error(`push of ${B} did not advance origin: origin/${B} is ${afterRemote.slice(0, 8)}, expected ${local.slice(0, 8)}`);
+      }
+      registerEvent(id, 'MAIN_PUSHED_TO_ORIGIN', { sha: local, ahead_count: aheadCount, branch: B });
+      log('info', 'git_safety', { id, msg: `Pushed ${B} to origin: ${local.slice(0, 8)}, ${aheadCount} commit(s)` });
     } else {
-      // Local behind only — safe fast-forward (aheadCount === 0, behindCount > 0)
-      gitFinalizer.runGit('git merge --ff-only origin/main', { slice_id: id, op: 'ensureMainIsFresh_ff', execOpts: { stdio: 'pipe' } });
-      const after = gitFinalizer.runGit('git rev-parse main', { slice_id: id, op: 'ensureMainIsFresh_verifyFF', encoding: 'utf-8' }).trim();
-      log('info', 'git_safety', { id, msg: `Fast-forwarded main: ${local.slice(0, 8)} → ${after.slice(0, 8)}` });
+      // Local behind only — fast-forward the REF ITSELF (aheadCount === 0, behindCount > 0)
+      fastForwardIntegrationRef(id, B, remote);
+
+      // POST-CONDITION: compare refs. A no-op refresh must never be reportable
+      // as a fast-forward.
+      const after = gitFinalizer.runGit(`git rev-parse ${B}`, { slice_id: id, op: 'ensureIntegrationIsFresh_verifyFF', encoding: 'utf-8' }).trim();
+      if (after !== remote) {
+        throw new Error(`fast-forward of ${B} did not move the local ref: ${B} is ${after.slice(0, 8)}, expected origin/${B} ${remote.slice(0, 8)}`);
+      }
+      log('info', 'git_safety', { id, msg: `Fast-forwarded ${B}: ${local.slice(0, 8)} -> ${after.slice(0, 8)}`, behind: behindCount });
     }
   } finally {
     const relockStart = Date.now();
     try { execSync(`bash "${lockScript}"`, { cwd: PROJECT_DIR, stdio: 'pipe' }); } catch (_) {}
-    emitGateTelemetry('lock-cycle', { cycle_phase: 'relock', triggering_op: 'dev-to-main', held_duration_ms: Date.now() - relockStart });
+    emitGateTelemetry('lock-cycle', { cycle_phase: 'relock', triggering_op: 'integration-refresh', held_duration_ms: Date.now() - relockStart });
   }
 }
 
@@ -1454,9 +1561,9 @@ function buildScopeDiff(id, branchName, sliceContent) {
   const lines = [];
   try {
     // File-level diff stat (which files changed and by how much)
-    const stat = gitFinalizer.runGit(`git diff --stat main...${branchName}`, { slice_id: id, op: 'buildScopeDiff_stat', encoding: 'utf-8' }).trim();
+    const stat = gitFinalizer.runGit(`git diff --stat ${INTEGRATION_BRANCH}...${branchName}`, { slice_id: id, op: 'buildScopeDiff_stat', encoding: 'utf-8' }).trim();
     // File list with status (A=added, M=modified, D=deleted)
-    const nameStatus = gitFinalizer.runGit(`git diff --name-status main...${branchName}`, { slice_id: id, op: 'buildScopeDiff_nameStatus', encoding: 'utf-8' }).trim();
+    const nameStatus = gitFinalizer.runGit(`git diff --name-status ${INTEGRATION_BRANCH}...${branchName}`, { slice_id: id, op: 'buildScopeDiff_nameStatus', encoding: 'utf-8' }).trim();
 
     lines.push('## SCOPE REVIEW — files changed on this branch');
     lines.push('');
@@ -1570,8 +1677,9 @@ function createWorktree(id, branchName) {
     // Existing branch (apendment or retry)
     gitFinalizer.runGit(`git worktree add "${wtPath}" ${branchName}`, { slice_id: id, op: 'createWorktree', execOpts: { stdio: 'pipe' }, worktreePath: wtPath });
   } else {
-    // New branch from main
-    gitFinalizer.runGit(`git worktree add "${wtPath}" -b ${branchName} main`, { slice_id: id, op: 'createWorktree', execOpts: { stdio: 'pipe' }, worktreePath: wtPath });
+    // New branch from the integration branch — NOT the trunk. A trunk-based
+    // branch point is what made slices 348-352 born-conflicted (slice 353).
+    gitFinalizer.runGit(`git worktree add "${wtPath}" -b ${branchName} ${INTEGRATION_BRANCH}`, { slice_id: id, op: 'createWorktree', execOpts: { stdio: 'pipe' }, worktreePath: wtPath });
   }
 
   registerEvent(id, 'WORKTREE_CREATED', { path: wtPath, branch: branchName });
@@ -1657,9 +1765,9 @@ function classifyNoReportExit(id, worktreePath, branchName) {
     return result;
   }
 
-  // Check for commits beyond main
+  // Check for commits beyond the integration branch
   try {
-    const logOutput = gitFinalizer.runGit(`git log main..${branchName} --oneline`, { slice_id: id, op: 'classifyNoReport_log', cwd: worktreePath, encoding: 'utf-8', execOpts: { stdio: ['pipe', 'pipe', 'pipe'] } }).trim();
+    const logOutput = gitFinalizer.runGit(`git log ${INTEGRATION_BRANCH}..${branchName} --oneline`, { slice_id: id, op: 'classifyNoReport_log', cwd: worktreePath, encoding: 'utf-8', execOpts: { stdio: ['pipe', 'pipe', 'pipe'] } }).trim();
     if (logOutput) {
       result.hasCommits = true;
       result.commits = logOutput.split('\n');
@@ -1801,10 +1909,10 @@ function verifyRomActuallyWorked(id, branchName, actualDurationMs, actualTokensO
   })();
   if (!branchExists) return { ok: true };
 
-  // Count commits ahead of main on the slice branch
+  // Count commits ahead of the integration branch on the slice branch
   let commitCount = 0;
   try {
-    const countStr = gitFinalizer.runGit(`git rev-list ${branchName} ^main --count`, {
+    const countStr = gitFinalizer.runGit(`git rev-list ${branchName} ^${INTEGRATION_BRANCH} --count`, {
       slice_id: id, op: 'verifyRomWork_revList', encoding: 'utf-8',
       execOpts: { stdio: ['pipe', 'pipe', 'pipe'] },
     }).trim();
@@ -2043,12 +2151,12 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
   // Each slice gets its own git worktree at /tmp/ds9-worktrees/{id}/.
   // PROJECT_DIR stays on main permanently. The dashboard is never affected.
   //
-  // New slices:  create worktree with new branch from main
+  // New slices:  create worktree with new branch from the integration branch
   // Apendments:  create worktree on existing branch (prunes old worktree if needed)
   // ──────────────────────────────────────────────────────────────────────────
   let worktreePath;
   try {
-    ensureMainIsFresh(id);
+    ensureIntegrationIsFresh(id);
     worktreePath = gitFinalizer.createWorktreeWithRetry(createWorktree, id, sliceBranch);
     log('info', 'branch', { id, msg: `Worktree ready at ${worktreePath} on branch ${sliceBranch}`, isApendment });
   } catch (err) {
@@ -3472,7 +3580,7 @@ function invokeNog(id) {
   let gitDiff = '(no diff available)';
   if (branchName) {
     try {
-      gitDiff = gitFinalizer.runGit(`git diff main...${branchName}`, { slice_id: id, op: 'nog_gitDiff', encoding: 'utf-8', execOpts: { maxBuffer: 5 * 1024 * 1024 } });
+      gitDiff = gitFinalizer.runGit(`git diff ${INTEGRATION_BRANCH}...${branchName}`, { slice_id: id, op: 'nog_gitDiff', encoding: 'utf-8', execOpts: { maxBuffer: 5 * 1024 * 1024 } });
     } catch (err) {
       log('warn', 'nog', { id, msg: 'Failed to get git diff for Nog', error: err.message });
     }
@@ -3770,7 +3878,7 @@ function invokeNog(id) {
           const HIGH_RISK_PATHS = ['bridge/orchestrator.js', 'bridge/state/', 'scripts/lock-main.sh', 'scripts/unlock-main.sh', 'dashboard/server.js'];
           let filesTouched = [];
           try {
-            filesTouched = execSync(`git diff --name-only main..slice/${id}`, { cwd: PROJECT_DIR, encoding: 'utf-8' }).trim().split('\n').filter(Boolean);
+            filesTouched = execSync(`git diff --name-only ${INTEGRATION_BRANCH}..slice/${id}`, { cwd: PROJECT_DIR, encoding: 'utf-8' }).trim().split('\n').filter(Boolean);
           } catch (_) {}
           const highRiskSurface = filesTouched.some(f => HIGH_RISK_PATHS.some(p => f === p || f.startsWith(p)));
 
@@ -5848,7 +5956,7 @@ function invokeBashirNonGate(sliceContent, donePath, inProgressPath, errorPath, 
   // ── WORKTREE SETUP ──────────────────────────────────────────────────────
   let worktreePath;
   try {
-    ensureMainIsFresh(id);
+    ensureIntegrationIsFresh(id);
     worktreePath = gitFinalizer.createWorktreeWithRetry(createWorktree, id, sliceBranch);
     log('info', 'branch', { id, msg: `Bashir worktree ready at ${worktreePath} on branch ${sliceBranch}`, isApendment });
     registerEvent(id, 'WORKTREE_CREATED', { branch: sliceBranch, worktree: worktreePath });
@@ -7170,4 +7278,4 @@ function mergeDevToMain() {
 // Exports — for use by helper scripts (e.g. bridge/next-id.js)
 // ---------------------------------------------------------------------------
 
-module.exports = { startGate, abortGate, buildBashirPrompt, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, validateIntakeMeta, ensureMainIsFresh, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted };
+module.exports = { startGate, abortGate, buildBashirPrompt, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, validateIntakeMeta, ensureIntegrationIsFresh, ensureMainIsFresh: ensureIntegrationIsFresh, fastForwardIntegrationRef, branchNamesFrom, INTEGRATION_BRANCH, TRUNK_BRANCH, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted };

@@ -6,8 +6,21 @@
   "logFile": "bridge.log",
   "heartbeatFile": "heartbeat.json",
   "claudeCommand": "claude",
-  "claudeArgs": ["-p", "--verbose", "--output-format", "stream-json", "--permission-mode", "bypassPermissions", "--model", "claude-opus-5", "--effort", "max"],
+  "claudeArgs": [
+    "-p",
+    "--verbose",
+    "--output-format",
+    "stream-json",
+    "--permission-mode",
+    "bypassPermissions",
+    "--model",
+    "claude-opus-5",
+    "--effort",
+    "max"
+  ],
   "projectDir": "..",
   "maxRetries": 0,
-  "coworkSessionKey": ""
+  "coworkSessionKey": "",
+  "integrationBranch": "dev",
+  "trunkBranch": "main"
 }

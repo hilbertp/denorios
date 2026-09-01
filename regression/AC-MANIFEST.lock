@@ -1,7 +1,7 @@
 {
   "generator": "scripts/build-ac-manifest.js",
-  "acCount": 180,
-  "legacyCount": 174,
+  "acCount": 187,
+  "legacyCount": 181,
   "byTag": {
     "slice-042-ac-1": {
       "slice": "042",
@@ -373,6 +373,62 @@
     },
     "slice-352-ac-4": {
       "slice": "352",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-353-ac-1": {
+      "slice": "353",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-353-ac-2": {
+      "slice": "353",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-353-ac-3": {
+      "slice": "353",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-353-ac-4": {
+      "slice": "353",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-353-ac-5": {
+      "slice": "353",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-353-ac-6": {
+      "slice": "353",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-353-ac-7": {
+      "slice": "353",
       "text": null,
       "acHash": null,
       "source": "legacy-backfill",
