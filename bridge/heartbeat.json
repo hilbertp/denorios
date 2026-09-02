@@ -1,15 +1,15 @@
 {
-  "ts": "2026-09-02T01:34:40.955Z",
-  "pickup_ts": "2026-09-02T01:28:33.096Z",
+  "ts": "2026-09-02T02:19:51.526Z",
+  "pickup_ts": "2026-09-02T02:14:11.416Z",
   "status": "nog_review",
-  "current_slice": "361",
+  "current_slice": "362",
   "current_slice_title": null,
-  "current_slice_goal": "Promote and rollback dispatch are refused server-side while the test-update check is unresolved; today the padlock is client-side only and a merge went through with the decision popup open.",
-  "slice_elapsed_seconds": 367,
+  "current_slice_goal": "Invalidate the GitHub-state cache when a promote completes so merged slices stop showing as pending; the 60s stale window triggered a false investigation.",
+  "slice_elapsed_seconds": 340,
   "last_activity_ts": null,
-  "processed_total": 6,
+  "processed_total": 10,
   "queue": {
-    "waiting": 1,
+    "waiting": 0,
     "active": 0,
     "done": 23,
     "error": 41

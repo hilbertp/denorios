@@ -1,1 +1,1 @@
-{"sliceId":"361","title":"Make the merge lock real — the server must refuse, not just the button","round":1,"invokedAt":"2026-09-02T01:28:33.203Z","phase":"code_review"}
+{"sliceId":"362","title":"After a merge, the panel must tell the truth immediately","round":2,"invokedAt":"2026-09-02T02:14:11.461Z","phase":"code_review"}
