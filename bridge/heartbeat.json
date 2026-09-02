@@ -1,15 +1,15 @@
 {
-  "ts": "2026-09-02T02:19:51.526Z",
-  "pickup_ts": "2026-09-02T02:14:11.416Z",
+  "ts": "2026-09-02T16:11:40.849Z",
+  "pickup_ts": "2026-09-02T14:57:25.104Z",
   "status": "nog_review",
-  "current_slice": "362",
+  "current_slice": "366",
   "current_slice_title": null,
-  "current_slice_goal": "Invalidate the GitHub-state cache when a promote completes so merged slices stop showing as pending; the 60s stale window triggered a false investigation.",
-  "slice_elapsed_seconds": 340,
+  "current_slice_goal": "Pair a disappearing check with a near-identical appearing one, merge and re-classify so a pure rename is clear while a rename-and-weaken still flags.",
+  "slice_elapsed_seconds": 4455,
   "last_activity_ts": null,
-  "processed_total": 10,
+  "processed_total": 149,
   "queue": {
-    "waiting": 0,
+    "waiting": 1,
     "active": 0,
     "done": 23,
     "error": 41

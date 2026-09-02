@@ -6,32 +6,10 @@
     "tip_ts": "2026-06-25T15:23:32+03:00"
   },
   "dev": {
-    "tip_sha": "39515df19571381bd145c0218222c69dc79c5361",
-    "tip_ts": "2026-09-02T01:34:44.866Z",
-    "commits_ahead_of_main": 3,
-    "commits": [
-      {
-        "sha": "61860c3b2b33352a5b7c7c24818bbbe871a0c029",
-        "slice_id": "353",
-        "title": "Branch slices from dev, not main — the stale-base fix",
-        "ts": "2026-09-01T19:56:55.267Z",
-        "is_pending_squash": false
-      },
-      {
-        "sha": "5ced4cf5eca72266bf6b62439a0d0fd47e05e191",
-        "slice_id": "365",
-        "title": "Stop policing what we never run",
-        "ts": "2026-09-02T01:11:57.078Z",
-        "is_pending_squash": false
-      },
-      {
-        "sha": "39515df19571381bd145c0218222c69dc79c5361",
-        "slice_id": "361",
-        "title": "Make the merge lock real — the server must refuse, not just the button",
-        "ts": "2026-09-02T01:34:44.866Z",
-        "is_pending_squash": false
-      }
-    ],
+    "tip_sha": null,
+    "tip_ts": null,
+    "commits_ahead_of_main": 0,
+    "commits": [],
     "deferred_slices": []
   },
   "last_merge": {
@@ -45,13 +23,13 @@
     "last_pass": null
   },
   "regression_risk": {
-    "rr": 26,
-    "band": "amber",
+    "rr": 0,
+    "band": "green",
     "inputs": {
-      "slice_pressure": 0.3,
-      "surface_volatility": 0.333,
+      "slice_pressure": 0,
+      "surface_volatility": 0,
       "ac_coverage_gap": 0
     },
-    "computed_ts": "2026-09-02T02:20:00.010Z"
+    "computed_ts": "2026-09-02T16:11:47.693Z"
   }
 }

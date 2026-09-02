@@ -1,1 +1,1 @@
-{"sliceId":"362","title":"After a merge, the panel must tell the truth immediately","round":2,"invokedAt":"2026-09-02T02:14:11.461Z","phase":"code_review"}
+{"sliceId":"366","title":"Detect renames instead of calling them removals","round":2,"invokedAt":"2026-09-02T14:57:25.140Z","phase":"code_review"}
