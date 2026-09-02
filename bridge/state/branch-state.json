@@ -6,15 +6,22 @@
     "tip_ts": "2026-06-25T15:23:32+03:00"
   },
   "dev": {
-    "tip_sha": "61860c3b2b33352a5b7c7c24818bbbe871a0c029",
-    "tip_ts": "2026-09-01T19:56:55.267Z",
-    "commits_ahead_of_main": 1,
+    "tip_sha": "5ced4cf5eca72266bf6b62439a0d0fd47e05e191",
+    "tip_ts": "2026-09-02T01:11:57.078Z",
+    "commits_ahead_of_main": 2,
     "commits": [
       {
         "sha": "61860c3b2b33352a5b7c7c24818bbbe871a0c029",
         "slice_id": "353",
         "title": "Branch slices from dev, not main — the stale-base fix",
         "ts": "2026-09-01T19:56:55.267Z",
+        "is_pending_squash": false
+      },
+      {
+        "sha": "5ced4cf5eca72266bf6b62439a0d0fd47e05e191",
+        "slice_id": "365",
+        "title": "Stop policing what we never run",
+        "ts": "2026-09-02T01:11:57.078Z",
         "is_pending_squash": false
       }
     ],
@@ -31,13 +38,13 @@
     "last_pass": null
   },
   "regression_risk": {
-    "rr": 28,
-    "band": "amber",
+    "rr": 19,
+    "band": "green",
     "inputs": {
-      "slice_pressure": 0.1,
-      "surface_volatility": 0.5,
+      "slice_pressure": 0.2,
+      "surface_volatility": 0.25,
       "ac_coverage_gap": 0
     },
-    "computed_ts": "2026-09-02T01:11:54.469Z"
+    "computed_ts": "2026-09-02T01:34:42.035Z"
   }
 }

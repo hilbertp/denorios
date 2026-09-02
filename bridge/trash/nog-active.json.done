@@ -1,1 +1,1 @@
-{"sliceId":"365","title":"Stop policing what we never run","round":1,"invokedAt":"2026-09-02T01:04:28.758Z","phase":"code_review"}
+{"sliceId":"361","title":"Make the merge lock real — the server must refuse, not just the button","round":1,"invokedAt":"2026-09-02T01:28:33.203Z","phase":"code_review"}
