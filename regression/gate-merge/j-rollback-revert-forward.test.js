@@ -50,7 +50,7 @@ const Module = require('node:module');
 const { parseRegisterLines } = require('../helpers/register-helper');
 const {
   GIT_ENV, git, commitFile, initGitFixture, advanceDev,
-  installGhStub, setPromoteRuns, readDispatches,
+  installGhStub, setPromoteRuns, readDispatches, seedMergeLockDeps,
 } = require('./j-merge-button-pass-helpers');
 
 const REPO_ROOT_REAL = path.resolve(__dirname, '..', '..');
@@ -145,6 +145,9 @@ async function makeFixture(label) {
   fs.writeFileSync(path.join(tmpRoot, 'bridge', 'first-output.json'), '{}', 'utf8');
   fs.writeFileSync(path.join(tmpRoot, 'bridge', 'nog-active.json'), '{}', 'utf8');
   fs.writeFileSync(path.join(tmpRoot, 'bridge', 'state', 'branch-state.json'), '{}', 'utf8');
+  // The rollback dispatch derives the merge lock server-side (slice 361) and
+  // fails closed; the fixture needs the real engine and an open gate state.
+  seedMergeLockDeps(tmpRoot);
 
   // gh stub on PATH before compile; git identity in env so the server's own
   // `git revert` can commit (no machine/global config in the fixture).

@@ -674,6 +674,77 @@ function getCheckTestUpdates() {
   }
 }
 
+// ── THE MERGE LOCK — derived on the SERVER, not in the browser ────────────────
+// The padlock used to be advisory: renderPromoteAction() disabled the button in
+// the page, and POST /api/promote/dispatch fired `gh workflow run promote.yml`
+// regardless — it consulted only commits_ahead and the run mutex. On 2026-09-01 a
+// merge went through with the decision popup still open. A disabled button is a
+// hint; a stale page, a second tab, or a scripted POST walks straight past it.
+//
+// mergeLockRefusal() is that rule, made real. It returns null when the dispatch
+// may proceed, or the refusal body otherwise:
+//   test_updates_unresolved  — an AC in the pending range still needs a human call
+//   stale_check              — the operator's check was made against a different tip
+//   test_updates_unavailable — the triage could not be derived at all (fail CLOSED)
+//
+// The request may NEVER assert the answer. The one client-supplied value read here
+// is WHICH tip the operator's check was made against, and it can only ever ADD a
+// refusal, never remove one — supplying a matching sha is not a way to be let
+// through, it is one more way to be turned back (cf. approval provenance, s354).
+//
+// Deliberately UNCACHED: getCheckTestUpdates() shells out to `git log` over the
+// range every call. A slightly slow refusal is correct; a fast stale one is the
+// bug this closes.
+function mergeLockRefusal({ checkedSha, devSha } = {}) {
+  let report;
+  try { report = getCheckTestUpdates(); }
+  catch (err) {
+    return { error: 'test_updates_unavailable',
+             detail: String(err && err.message || err).slice(0, 200) };
+  }
+  if (!report || report.error || report.verdict === 'ERROR') {
+    return { error: 'test_updates_unavailable',
+             detail: String((report && report.error) || 'test-update triage unavailable').slice(0, 200) };
+  }
+
+  // Name what is outstanding: the count and the tags, so the panel can say WHY.
+  const flagged = Array.isArray(report.flagged) ? report.flagged : [];
+  if (flagged.length > 0 || report.ready !== true) {
+    return {
+      error: 'test_updates_unresolved',
+      outstanding: flagged.length,
+      tags: flagged.map(f => f && f.tag).filter(Boolean),
+      items: flagged.map(f => ({ tag: f && f.tag, title: f && f.title })),
+      range: report.range || null,
+      verdict: report.verdict || null,
+    };
+  }
+
+  // Bind the pass to a tip. A check earned against an OLDER integration tip does
+  // not unlock a newer one — the operator ruled on a different changeset than the
+  // one about to reach main. (Absent a supplied sha the derivation above still
+  // governs; it is always computed against the CURRENT range.)
+  if (checkedSha != null && checkedSha !== '') {
+    if (!_shaMatches(checkedSha, devSha)) {
+      return { error: 'stale_check',
+               checked_sha: String(checkedSha).trim().slice(0, 40),
+               dev_sha: devSha || null };
+    }
+  }
+  return null;
+}
+
+// Short-sha-tolerant equality: the dashboard carries 7-char tips, callers may pass
+// full 40s. Both sides must be real hex of at least abbreviation length, so a stray
+// "a" can never prefix-match its way past the tip binding.
+function _shaMatches(a, b) {
+  const x = String(a == null ? '' : a).trim().toLowerCase();
+  const y = String(b == null ? '' : b).trim().toLowerCase();
+  if (!/^[0-9a-f]{7,40}$/.test(x) || !/^[0-9a-f]{7,40}$/.test(y)) return false;
+  const n = Math.min(x.length, y.length);
+  return x.slice(0, n) === y.slice(0, n);
+}
+
 // Record (or clear) the operator's per-AC ruling for a low-confidence AC.
 // decision: 'update' | 'keep' | null(clear). Persisted to regression/AC-DECISIONS.json.
 function recordAcDecision(tag, decision) {
@@ -3112,37 +3183,56 @@ const server = http.createServer(async (req, res) => {
   // Promotion is operator-gated: promote.yml is workflow_dispatch-only and
   // re-runs the regression suite against dev, fast-forwarding main on green.
   if (pathname === '/api/promote/dispatch' && req.method === 'POST') {
-    const gh = getGitHubState();
+    // The body is optional and carries exactly one field the server reads:
+    // checked_sha — the integration tip the operator's check was made against.
+    // Nothing in it can grant a dispatch; see mergeLockRefusal().
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      let payload = {};
+      try { payload = JSON.parse(body || '{}') || {}; } catch (_) { /* tolerate empty/garbage */ }
 
-    if ((gh.commits_ahead || 0) === 0) {
-      res.writeHead(409, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: false, error: 'nothing_to_promote' }));
-      return;
-    }
+      const gh = getGitHubState();
 
-    const runStatus = gh.promote_run ? gh.promote_run.status : 'idle';
-    if (runStatus === 'pending' || runStatus === 'in_progress') {
-      res.writeHead(409, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: false, error: 'gate_already_running' }));
-      return;
-    }
+      if ((gh.commits_ahead || 0) === 0) {
+        res.writeHead(409, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'nothing_to_promote' }));
+        return;
+      }
 
-    try {
-      execFileSync('gh', ['workflow', 'run', 'promote.yml', '--ref', 'dev'],
-        { cwd: REPO_ROOT, encoding: 'utf8', timeout: 15000 });
-      _bustGitHubCache();
+      const runStatus = gh.promote_run ? gh.promote_run.status : 'idle';
+      if (runStatus === 'pending' || runStatus === 'in_progress') {
+        res.writeHead(409, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'gate_already_running' }));
+        return;
+      }
+
+      // The lock. Derived here, never asserted by the caller.
+      const locked = mergeLockRefusal({ checkedSha: payload.checked_sha,
+                                        devSha: gh.origin_dev_sha });
+      if (locked) {
+        res.writeHead(409, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, ...locked }));
+        return;
+      }
+
       try {
-        writeRegisterEvent({ event: 'promote-dispatched',
-                             dev_tip_sha: gh.origin_dev_sha || null,
-                             commits_ahead: gh.commits_ahead });
-      } catch (_) { /* register write is best-effort */ }
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true }));
-    } catch (err) {
-      res.writeHead(502, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: false, error: 'dispatch_failed',
-                               detail: String(err.message || err).slice(0, 200) }));
-    }
+        execFileSync('gh', ['workflow', 'run', 'promote.yml', '--ref', 'dev'],
+          { cwd: REPO_ROOT, encoding: 'utf8', timeout: 15000 });
+        _bustGitHubCache();
+        try {
+          writeRegisterEvent({ event: 'promote-dispatched',
+                               dev_tip_sha: gh.origin_dev_sha || null,
+                               commits_ahead: gh.commits_ahead });
+        } catch (_) { /* register write is best-effort */ }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+      } catch (err) {
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'dispatch_failed',
+                                 detail: String(err.message || err).slice(0, 200) }));
+      }
+    });
     return;
   }
 
@@ -3181,7 +3271,8 @@ const server = http.createServer(async (req, res) => {
   // POST /api/rollback/dispatch { slice_id }. Creates a clean git revert commit
   // on dev (clean-only; conflict degrades to a human forward-fix) then fires
   // promote.yml exactly like /api/promote/dispatch — mechanically a rollback IS
-  // a promote dispatch, so the same 409 mutex and CI strip apply.
+  // a promote dispatch, so the same 409 mutex, the same merge lock, and the same
+  // CI strip apply.
   if (pathname === '/api/rollback/dispatch' && req.method === 'POST') {
     let body = '';
     req.on('data', chunk => { body += chunk; });
@@ -3204,6 +3295,17 @@ const server = http.createServer(async (req, res) => {
       if (!sha) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: false, error: 'unknown_slice' }));
+        return;
+      }
+
+      // The same lock as promote — a rollback IS a promote dispatch, and it moves
+      // main just the same. Checked HERE, before createRevertCommit: a refused
+      // rollback must leave nothing behind on dev to clean up.
+      const locked = mergeLockRefusal({ checkedSha: payload.checked_sha,
+                                        devSha: gh.origin_dev_sha });
+      if (locked) {
+        res.writeHead(409, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, ...locked }));
         return;
       }
 
@@ -3321,4 +3423,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, STALE_DONE_DAYS, deriveHistoryOutcome, deriveReviewStatus, authoringStateFor, kickOffAuthoring, createRevertCommit, resolveSquashSha, mapPromotePhases, parseGateFailures };
+module.exports = { mergeLockRefusal, buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, STALE_DONE_DAYS, deriveHistoryOutcome, deriveReviewStatus, authoringStateFor, kickOffAuthoring, createRevertCommit, resolveSquashSha, mapPromotePhases, parseGateFailures };

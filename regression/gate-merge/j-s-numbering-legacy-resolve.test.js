@@ -27,7 +27,7 @@ const path = require('node:path');
 const http = require('node:http');
 
 const {
-  git, initGitFixture, installGhStub, compileServer,
+  git, initGitFixture, installGhStub, compileServer, seedMergeLockDeps,
 } = require('./j-merge-button-pass-helpers');
 
 let tmpRoot, server, port, bustCache, squashSha;
@@ -66,6 +66,9 @@ before(async () => {
   fs.writeFileSync(path.join(tmpRoot, 'bridge', 'first-output.json'), '{}', 'utf8');
   fs.writeFileSync(path.join(tmpRoot, 'bridge', 'nog-active.json'), '{}', 'utf8');
   fs.writeFileSync(path.join(tmpRoot, 'bridge', 'state', 'branch-state.json'), '{}', 'utf8');
+  // The rollback dispatch derives the merge lock server-side (slice 361) and
+  // fails closed; the fixture needs the real engine and an open gate state.
+  seedMergeLockDeps(tmpRoot);
 
   const binDir = path.join(tmpRoot, 'bin');
   installGhStub(binDir, path.join(tmpRoot, 'gh-stub'));

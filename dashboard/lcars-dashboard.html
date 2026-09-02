@@ -8102,7 +8102,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
       const res = await fetch('/api/rollback/dispatch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slice_id: String(id) }),
+        body: JSON.stringify({ slice_id: String(id), checked_sha: _testUpdatesSha || null }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.ok) {
@@ -8124,8 +8124,15 @@ body:not(.lcars-mode) .staged-details-body pre code {
         setTimeout(fetchBranchState, 4000);
       } else {
         const code = data.error || ('http_' + res.status);
+        const _lock = _mergeLockMessage(code, data);
         let msg;
-        if (code === 'gate_already_running') {
+        if (_lock) {
+          // Refused by the merge lock BEFORE the revert was built — nothing landed
+          // on dev, so this is a clean "not yet", not a half-done rollback.
+          _testUpdatesReady = false;
+          _testUpdatesSha = null;
+          msg = _lock.full + ' Nothing was committed to dev.';
+        } else if (code === 'gate_already_running') {
           msg = 'A gate is already running — wait for it to finish, then roll back. You can’t promote and roll back at once.';
         } else if (code === 'conflict') {
           const blamed = data.blame && data.blame.slice_id ? `S${data.blame.slice_id}` : 'a later slice';
@@ -8255,7 +8262,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
       const res = await fetch('/api/rollback/dispatch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ squash_sha: String(mainSha) }),
+        body: JSON.stringify({ squash_sha: String(mainSha), checked_sha: _testUpdatesSha || null }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.ok) {
@@ -8280,8 +8287,15 @@ body:not(.lcars-mode) .staged-details-body pre code {
         setTimeout(fetchBranchState, 4000);
       } else {
         const code = data.error || ('http_' + res.status);
+        const _lock = _mergeLockMessage(code, data);
         let msg;
-        if (code === 'gate_already_running') {
+        if (_lock) {
+          // Refused by the merge lock BEFORE the revert was built — nothing landed
+          // on dev, so this is a clean "not yet", not a half-done rollback.
+          _testUpdatesReady = false;
+          _testUpdatesSha = null;
+          msg = _lock.full + ' Nothing was committed to dev.';
+        } else if (code === 'gate_already_running') {
           msg = 'A gate is already running — wait for it to finish, then roll back. You can’t promote and roll back at once.';
         } else if (code === 'conflict') {
           const blamed = data.blame && data.blame.slice_id ? `S${data.blame.slice_id}` : 'a later slice';
@@ -10381,8 +10395,13 @@ body:not(.lcars-mode) .staged-details-body pre code {
   let _promoteDispatchInFlight = false;
   let _promoteOptimisticUntil = 0;   // ms epoch — optimistic "gate running" window after a 200 dispatch
   let _promoteSlotError = null;
+  // The slot is 240px with an ellipsis, so the visible line stays short and the
+  // full server reason (which ACs, which shas) lives in the hover title.
+  let _promoteSlotErrorTitle = null;
   // Stage ① of the merge gate — "Check for test updates". The merge button is LOCKED
   // until this passes for the CURRENT dev tip; if dev moves, the check must be re-run.
+  // The lock is enforced by the SERVER (mergeLockRefusal in dashboard/server.js);
+  // everything here is the readout of that rule, never the rule itself.
   let _testUpdatesReady = false;
   let _testUpdatesSha = null;
   let _promoteErrTimeout = null;
@@ -10681,7 +10700,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
 
     let html = '<span class="promote-gate-slot">';
     if (_promoteSlotError) {
-      html += `<span class="promote-gate-err" role="alert" title="${_promoteEsc(_promoteSlotError)}">${_promoteEsc(_promoteSlotError)}</span>`;
+      html += `<span class="promote-gate-err" role="alert" title="${_promoteEsc(_promoteSlotErrorTitle || _promoteSlotError)}">${_promoteEsc(_promoteSlotError)}</span>`;
     }
     // Stage ① — CHECK FOR TEST UPDATES. Runs the AC-drain triage; only when it passes
     // does the merge button below unlock. Shows ✓ once the current dev tip is checked.
@@ -11034,10 +11053,50 @@ body:not(.lcars-mode) .staged-details-body pre code {
     fetch('/api/tests-needed').then(r => r.json()).then(_utcApplyVerdict).catch(() => _utcApplyVerdict({ decision: 'unknown' }));
   }
 
+  // ── The server's merge lock, read back ───────────────────────────────────────
+  // /api/promote/dispatch and /api/rollback/dispatch derive the test-update lock
+  // themselves and refuse with a named reason. This turns those codes into the
+  // sentence the operator reads, so the promote slot and both rollback overlays
+  // never disagree about why a merge did not happen. Returns null for codes this
+  // lock does not own (the caller keeps its own wording for those).
+  //   { short } is the 240px slot line; { full } is the hover title / overlay text.
+  function _mergeLockMessage(code, d) {
+    d = d || {};
+    const tags = (d.tags || []).filter(Boolean);
+    if (code === 'test_updates_unresolved') {
+      const n = d.outstanding != null ? d.outstanding : tags.length;
+      if (!n) return { short: 'locked — check not passed', full: 'The server refused: the test-update check has not passed for this dev tip.' };
+      const noun = n === 1 ? '1 AC needs' : n + ' ACs need';
+      return {
+        short: 'locked — ' + noun + ' a decision',
+        full: 'The server refused this merge: ' + noun + ' a test-update decision'
+          + (tags.length ? ' (' + tags.join(', ') + ')' : '')
+          + '. Press CHECK FOR TEST UPDATES and rule on each one.',
+      };
+    }
+    if (code === 'stale_check') {
+      return {
+        short: 'stale check — dev moved on',
+        full: 'The server refused this merge: the test-update check was made against '
+          + (d.checked_sha || 'an older tip') + ', but dev is now at ' + (d.dev_sha || 'a newer tip')
+          + '. A check that passed for an older tip does not unlock a newer one — run CHECK FOR TEST UPDATES again.',
+      };
+    }
+    if (code === 'test_updates_unavailable') {
+      return {
+        short: 'refused — check unreadable',
+        full: 'The server refused this merge because it could not read the test-update check, so it failed closed'
+          + (d.detail ? ': ' + d.detail : '') + '.',
+      };
+    }
+    return null;
+  }
+
   async function dispatchPromoteGate() {
     if (_promoteDispatchInFlight) return;
     _promoteDispatchInFlight = true;
     _promoteSlotError = null;
+    _promoteSlotErrorTitle = null;
     if (_promoteErrTimeout) { clearTimeout(_promoteErrTimeout); _promoteErrTimeout = null; }
 
     // Immediate visual acknowledgement — BEFORE any network round-trip the
@@ -11052,7 +11111,14 @@ body:not(.lcars-mode) .staged-details-body pre code {
     }
 
     try {
-      const res = await fetch('/api/promote/dispatch', { method: 'POST' });
+      // checked_sha says WHICH tip this page's check was made against. It cannot
+      // grant a dispatch — the server derives the lock itself — it only lets the
+      // server catch a page whose check is older than the tip about to merge.
+      const res = await fetch('/api/promote/dispatch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ checked_sha: _testUpdatesSha || null }),
+      });
       let body = null;
       try { body = await res.json(); } catch (_) { /* non-JSON error body */ }
 
@@ -11071,7 +11137,16 @@ body:not(.lcars-mode) .staged-details-body pre code {
         setTimeout(fetchBranchState, 4000);
       } else {
         const code = body && body.error ? body.error : ('http_' + res.status);
-        if (code === 'nothing_to_promote') {
+        const lock = _mergeLockMessage(code, body);
+        if (lock) {
+          // The server refused on the merge lock. Re-lock the button too: the page
+          // believed the check had passed and it had not, so showing "✓ TESTS
+          // CHECKED" beside a refusal would be the same lie in the other direction.
+          _testUpdatesReady = false;
+          _testUpdatesSha = null;
+          _promoteSlotError = lock.short;
+          _promoteSlotErrorTitle = lock.full;
+        } else if (code === 'nothing_to_promote') {
           _promoteSlotError = 'nothing to promote — dev not ahead';
         } else if (code === 'gate_already_running') {
           _promoteSlotError = 'gate already running';
@@ -11082,6 +11157,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
         }
         _promoteErrTimeout = setTimeout(() => {
           _promoteSlotError = null;
+          _promoteSlotErrorTitle = null;
           if (_lastBranchState) renderPromoteAction(_lastBranchState);
         }, 8000);
         fetchBranchState(); // re-sync — server state may have moved under us
@@ -11090,6 +11166,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
       _promoteSlotError = 'dispatch failed: network error';
       _promoteErrTimeout = setTimeout(() => {
         _promoteSlotError = null;
+        _promoteSlotErrorTitle = null;
         if (_lastBranchState) renderPromoteAction(_lastBranchState);
       }, 8000);
     } finally {

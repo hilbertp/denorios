@@ -65,6 +65,7 @@ const {
   GIT_ENV, git, initGitFixture, advanceDev, divergeMain,
   installGhStub, compileServer, setPromoteRuns, setDispatchFail, readDispatches,
   topLevelBlock, parseJobSteps, runBlockOf,
+  seedMergeLockDeps,
 } = require('./j-merge-button-pass-helpers');
 
 const REPO_ROOT_REAL = path.resolve(__dirname, '..', '..');
@@ -155,6 +156,9 @@ before(async () => {
   fs.writeFileSync(path.join(tmpRoot, 'bridge', 'first-output.json'), '{}', 'utf8');
   fs.writeFileSync(path.join(tmpRoot, 'bridge', 'nog-active.json'), '{}', 'utf8');
   fs.writeFileSync(branchStatePath, '{}', 'utf8');
+  // The dispatch endpoints derive the merge lock server-side and fail closed;
+  // give the fixture the real engine + an empty (open) gate state.
+  seedMergeLockDeps(tmpRoot);
 
   // gh stub MUST be on PATH before the server is compiled so its
   // execFileSync('gh', ...) can never hit real GitHub.

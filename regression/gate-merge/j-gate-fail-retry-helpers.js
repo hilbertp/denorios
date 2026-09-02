@@ -58,6 +58,18 @@ function makeBridgeFixture(prefix) {
   fs.writeFileSync(b('first-output.json'), '{}', 'utf8');
   fs.writeFileSync(b('nog-active.json'), '{}', 'utf8');
   fs.writeFileSync(b('state', 'branch-state.json'), '{}', 'utf8');
+  // Since slice 361 the dispatch endpoints derive the test-update lock on the
+  // server and fail CLOSED. Give the fixture the real engine (lib/ + the AC
+  // hasher) and an empty, open gate state — fixture commits declare no `AC:`
+  // trailers, so the range holds no ACs and nothing is outstanding.
+  fs.mkdirSync(path.join(tmpRoot, 'scripts'), { recursive: true });
+  fs.mkdirSync(path.join(tmpRoot, 'regression'), { recursive: true });
+  fs.cpSync(path.join(REPO_ROOT, 'lib'), path.join(tmpRoot, 'lib'), { recursive: true });
+  fs.cpSync(path.join(REPO_ROOT, 'scripts', 'build-ac-manifest.js'),
+            path.join(tmpRoot, 'scripts', 'build-ac-manifest.js'));
+  fs.writeFileSync(path.join(tmpRoot, 'regression', 'COVERAGE.lock'),
+                   JSON.stringify({ bySource: {} }), 'utf8');
+  fs.writeFileSync(path.join(tmpRoot, 'regression', 'AC-DECISIONS.json'), '{}', 'utf8');
   return tmpRoot;
 }
 

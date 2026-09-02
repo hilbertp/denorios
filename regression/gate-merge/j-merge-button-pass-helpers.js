@@ -215,6 +215,30 @@ function runBlockOf(stepText) {
   return raw.map(l => (l.trim() ? l.slice(min) : '')).join('\n');
 }
 
+// ── merge-lock dependencies in a fixture root ────────────────────────────────
+// Since slice 361 the dispatch endpoints derive the test-update lock server-side
+// (mergeLockRefusal → getCheckTestUpdates), which resolves lib/ and scripts/ off
+// REPO_ROOT and reads regression/COVERAGE.lock + AC-DECISIONS.json. The lock fails
+// CLOSED, so a fixture root missing those refuses every dispatch with
+// test_updates_unavailable — correct product behaviour, but it walls off the
+// endpoints these suites exist to pin.
+//
+// This gives the fixture the REAL engine and an empty, honest gate state: fixture
+// commits carry no `AC:` trailers, so the range yields no ACs, nothing is flagged,
+// and the lock is open. A fixture that WANTS the lock shut declares an AC trailer
+// on dev (see J-merge-lock-server).
+function seedMergeLockDeps(root) {
+  const realRoot = path.resolve(__dirname, '..', '..');
+  fs.mkdirSync(path.join(root, 'scripts'), { recursive: true });
+  fs.mkdirSync(path.join(root, 'regression'), { recursive: true });
+  fs.cpSync(path.join(realRoot, 'lib'), path.join(root, 'lib'), { recursive: true });
+  fs.cpSync(path.join(realRoot, 'scripts', 'build-ac-manifest.js'),
+            path.join(root, 'scripts', 'build-ac-manifest.js'));
+  fs.writeFileSync(path.join(root, 'regression', 'COVERAGE.lock'),
+                   JSON.stringify({ bySource: {} }), 'utf8');
+  fs.writeFileSync(path.join(root, 'regression', 'AC-DECISIONS.json'), '{}', 'utf8');
+}
+
 // ── server-in-tmpdir compiler ────────────────────────────────────────────────
 // Compile dashboard/server.js against a tmp fixture root (REPO_ROOT rewritten,
 // lifecycle shim stubbed, auto-listen disabled) and return its exports. Shared
@@ -268,6 +292,7 @@ module.exports = {
   advanceDev,
   divergeMain,
   installGhStub,
+  seedMergeLockDeps,
   compileServer,
   setPromoteRuns,
   setDispatchFail,
