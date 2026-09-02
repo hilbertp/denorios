@@ -1,15 +1,15 @@
 {
-  "ts": "2026-09-01T19:56:48.303Z",
-  "pickup_ts": "2026-09-01T19:49:23.955Z",
+  "ts": "2026-09-02T01:11:50.756Z",
+  "pickup_ts": "2026-09-02T01:04:28.627Z",
   "status": "nog_review",
-  "current_slice": "353",
+  "current_slice": "365",
   "current_slice_title": null,
-  "current_slice_goal": "Cut slice branches from the integration branch (dev) and compare lineage, scope and review diffs against it, with branch names read from config; the local main ref is frozen 42 commits back and is manufacturing conflicts.",
-  "slice_elapsed_seconds": 444,
+  "current_slice_goal": "test/ is policed by the gate but executed by nothing; both of today's RED causes live there. De-scope it and document the coverage gap honestly.",
+  "slice_elapsed_seconds": 442,
   "last_activity_ts": null,
-  "processed_total": 1,
+  "processed_total": 4,
   "queue": {
-    "waiting": 0,
+    "waiting": 2,
     "active": 0,
     "done": 23,
     "error": 41

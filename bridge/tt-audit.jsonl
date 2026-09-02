@@ -3,3 +3,4 @@
 {"role":"dax","ts":"2026-06-17T08:18:55Z","to":"obrien","ref":"HANDOFF-AC-RECONCILE-FROM-DAX.md"}
 { "role": "obrien", "ts": "2026-06-17T09:56:28Z", "to": "bashir", "ref": "HANDOFF-AC-DRAIN-FEED-FROM-OBRIEN.md" }
 { "role": "bashir", "ts": "2026-09-01T19:08:55Z", "to": "obrien", "ref": "HANDOFF-PHILIPP-RULING-SEQUENTIAL-TEST-FLOW-FROM-BASHIR.md" }
+{ "role": "bashir", "ts": "2026-09-01T20:08:31Z", "to": "obrien", "ref": "HANDOFF-MERGE-WARNING-SCREEN-REQUIREMENTS-FROM-BASHIR.md" }

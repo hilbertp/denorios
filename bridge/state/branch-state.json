@@ -6,10 +6,18 @@
     "tip_ts": "2026-06-25T15:23:32+03:00"
   },
   "dev": {
-    "tip_sha": null,
-    "tip_ts": null,
-    "commits_ahead_of_main": 0,
-    "commits": [],
+    "tip_sha": "61860c3b2b33352a5b7c7c24818bbbe871a0c029",
+    "tip_ts": "2026-09-01T19:56:55.267Z",
+    "commits_ahead_of_main": 1,
+    "commits": [
+      {
+        "sha": "61860c3b2b33352a5b7c7c24818bbbe871a0c029",
+        "slice_id": "353",
+        "title": "Branch slices from dev, not main — the stale-base fix",
+        "ts": "2026-09-01T19:56:55.267Z",
+        "is_pending_squash": false
+      }
+    ],
     "deferred_slices": []
   },
   "last_merge": {
@@ -23,13 +31,13 @@
     "last_pass": null
   },
   "regression_risk": {
-    "rr": 0,
-    "band": "green",
+    "rr": 28,
+    "band": "amber",
     "inputs": {
-      "slice_pressure": 0,
-      "surface_volatility": 0,
+      "slice_pressure": 0.1,
+      "surface_volatility": 0.5,
       "ac_coverage_gap": 0
     },
-    "computed_ts": "2026-09-01T19:56:52.231Z"
+    "computed_ts": "2026-09-02T01:11:54.469Z"
   }
 }
