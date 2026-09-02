@@ -3819,6 +3819,7 @@ body.lcars-mode .gate-flow-foot { border-color:#33334d; color:#b6a4e0; }
 .utc-head { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; margin-bottom:6px; }
 .utc-item { font-size:12.5px; line-height:1.5; color:#374151; padding:2px 0 2px 14px; position:relative; }
 .utc-item::before { content:'·'; position:absolute; left:4px; color:#9ca3af; }
+.utc-rename { color:#6b7280; font-size:11.5px; font-style:italic; }
 .utc-removed { border-color:#fecaca; background:#fef2f2; } .utc-removed .utc-head { color:#b91c1c; }
 .utc-modified { border-color:#fde68a; background:#fffbeb; } .utc-modified .utc-head { color:#92400e; }
 .utc-added { border-color:#a7f3d0; background:#ecfdf5; } .utc-added .utc-head { color:#047857; }
@@ -10986,6 +10987,10 @@ body:not(.lcars-mode) .staged-details-body pre code {
       return `<div class="utc-none">✓ No test checks changed — re-runs the same suite, then fast-forwards <strong>main</strong>.</div>`;
     }
     let html = '';
+    // A renamed check arrives merged with its predecessor, so it shows up here with a real
+    // direction rather than as a phantom removal. Say what it used to be called, so the
+    // operator can see at a glance that the protection moved rather than disappeared.
+    const _wasCalled = (m) => m.renamedFrom ? ` <span class="utc-rename">(renamed from “${_esc(m.renamedFrom)}”)</span>` : '';
     const danger   = (tc.modified || []).filter(m => m.direction === 'loosened' || m.direction === 'skipped');
     const reworded = (tc.modified || []).filter(m => m.direction === 'reworded' || m.direction === 'tightened');
     if (tc.removed && tc.removed.length) {
@@ -10994,11 +10999,11 @@ body:not(.lcars-mode) .staged-details-body pre code {
     }
     if (danger.length) {
       html += `<div class="utc-group utc-removed"><div class="utc-head">⚠ Weakened or skipped (${danger.length}) — a loosened or disabled check can hide a real break</div>`
-        + danger.map(m => `<div class="utc-item">${_esc(m.name)} <strong style="text-transform:uppercase;font-size:10px;letter-spacing:.04em">${_esc(m.direction)}</strong></div>`).join('') + `</div>`;
+        + danger.map(m => `<div class="utc-item">${_esc(m.name)} <strong style="text-transform:uppercase;font-size:10px;letter-spacing:.04em">${_esc(m.direction)}</strong>${_wasCalled(m)}</div>`).join('') + `</div>`;
     }
     if (reworded.length) {
       html += `<div class="utc-group utc-modified"><div class="utc-head">✎ Changed what we check for (${reworded.length})</div>`
-        + reworded.map(m => `<div class="utc-item">${_esc(m.name)}</div>`).join('') + `</div>`;
+        + reworded.map(m => `<div class="utc-item">${_esc(m.name)}${_wasCalled(m)}</div>`).join('') + `</div>`;
     }
     if (tc.added && tc.added.length) {
       // Additions are SAFE (new coverage) — summarize: count + which files. The individual

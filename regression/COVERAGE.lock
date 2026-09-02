@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 430,
+  "guardCount": 440,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -1040,6 +1040,31 @@
     ],
     "lib/assert-direction.js": [
       {
+        "tag": "slice-366-ac-1",
+        "file": "regression/gate-merge/j-tests-needed-rename.test.js",
+        "guardAcHash": "sha256:a5753433cefe8419398b772a22a3cf59494d1bedd0a6a765c915a1ad24866c86"
+      },
+      {
+        "tag": "slice-366-ac-2",
+        "file": "regression/gate-merge/j-tests-needed-rename.test.js",
+        "guardAcHash": "sha256:0b3658abeaaeeb4b710714d1b1ed433137ee54a5fd58d2e5fa5d989e6e006b25"
+      },
+      {
+        "tag": "slice-366-ac-3",
+        "file": "regression/gate-merge/j-tests-needed-rename.test.js",
+        "guardAcHash": "sha256:c22b86654f7de3e4a3227f47917ba879dfcae757884be2301d568604fa8d9572"
+      },
+      {
+        "tag": "slice-366-ac-4",
+        "file": "regression/gate-merge/j-tests-needed-rename.test.js",
+        "guardAcHash": "sha256:638dd7781fe06807df49f53852807588dac0a65d2b4340cb6d1c3463abb0a9e0"
+      },
+      {
+        "tag": "slice-366-ac-5",
+        "file": "regression/gate-merge/j-tests-needed-rename.test.js",
+        "guardAcHash": "sha256:6edf4e2b47a8db984130ab942d5c24430a695ab0c44e88f2e34d2d3f16363bf8"
+      },
+      {
         "tag": "slice-99808-ac-1",
         "file": "regression/direct-controls/j-direct-controls-regression-coverage.test.js"
       },
@@ -1227,6 +1252,31 @@
         "tag": "slice-365-ac-3",
         "file": "regression/gate-merge/j-unrun-test-dir.test.js",
         "guardAcHash": "sha256:40a9dbadf30897d7501a560471d821a4e47cde70a7c6c7a63e1e7d4eadd5ab5f"
+      },
+      {
+        "tag": "slice-366-ac-1",
+        "file": "regression/gate-merge/j-tests-needed-rename.test.js",
+        "guardAcHash": "sha256:a5753433cefe8419398b772a22a3cf59494d1bedd0a6a765c915a1ad24866c86"
+      },
+      {
+        "tag": "slice-366-ac-2",
+        "file": "regression/gate-merge/j-tests-needed-rename.test.js",
+        "guardAcHash": "sha256:0b3658abeaaeeb4b710714d1b1ed433137ee54a5fd58d2e5fa5d989e6e006b25"
+      },
+      {
+        "tag": "slice-366-ac-3",
+        "file": "regression/gate-merge/j-tests-needed-rename.test.js",
+        "guardAcHash": "sha256:c22b86654f7de3e4a3227f47917ba879dfcae757884be2301d568604fa8d9572"
+      },
+      {
+        "tag": "slice-366-ac-4",
+        "file": "regression/gate-merge/j-tests-needed-rename.test.js",
+        "guardAcHash": "sha256:638dd7781fe06807df49f53852807588dac0a65d2b4340cb6d1c3463abb0a9e0"
+      },
+      {
+        "tag": "slice-366-ac-5",
+        "file": "regression/gate-merge/j-tests-needed-rename.test.js",
+        "guardAcHash": "sha256:6edf4e2b47a8db984130ab942d5c24430a695ab0c44e88f2e34d2d3f16363bf8"
       },
       {
         "tag": "slice-99822-ac-1",
@@ -1568,6 +1618,33 @@
         "tag": "slice-350-ac-3",
         "file": "regression/gate-merge/j-s-numbering-squash-subject.test.js",
         "guardAcHash": "sha256:132ee7f47f6ed32af361bb72fd530efe8abf463f6c31c44be539f0a14f022225"
+      }
+    ],
+    "regression/gate-merge/j-tests-needed-rename.test.js": [
+      {
+        "tag": "slice-366-ac-1",
+        "file": "regression/gate-merge/j-tests-needed-rename.test.js",
+        "guardAcHash": "sha256:a5753433cefe8419398b772a22a3cf59494d1bedd0a6a765c915a1ad24866c86"
+      },
+      {
+        "tag": "slice-366-ac-2",
+        "file": "regression/gate-merge/j-tests-needed-rename.test.js",
+        "guardAcHash": "sha256:0b3658abeaaeeb4b710714d1b1ed433137ee54a5fd58d2e5fa5d989e6e006b25"
+      },
+      {
+        "tag": "slice-366-ac-3",
+        "file": "regression/gate-merge/j-tests-needed-rename.test.js",
+        "guardAcHash": "sha256:c22b86654f7de3e4a3227f47917ba879dfcae757884be2301d568604fa8d9572"
+      },
+      {
+        "tag": "slice-366-ac-4",
+        "file": "regression/gate-merge/j-tests-needed-rename.test.js",
+        "guardAcHash": "sha256:638dd7781fe06807df49f53852807588dac0a65d2b4340cb6d1c3463abb0a9e0"
+      },
+      {
+        "tag": "slice-366-ac-5",
+        "file": "regression/gate-merge/j-tests-needed-rename.test.js",
+        "guardAcHash": "sha256:6edf4e2b47a8db984130ab942d5c24430a695ab0c44e88f2e34d2d3f16363bf8"
       }
     ],
     "regression/gate-merge/j-unrun-test-dir.test.js": [

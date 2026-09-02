@@ -630,9 +630,12 @@ function getTestChanges() {
     for (const k of Object.keys(byTag)) {
       const e = byTag[k];
       const name = humanizeTestName(e.name);
+      // A renamed check arrives already merged with its predecessor, so it lands in
+      // `modified` with a real direction plus a `renamedFrom` label -- never in `removed`.
+      const renamedFrom = e.rename ? humanizeTestName(e.rename.from) : null;
       if (e.onPlus && !e.onMinus) added.push({ file: f, name, direction: 'added' });
       else if (e.onMinus && !e.onPlus) removed.push({ file: f, name, direction: 'removed' });
-      else modified.push({ file: f, name, direction: e.direction });
+      else modified.push({ file: f, name, direction: e.direction, renamedFrom });
     }
   }
   // The dangerous subset the gate + UI must surface loudly.
@@ -688,9 +691,9 @@ function getTestsNeeded() {
     mismatchedOverride: !!r.mismatchedOverride,
     // The dangerous, human-readable specifics the second-ack must enumerate.
     blockers: []
-      .concat(r.loosenedUndeclared.map(c => ({ kind: 'loosened', name: humanizeTestName(c.tag), file: c.file })))
-      .concat(r.removedUndeclared.map(c => ({ kind: 'removed', name: humanizeTestName(c.tag), file: c.file })))
-      .concat(r.skippedUndeclared.map(c => ({ kind: 'skipped', name: humanizeTestName(c.tag), file: c.file })))
+      .concat(r.loosenedUndeclared.map(c => ({ kind: 'loosened', name: humanizeTestName(c.tag), file: c.file, renamedFrom: c.rename ? humanizeTestName(c.rename.from) : null })))
+      .concat(r.removedUndeclared.map(c => ({ kind: 'removed', name: humanizeTestName(c.tag), file: c.file, renamedFrom: null })))
+      .concat(r.skippedUndeclared.map(c => ({ kind: 'skipped', name: humanizeTestName(c.tag), file: c.file, renamedFrom: c.rename ? humanizeTestName(c.rename.from) : null })))
       .concat(r.newBehaviourNoTest.map(b => ({ kind: 'untested', name: b.path, file: b.path }))),
     needsReview: r.unguardedSourceChanges.map(b => b.path),
   };
