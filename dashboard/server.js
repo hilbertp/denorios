@@ -268,10 +268,99 @@ let _ghPromoteCache = { value: null, fetchedAt: 0 };
 // Files matching this pattern count as "critical" for the refactor-risk score.
 const RR_CRITICAL_RE = /^(bridge\/|dashboard\/|\.github\/workflows\/|scripts\/)/;
 
-function _bustGitHubCache() {
-  _gitTipsCache   = { value: null, fetchedAt: 0 };
-  _ghCiCache      = { value: null, fetchedAt: 0 };
-  _ghPromoteCache = { value: null, fetchedAt: 0 };
+// Scope 'all' (the dispatch path — everything we know is about to change) or 'refs'
+// (the promote-COMPLETED path). 'refs' keeps the promote reading: that reading is the
+// one that just told us something changed, so it is by definition fresh, and
+// re-fetching it would be a wasted network round-trip.
+function _bustGitHubCache(scope = 'all') {
+  _gitTipsCache = { value: null, fetchedAt: 0 };
+  _ghCiCache    = { value: null, fetchedAt: 0 };
+  if (scope !== 'refs') _ghPromoteCache = { value: null, fetchedAt: 0 };
+}
+
+// ── Promote completion → cache invalidation (slice 362) ─────────────────────
+// A promote COMPLETING is an event, but until slice 362 nothing observed it:
+// _bustGitHubCache() fired only on dispatch, minutes earlier. So when main
+// fast-forwarded, the tips reading above just went on serving the pre-merge refs
+// until its own lifetime happened to run out — and every panel read in that window
+// showed the slices that had just merged as still pending on dev. On 2026-09-01 an
+// operator read that as commits appearing on an unexpected branch and called for an
+// investigation. Nothing had moved; the panel was confidently wrong.
+//
+// _getGhPromote() already fetches `gh run list` to drive the promote strip, so the
+// completion is noticed on that same read — no second timer, no extra API call
+// (trap 2) — and the refs are dropped the moment the run goes terminal.
+const PROMOTE_TERMINAL  = new Set(['success', 'failure']);
+const PROMOTE_IN_FLIGHT = new Set(['pending', 'in_progress']);
+
+// Noticing the completion only helps if it happens BEFORE the refs would have
+// expired on their own, and GH_TTL_MS (60s) is twice GIT_TTL_MS (30s) — at the
+// default lifetime the tips refresh first and the event always arrives too late to
+// change anything. So while a run is IN FLIGHT (the one window where main can
+// fast-forward under us, and the one window the operator is actually watching the
+// strip) the promote reading follows the panel's own 5s poll instead of the full
+// lifetime. It also makes the gate phases update per-poll rather than once a minute.
+//
+// This is NOT "shorten the TTLs" (trap 1): the quiet path — no run in flight — keeps
+// GH_TTL_MS exactly, so an ordinary read costs precisely what it always did.
+const GH_PROMOTE_LIVE_TTL_MS = 10 * 1000;
+
+// The last promote reading we actually fetched (not served from cache). Only
+// readings that carried a real run are recorded, so a gh outage (which degrades to
+// `idle`/null) doesn't erase what we were watching. `live_since` is when the run we
+// are holding was FIRST seen in flight — keeping the status through an outage needs a
+// floor, or an outage that starts mid-run leaves it `in_progress` forever (below).
+let _lastPromoteSeen = { run_id: null, status: null, live_since: 0 };
+
+// The live lifetime has to be bounded, because the status it keys off is sticky by
+// design. If `gh` breaks while a run is in flight, every later reading degrades to
+// `idle`/null and is discarded, so the last status we hold stays `in_progress` for as
+// long as the outage lasts — and an unbounded live lifetime would then retry a
+// blocking `gh` call (15s timeout, on the request path) every 10s forever. Past this
+// window, fall back to the quiet lifetime: nobody is still watching the strip for a
+// run this long, and a completion is then noticed within GH_TTL_MS instead of never
+// letting the cache rest. Generous enough that a real slow gate keeps the live path.
+const GH_PROMOTE_LIVE_WINDOW_MS = 15 * 60 * 1000;
+
+// Lifetime for the NEXT promote read: live only while the run we last saw is still
+// running AND has been running less than the window above. Needs no extra call — it
+// reads the status we already fetched. Takes its state as arguments so the bound is
+// directly testable.
+function _promoteTtlMs(seen = _lastPromoteSeen, now = Date.now()) {
+  if (!seen || !PROMOTE_IN_FLIGHT.has(seen.status)) return GH_TTL_MS;
+  return (now - (seen.live_since || 0)) < GH_PROMOTE_LIVE_WINDOW_MS
+    ? GH_PROMOTE_LIVE_TTL_MS : GH_TTL_MS;
+}
+
+// Pure: did this promote reading just observe a run FINISH? True when the reading is
+// terminal and we were not already holding a terminal reading of that same run — so
+// a settled run re-read every TTL does NOT keep busting (that would defeat the cache
+// for the quiet path). A run_id we have never seen counts: it either started and
+// finished inside one TTL window, or it is the first read after a restart, where the
+// caches are empty anyway and the bust is a no-op.
+function isFreshPromoteCompletion(prev, next) {
+  if (!next || !PROMOTE_TERMINAL.has(next.status) || next.run_id == null) return false;
+  if (!prev || prev.run_id !== next.run_id) return true;
+  return !PROMOTE_TERMINAL.has(prev.status);
+}
+
+// Pure: is the state we are about to serve KNOWN to be behind a merge that already
+// happened? A successful promote fast-forwards main to the exact sha it ran against,
+// so a success for the current dev tip while our view of main still trails it means
+// our refs predate the merge. Say "reconciling" rather than assert the pre-merge
+// answer — honest transience beats confident staleness.
+//
+// A success whose sha is NOT dev's tip is a PAST promote (dev moved on since); main
+// trailing dev is then simply real pending work, not a stale read.
+function isReconciling(tips, promote) {
+  if (!promote || promote.status !== 'success' || !promote.head_sha7) return false;
+  // Needs a real refs reading to compare against. Refs we could not read at all are a
+  // DIFFERENT failure — already surfaced as github.error — and dressing it up as "a
+  // merge is landing" would latch the panel into reconciling (and hold the merge
+  // button shut) for as long as the network is down.
+  if (tips.error || !tips.origin_dev_sha || !tips.origin_main_sha) return false;
+  if (promote.head_sha7 !== tips.origin_dev_sha) return false;
+  return tips.origin_main_sha !== promote.head_sha7;
 }
 
 function _getGitTips() {
@@ -934,7 +1023,7 @@ function getPromoteFailureDetail(runId) {
 
 function _getGhPromote() {
   const now = Date.now();
-  if (_ghPromoteCache.fetchedAt > 0 && now - _ghPromoteCache.fetchedAt < GH_TTL_MS) {
+  if (_ghPromoteCache.fetchedAt > 0 && now - _ghPromoteCache.fetchedAt < _promoteTtlMs()) {
     return _ghPromoteCache.value;
   }
   let result = { status: 'idle', run_id: null, url: null, head_sha7: null, updated_at: null, phases: null };
@@ -971,14 +1060,38 @@ function _getGhPromote() {
     }
   } catch (_) { /* gh not installed or not authenticated — non-fatal, degrade to idle */ }
   _ghPromoteCache = { value: result, fetchedAt: now };
+
+  // This reading is the ONLY place a completed promote can be noticed without a
+  // second poller. If the run just went terminal, the refs we hold are pre-merge.
+  if (result.run_id != null) {
+    if (isFreshPromoteCompletion(_lastPromoteSeen, result)) _bustGitHubCache('refs');
+    // Carry the original in-flight stamp across polls of the SAME run, so the live
+    // window measures how long the RUN has been going, not how long since the last poll.
+    const sameRunAlreadyLive =
+      (_lastPromoteSeen.run_id === result.run_id &&
+       PROMOTE_IN_FLIGHT.has(_lastPromoteSeen.status))
+        ? _lastPromoteSeen.live_since : 0;
+    _lastPromoteSeen = {
+      run_id: result.run_id,
+      status: result.status,
+      live_since: PROMOTE_IN_FLIGHT.has(result.status) ? (sameRunAlreadyLive || now) : 0,
+    };
+  }
   return result;
 }
 
+// Promote FIRST, then the refs. A promote that just completed invalidates the refs
+// caches above, so ordering it first means the very response that reports the merge
+// also carries post-merge tips — instead of pairing a fresh "success" with refs from
+// before the fast-forward (the skew that made merged slices read as pending).
 function getGitHubState() {
+  const promote_run = _getGhPromote();
   const tips        = _getGitTips();
   const ci          = _getGhCi();
-  const promote_run = _getGhPromote();
-  return { ...tips, ci, promote_run };
+  // Honest transience: if the refs still don't show main at the promoted sha, say so
+  // rather than serving the pre-merge answer as fact.
+  const reconciling = isReconciling(tips, promote_run);
+  return { ...tips, ci, promote_run, reconciling };
 }
 
 // ── Rollback (revert-forward through the gate) ──────────────────────────────
@@ -3395,7 +3508,12 @@ const server = http.createServer(async (req, res) => {
       base.dev  = base.dev  || {};
       base.dev.tip_sha              = gh.origin_dev_sha  || base.dev.tip_sha  || null;
       base.dev.commits_ahead_of_main = gh.commits_ahead;
-      if (gh.dev_commits && gh.dev_commits.length > 0) {
+      // gh is healthy here, so origin/main..origin/dev is authoritative — INCLUDING
+      // when it is empty. The old `length > 0` guard fell back to branch-state.json's
+      // `commits` array in exactly the case that matters: right after a promote, when
+      // the range empties. That would have drawn the just-merged commits back onto the
+      // dev ribbon from a file the retired local gate stopped updating in June.
+      if (Array.isArray(gh.dev_commits)) {
         base.dev.commits = gh.dev_commits;
       }
       // Replace the stale local last_merge (written by retired local-merge gate)
@@ -3423,4 +3541,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { mergeLockRefusal, buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, STALE_DONE_DAYS, deriveHistoryOutcome, deriveReviewStatus, authoringStateFor, kickOffAuthoring, createRevertCommit, resolveSquashSha, mapPromotePhases, parseGateFailures };
+module.exports = { mergeLockRefusal, buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, STALE_DONE_DAYS, deriveHistoryOutcome, deriveReviewStatus, authoringStateFor, kickOffAuthoring, createRevertCommit, resolveSquashSha, mapPromotePhases, parseGateFailures, isFreshPromoteCompletion, isReconciling, _promoteTtlMs };

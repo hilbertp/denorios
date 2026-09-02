@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 422,
+  "guardCount": 430,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -312,6 +312,22 @@
         "tag": "slice-361-ac-6",
         "file": "regression/gate-merge/j-merge-lock-server.test.js",
         "guardAcHash": "sha256:587a2d199ffb987a33d15cbbdf3b7444fa975d64b6c0c11eb85adc5b2498cb1c"
+      },
+      {
+        "tag": "slice-362-ac-1",
+        "file": "regression/gate-merge/j-merge-truth-now.test.js"
+      },
+      {
+        "tag": "slice-362-ac-2",
+        "file": "regression/gate-merge/j-merge-truth-now.test.js"
+      },
+      {
+        "tag": "slice-362-ac-3",
+        "file": "regression/gate-merge/j-merge-truth-now.test.js"
+      },
+      {
+        "tag": "slice-362-ac-4",
+        "file": "regression/gate-merge/j-merge-truth-now.test.js"
       },
       {
         "tag": "slice-99777-ac-1",
@@ -639,6 +655,22 @@
         "tag": "slice-361-ac-6",
         "file": "regression/gate-merge/j-merge-lock-server.test.js",
         "guardAcHash": "sha256:587a2d199ffb987a33d15cbbdf3b7444fa975d64b6c0c11eb85adc5b2498cb1c"
+      },
+      {
+        "tag": "slice-362-ac-1",
+        "file": "regression/gate-merge/j-merge-truth-now.test.js"
+      },
+      {
+        "tag": "slice-362-ac-2",
+        "file": "regression/gate-merge/j-merge-truth-now.test.js"
+      },
+      {
+        "tag": "slice-362-ac-3",
+        "file": "regression/gate-merge/j-merge-truth-now.test.js"
+      },
+      {
+        "tag": "slice-362-ac-4",
+        "file": "regression/gate-merge/j-merge-truth-now.test.js"
       },
       {
         "tag": "slice-901-ac-1",

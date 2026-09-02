@@ -3751,6 +3751,15 @@ body.lcars-mode .lore-tag { display: inline; }
   .topo-commits .topo-c-sha { color: var(--info, #3b82f6); font-weight: 600; flex: none; }
   .topo-commits .topo-c-subj { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .topo-commits .topo-c-age { color: var(--ink-muted); flex: none; margin-left: auto; }
+  /* slice 362 — "the graph above is out of date" note; warn-toned, uses the same
+     token as the running-gate states so it reads as transient, not as a failure. */
+  /* Slice 362 — the base sha is real but superseded: mute it toward warn so it does
+     not read as the current tip of main while the refs are being re-read. */
+  .topo-commits .topo-c-premerge .topo-c-sha,
+  .topo-commits .topo-c-premerge .topo-c-subj { color: var(--warn, #f59e0b); opacity: 0.85; }
+  .topo-commits .topo-c-reconciling { margin-top: 4px; }
+  .topo-commits .topo-c-reconciling .topo-c-k,
+  .topo-commits .topo-c-reconciling .topo-c-subj { color: var(--warn, #f59e0b); }
 .gflow-trigger, .gflow-step, .gflow-target {
   display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
   padding: 5px 10px; border-radius: 7px; border: 1px solid #e5e7eb; background: #fff;
@@ -10258,7 +10267,13 @@ body:not(.lcars-mode) .staged-details-body pre code {
     const devX = i => devX0 + i * spacing;
     const headX = n > 0 ? devX(n - 1) : devX0;
 
-    const ariaLabel = `Branch graph: origin/dev ${ahead} commits ahead of origin/main`;
+    // Slice 362 — a promote has merged and our refs have not caught up. EVERY number
+    // below (the base sha, its merge ✓, the ahead count) is pre-merge in this window,
+    // so each one is rendered as unsettled rather than stated as fact.
+    const reconciling = _ghReconciling(bs.github);
+    const ariaLabel = reconciling
+      ? 'Branch graph: reconciling — a promote just merged these commits to main; re-reading origin/main'
+      : `Branch graph: origin/dev ${ahead} commits ahead of origin/main`;
     // Cap the rendered width to ~1.3x the viewBox so a short ribbon (1-2 commits)
     // doesn't scale up to fill the column and balloon; longer ribbons still fill it.
     let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="height:auto;display:block;max-width:${Math.round(W * 1.3)}px" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${ariaLabel}">`;
@@ -10277,7 +10292,13 @@ body:not(.lcars-mode) .staged-details-body pre code {
 
     // origin/main label + dot
     svg += `<text x="${mainX - 2}" y="${mainY - 9}" text-anchor="start" font-size="9" font-weight="600" fill="var(--branch-main)">origin/main</text>`;
-    if (mainSha) {
+    if (mainSha && reconciling) {
+      // The ✓ means "this is the commit main was promoted to". While reconciling it
+      // would sit next to the PREVIOUS promotion's sha — a confident tick on the wrong
+      // commit, which is exactly the failure this slice removes. Draw the node
+      // unsettled (hollow + dashed, warn-coloured) and say why in the tooltip.
+      svg += `<circle cx="${mainX}" cy="${mainY}" r="6" fill="var(--bg-panel, #fff)" stroke="var(--warn, #f59e0b)" stroke-width="2" stroke-dasharray="3 2.5"><title>origin/main: a promote has merged; re-reading the ref — ${mainSha7} is the pre-merge tip</title></circle>`;
+    } else if (mainSha) {
       svg += `<circle cx="${mainX}" cy="${mainY}" r="${isMerge ? 6.5 : 5.5}" fill="var(--branch-main)"><title>origin/main: ${mainSha7}${mainAge ? ` — promoted ${mainAge}` : ''}</title></circle>`;
       if (isMerge) svg += `<path d="M${mainX - 2.6} ${mainY} l1.8 2.6 l3.4 -4.6" stroke="#fff" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round" />`;
     }
@@ -10293,7 +10314,11 @@ body:not(.lcars-mode) .staged-details-body pre code {
       const tip = `${isHead ? 'origin/dev' : 'dev'}: ${sha7}${subj ? ` — ${subj}` : ''}${age ? ` · ${age}` : ''}`;
       if (isHead) {
         svg += `<rect x="${x - 28}" y="${devY - 27}" width="56" height="14" rx="7" fill="var(--branch-dev)" />`;
-        svg += `<text x="${x}" y="${devY - 17}" text-anchor="middle" font-size="8.5" font-weight="700" letter-spacing="0.3" fill="#fff">dev +${ahead}</text>`;
+        // `ahead` counts commits a successful promote has already carried to main.
+        // The aria-label and the caption both say "reconciling"; the visible badge must
+        // not go on asserting the number they disclaim.
+        const headLabel = reconciling ? 'dev ↻' : `dev +${ahead}`;
+        svg += `<text x="${x}" y="${devY - 17}" text-anchor="middle" font-size="8.5" font-weight="700" letter-spacing="0.3" fill="#fff">${headLabel}</text>`;
         svg += `<circle cx="${x}" cy="${devY}" r="6.5" fill="var(--branch-dev)" stroke="var(--bg-panel)" stroke-width="1.5"><title>${tip}</title></circle>`;
       } else {
         svg += `<circle cx="${x}" cy="${devY}" r="4.5" fill="var(--branch-dev)"><title>${tip}</title></circle>`;
@@ -10312,8 +10337,21 @@ body:not(.lcars-mode) .staged-details-body pre code {
       const hAge  = head.age_s != null ? formatAgeShort(head.age_s) : '';
       info += `<div class="topo-c-row"><span class="topo-c-k">newest</span><span class="topo-c-sha">${hSha}</span><span class="topo-c-subj">${hSubj || (head.slice_id ? 'S' + head.slice_id : 'origin/dev')}</span>${hAge ? `<span class="topo-c-age">· ${hAge}</span>` : ''}</div>`;
     }
-    if (mainSha) {
+    if (mainSha && reconciling) {
+      // Same sha, honest label: this is where main WAS. Its age belongs to the previous
+      // promotion, so it is dropped rather than shown next to a superseded tip.
+      info += `<div class="topo-c-row topo-c-premerge"><span class="topo-c-k">base</span><span class="topo-c-sha">${mainSha7}</span><span class="topo-c-subj">origin/main${mainSliceId ? ' S' + mainSliceId : ''} &middot; pre-merge, re-reading</span></div>`;
+    } else if (mainSha) {
       info += `<div class="topo-c-row"><span class="topo-c-k">base</span><span class="topo-c-sha">${mainSha7}</span><span class="topo-c-subj">origin/main${mainSliceId ? ' S' + mainSliceId : ''}</span>${mainAge ? `<span class="topo-c-age">· ${mainAge}</span>` : ''}</div>`;
+    }
+    // Slice 362 — the ribbon above is drawn from origin/main..origin/dev. When a
+    // promote has succeeded but our refs haven't caught up, those dots have ALREADY
+    // landed on main. Label the graph as out of date instead of letting it read as
+    // "these commits are still sitting on dev" — that misreading cost an operator an
+    // investigation on 2026-09-01.
+    if (reconciling) {
+      info += '<div class="topo-c-row topo-c-reconciling"><span class="topo-c-k">↻</span>'
+            + '<span class="topo-c-subj">reconciling — the gate merged these commits to main; re-reading origin/main</span></div>';
     }
     info += '</div>';
 
@@ -10416,6 +10454,15 @@ body:not(.lcars-mode) .staged-details-body pre code {
     if (!gh) return 0;
     if (gh.ahead != null) return gh.ahead;
     return gh.commits_ahead || 0;
+  }
+
+  // Slice 362 — the server tells us a promote succeeded but its view of origin/main
+  // hasn't caught up yet. Everything derived from the refs (commits ahead, the dev
+  // ribbon, "main fast-forwarded → sha") is pre-merge in that window, so the panel
+  // must say it is reconciling instead of asserting the stale answer as fact.
+  // Null-guard: an older server payload has no `reconciling` field at all.
+  function _ghReconciling(gh) {
+    return !!(gh && gh.reconciling);
   }
 
   // Client-side gate-start clock for the elapsed readout. Set on a successful
@@ -10683,14 +10730,24 @@ body:not(.lcars-mode) .staged-details-body pre code {
     // for THIS dev tip. If dev advanced since the last check, it must be re-run.
     const devSha = gh && gh.origin_dev_sha ? gh.origin_dev_sha : null;
     const checkPassed = _testUpdatesReady && _testUpdatesSha && _testUpdatesSha === devSha;
-    const checkEnabled = ahead > 0 && !running && !_promoteDispatchInFlight;
-    const enabled = ahead > 0 && !running && !_promoteDispatchInFlight && checkPassed;
+    // Slice 362 — while reconciling, `ahead` and `origin_main_sha` are pre-merge.
+    // Acting on them would promote work that already landed, or roll back a sha that
+    // is no longer main's tip. Hold the controls until the refs catch up.
+    const reconciling = _ghReconciling(gh);
+    const checkEnabled = ahead > 0 && !running && !reconciling && !_promoteDispatchInFlight;
+    const enabled = ahead > 0 && !running && !reconciling && !_promoteDispatchInFlight && checkPassed;
+    // Rollback targets main's tip (the last promotion); valid whenever main has a
+    // commit and no gate is mid-flight. The backend refuses cleanly otherwise.
+    const mainSha = gh && gh.origin_main_sha ? gh.origin_main_sha : null;
+    const rbEnabled = !!mainSha && !running && !reconciling && !_promoteDispatchInFlight && !_rollbackInFlight;
 
     // Immediate, legible button states: DISPATCHING (click acknowledged,
     // contacting GitHub) -> GATE RUNNING · Ns (live elapsed) -> idle.
     let label;
     if (_promoteDispatchInFlight) {
       label = 'DISPATCHING&#8230;';
+    } else if (reconciling) {
+      label = '<span class="gate-spin">&#8635;</span>MERGED &middot; RECONCILING&#8230;';
     } else if (running) {
       const el = _gateElapsedLabel();
       label = '<span class="gate-spin">&#8635;</span>GATE RUNNING' + (el ? ' &middot; ' + el : '&#8230;');
@@ -11197,7 +11254,9 @@ body:not(.lcars-mode) .staged-details-body pre code {
     if (!statEl) return;
 
     const ahead = bs.dev ? (bs.dev.commits_ahead_of_main || 0) : 0;
-    statEl.textContent = `${ahead} ahead`;
+    // While reconciling, `ahead` counts commits a successful promote has already
+    // carried to main — stating "N ahead" would be confidently wrong.
+    statEl.textContent = _ghReconciling(bs.github) ? 'reconciling…' : `${ahead} ahead`;
 
     // Mirror the live merge-pressure dial into the collapsed strip's left zone.
     // Same content as the expanded #topo-foot-rr (no IDs inside → safe to copy).
@@ -11214,7 +11273,9 @@ body:not(.lcars-mode) .staged-details-body pre code {
       // "N ahead" (ungated), not "GATE ✗ failed" / a promoted ✓ from a past run.
       const prStatus = _promoteRunStale(gh) ? 'idle' : (pr && pr.status ? pr.status : null);
       const ghAhead = _ghAhead(gh);
-      if (_gateIsRunning(gh)) {
+      if (_ghReconciling(gh)) {
+        pillEl.innerHTML = '<span class="ci-mini-pill warn" title="The gate merged to main; re-reading origin/main before the topology is trustworthy.">MERGED &middot; RECONCILING ↻</span>';
+      } else if (_gateIsRunning(gh)) {
         pillEl.innerHTML = '<span class="ci-mini-pill warn">GATE ↻ running</span>';
       } else if (prStatus === 'failure') {
         pillEl.innerHTML = '<span class="ci-mini-pill err">GATE ✗ failed</span>';
