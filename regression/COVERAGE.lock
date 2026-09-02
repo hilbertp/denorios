@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 398,
+  "guardCount": 410,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -1122,6 +1122,21 @@
     ],
     "lib/tests-needed.js": [
       {
+        "tag": "slice-365-ac-1",
+        "file": "regression/gate-merge/j-unrun-test-dir.test.js",
+        "guardAcHash": "sha256:4ab372ff3c9d9f8c30534d25fc3b8139489f78becf507e0a281970c13729c875"
+      },
+      {
+        "tag": "slice-365-ac-2",
+        "file": "regression/gate-merge/j-unrun-test-dir.test.js",
+        "guardAcHash": "sha256:a2dfc83b71fb0632ab5582be51cabb813b96ad5e3610a505a393486ff65f6e55"
+      },
+      {
+        "tag": "slice-365-ac-3",
+        "file": "regression/gate-merge/j-unrun-test-dir.test.js",
+        "guardAcHash": "sha256:40a9dbadf30897d7501a560471d821a4e47cde70a7c6c7a63e1e7d4eadd5ab5f"
+      },
+      {
         "tag": "slice-99822-ac-1",
         "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
       },
@@ -1278,6 +1293,21 @@
     ],
     "regression/COVERAGE.lock": [
       {
+        "tag": "slice-365-ac-1",
+        "file": "regression/gate-merge/j-unrun-test-dir.test.js",
+        "guardAcHash": "sha256:4ab372ff3c9d9f8c30534d25fc3b8139489f78becf507e0a281970c13729c875"
+      },
+      {
+        "tag": "slice-365-ac-2",
+        "file": "regression/gate-merge/j-unrun-test-dir.test.js",
+        "guardAcHash": "sha256:a2dfc83b71fb0632ab5582be51cabb813b96ad5e3610a505a393486ff65f6e55"
+      },
+      {
+        "tag": "slice-365-ac-3",
+        "file": "regression/gate-merge/j-unrun-test-dir.test.js",
+        "guardAcHash": "sha256:40a9dbadf30897d7501a560471d821a4e47cde70a7c6c7a63e1e7d4eadd5ab5f"
+      },
+      {
         "tag": "slice-99822-ac-1",
         "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
       },
@@ -1346,6 +1376,23 @@
         "file": "regression/gate-merge/j-ac-reconcile-classifier.test.js"
       }
     ],
+    "regression/COVERAGE.md": [
+      {
+        "tag": "slice-365-ac-1",
+        "file": "regression/gate-merge/j-unrun-test-dir.test.js",
+        "guardAcHash": "sha256:4ab372ff3c9d9f8c30534d25fc3b8139489f78becf507e0a281970c13729c875"
+      },
+      {
+        "tag": "slice-365-ac-2",
+        "file": "regression/gate-merge/j-unrun-test-dir.test.js",
+        "guardAcHash": "sha256:a2dfc83b71fb0632ab5582be51cabb813b96ad5e3610a505a393486ff65f6e55"
+      },
+      {
+        "tag": "slice-365-ac-3",
+        "file": "regression/gate-merge/j-unrun-test-dir.test.js",
+        "guardAcHash": "sha256:40a9dbadf30897d7501a560471d821a4e47cde70a7c6c7a63e1e7d4eadd5ab5f"
+      }
+    ],
     "regression/direct-controls/j-dark-mode-label.test.js": [
       {
         "tag": "slice-342-ac-1",
@@ -1397,6 +1444,23 @@
         "tag": "slice-350-ac-3",
         "file": "regression/gate-merge/j-s-numbering-squash-subject.test.js",
         "guardAcHash": "sha256:132ee7f47f6ed32af361bb72fd530efe8abf463f6c31c44be539f0a14f022225"
+      }
+    ],
+    "regression/gate-merge/j-unrun-test-dir.test.js": [
+      {
+        "tag": "slice-365-ac-1",
+        "file": "regression/gate-merge/j-unrun-test-dir.test.js",
+        "guardAcHash": "sha256:4ab372ff3c9d9f8c30534d25fc3b8139489f78becf507e0a281970c13729c875"
+      },
+      {
+        "tag": "slice-365-ac-2",
+        "file": "regression/gate-merge/j-unrun-test-dir.test.js",
+        "guardAcHash": "sha256:a2dfc83b71fb0632ab5582be51cabb813b96ad5e3610a505a393486ff65f6e55"
+      },
+      {
+        "tag": "slice-365-ac-3",
+        "file": "regression/gate-merge/j-unrun-test-dir.test.js",
+        "guardAcHash": "sha256:40a9dbadf30897d7501a560471d821a4e47cde70a7c6c7a63e1e7d4eadd5ab5f"
       }
     ],
     "regression/observability/j-s-numbering-retirement.test.js": [
@@ -1541,6 +1605,21 @@
       }
     ],
     "scripts/build-coverage-map.js": [
+      {
+        "tag": "slice-365-ac-1",
+        "file": "regression/gate-merge/j-unrun-test-dir.test.js",
+        "guardAcHash": "sha256:4ab372ff3c9d9f8c30534d25fc3b8139489f78becf507e0a281970c13729c875"
+      },
+      {
+        "tag": "slice-365-ac-2",
+        "file": "regression/gate-merge/j-unrun-test-dir.test.js",
+        "guardAcHash": "sha256:a2dfc83b71fb0632ab5582be51cabb813b96ad5e3610a505a393486ff65f6e55"
+      },
+      {
+        "tag": "slice-365-ac-3",
+        "file": "regression/gate-merge/j-unrun-test-dir.test.js",
+        "guardAcHash": "sha256:40a9dbadf30897d7501a560471d821a4e47cde70a7c6c7a63e1e7d4eadd5ab5f"
+      },
       {
         "tag": "slice-99822-ac-1",
         "file": "regression/gate-merge/j-coverage-map-integrity.test.js"
