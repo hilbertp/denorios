@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-ac-manifest.js",
-  "acCount": 205,
+  "acCount": 212,
   "legacyCount": 194,
   "byTag": {
     "slice-042-ac-1": {
@@ -576,6 +576,62 @@
       "text": "rename is carried as a label alongside a real direction, not as a substitute for one",
       "acHash": "sha256:6edf4e2b47a8db984130ab942d5c24430a695ab0c44e88f2e34d2d3f16363bf8",
       "source": "bridge/queue/366-DONE.md",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-375-ac-1": {
+      "slice": "375",
+      "text": "a branch with zero commits ahead of the integration branch still fails verification with the existing no-commits reason",
+      "acHash": "sha256:2203ba7486a7a086162e3dfc4068556b900ca31cb5bdcdc343da1c2d6ebc49da",
+      "source": "bridge/queue/375-DONE.md",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-375-ac-2": {
+      "slice": "375",
+      "text": "a branch with one commit that changes at least one file outside the bookkeeping paths passes verification, decided from the diff rather than the report",
+      "acHash": "sha256:d0fc52e37e3e94d478131522a418bd7db12fefa8a058eaf47564544670298c27",
+      "source": "bridge/queue/375-DONE.md",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-375-ac-3": {
+      "slice": "375",
+      "text": "a branch whose commits change only the DONE report fails with a distinct reason naming the absence of a product change",
+      "acHash": "sha256:2bfeb0423c80dec8e346be4ff570e3cd5f17fba3588e8aff5214f4219815d1a0",
+      "source": "bridge/queue/375-DONE.md",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-375-ac-4": {
+      "slice": "375",
+      "text": "the self-reported token count is no longer able to fail a slice, and the claimed-versus-actual divergence still appears as a warning",
+      "acHash": "sha256:e5df61a9766d3c5fb5f6534c3fa26dba65ea06858bbdc762b09eca00964b548b",
+      "source": "bridge/queue/375-DONE.md",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-375-ac-5": {
+      "slice": "375",
+      "text": "no failure message claims there are no commits when the branch has one",
+      "acHash": "sha256:cea49fb58eeef9175d0d21ba1e7b772e06ec490ce5ddf30e4fab6628637b0a31",
+      "source": "bridge/queue/375-DONE.md",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-375-ac-6": {
+      "slice": "375",
+      "text": "the verification function keeps its existing name and signature",
+      "acHash": "sha256:5c2d774d14e8a6377fdc227636fb590507840948e9fe677be2062112c812e6e1",
+      "source": "bridge/queue/375-DONE.md",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-375-ac-7": {
+      "slice": "375",
+      "text": "a test runs the new rule against the existing single-commit branch slice/371 and it passes without that commit being changed",
+      "acHash": "sha256:4c53cf94d41440f0ae8309cd10090aa774ce38081ef43aa0cac1a03e77d85f29",
+      "source": "bridge/queue/375-DONE.md",
       "status": "active",
       "legacy": false
     },
