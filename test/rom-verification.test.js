@@ -5,11 +5,11 @@
  *
  * Tests for verifyRomActuallyWorked():
  *   A — happy path: 3 commits, reasonable metrics → { ok: true }
- *   B — no commits past skeleton, high claims → { ok: false, reason: 'rom_no_commits' }
+ *   B — one commit that only files the DONE report → { ok: false, reason: 'rom_no_product_change' }
  *   C — metrics divergence only (commits exist) → { ok: true } (soft flag)
  *   D — both divergences (no commits + high claims) → { ok: false, reason: 'rom_no_commits' }
- *   E — short legit work: 1 commit, small claim → { ok: true }
- *   F — skeleton-only + no claims: 1 commit, low tokens → { ok: true }
+ *   E — short legit work: 1 commit with product content → { ok: true }
+ *   F — 1 commit with product content, tiny claims → { ok: true }
  *
  * Also verifies:
  *   - writeErrorFile handles 'rom_no_commits' and 'metrics_divergence' reasons
@@ -57,10 +57,19 @@ function test(name, fn) {
 
 const originalRunGit = gitFinalizer.runGit;
 
-function mockRunGit(commitCount) {
+// A diff with real product content — the substance the rule now decides on (slice 375).
+const PRODUCT_NUMSTAT = '28\t10\tdashboard/lcars-dashboard.html\n11\t2\tdashboard/server.js\n';
+
+// Matches `rev-list <branch> ^<integration> --count` for whatever the configured
+// integration branch is. Pinning the literal `^main` here made every case fall
+// through to "0 commits" once the topology moved to dev (slice 353).
+function mockRunGit(commitCount, numstat) {
   gitFinalizer.runGit = function (cmd, opts) {
-    if (cmd.includes('rev-list') && cmd.includes('^main --count')) {
+    if (cmd.includes('rev-list') && cmd.includes('--count')) {
       return String(commitCount) + '\n';
+    }
+    if (cmd.includes('diff --numstat')) {
+      return numstat === undefined ? PRODUCT_NUMSTAT : numstat;
     }
     return '';
   };
@@ -173,15 +182,19 @@ test('Test A — happy path: 3 commits, reasonable metrics', () => {
   }
 });
 
-test('Test B — no commits past skeleton, high claims → rom_no_commits', () => {
+// Slice 375: a commit that only files the DONE report is no product change. The
+// old form of this test asserted that ONE COMMIT plus a high self-reported token
+// count was itself proof of fabrication — the rule that filed slices 366 and 371,
+// both finished, as fake work.
+test('Test B — one commit that only files the DONE report → rom_no_product_change', () => {
   const id = TEST_IDS.B;
   try {
-    mockRunGit(1); // only skeleton commit
+    mockRunGit(1, `199\t0\tbridge/queue/${id}-DONE.md\n`);
     writeTempDone(id, 8600, 1980000);
     const result = verifyRomActuallyWorked(id, `slice/${id}`, 22000, 563);
     assert.strictEqual(result.ok, false);
-    assert.strictEqual(result.reason, 'rom_no_commits');
-    assert.ok(result.detail.includes('8600'), 'detail should mention claimed tokens');
+    assert.strictEqual(result.reason, 'rom_no_product_change');
+    assert.ok(/product/i.test(result.detail), 'detail should name the absent product change');
   } finally {
     restoreRunGit();
     cleanupTempDone(id);
@@ -216,13 +229,13 @@ test('Test D — both divergences (no commits + high claims) → rom_no_commits'
   }
 });
 
-test('Test E — short legit work: 1 commit, small claim → ok: true', () => {
+test('Test E — short legit work: 1 commit with product content → ok: true', () => {
   const id = TEST_IDS.E;
   try {
-    mockRunGit(1); // 1 commit (small fix)
+    mockRunGit(1); // 1 commit of real content
     writeTempDone(id, 800, 60000);
     const result = verifyRomActuallyWorked(id, `slice/${id}`, 55000, 700);
-    // 800 tokens claimed is ≤ 1000 threshold, so skeleton heuristic doesn't trigger
+    // The claim is irrelevant now: the diff has product content, so it is work.
     assert.deepStrictEqual(result, { ok: true });
   } finally {
     restoreRunGit();
@@ -230,13 +243,13 @@ test('Test E — short legit work: 1 commit, small claim → ok: true', () => {
   }
 });
 
-test('Test F — skeleton-only + no claims: low tokens → ok: true', () => {
+test('Test F — 1 commit with product content, tiny claims → ok: true', () => {
   const id = TEST_IDS.F;
   try {
-    mockRunGit(1); // only skeleton commit
+    mockRunGit(1); // 1 commit of real content
     writeTempDone(id, 100, 30000);
     const result = verifyRomActuallyWorked(id, `slice/${id}`, 25000, 90);
-    // 100 tokens claimed ≤ 1000 threshold → not flagged (small claim = small work)
+    // Same as E — one commit of real content passes, whatever the report claims.
     assert.deepStrictEqual(result, { ok: true });
   } finally {
     restoreRunGit();

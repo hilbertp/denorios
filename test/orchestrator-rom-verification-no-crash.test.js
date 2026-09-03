@@ -52,9 +52,11 @@ function test(name, fn) {
 
 const originalRunGit = gitFinalizer.runGit;
 
+// Matches the rev-list count for whatever integration branch is configured; the
+// literal `^main` stopped matching when the topology moved to dev (slice 353).
 function mockRunGit(commitCount) {
   gitFinalizer.runGit = function (cmd) {
-    if (cmd.includes('rev-list') && cmd.includes('^main --count')) {
+    if (cmd.includes('rev-list') && cmd.includes('--count')) {
       return String(commitCount) + '\n';
     }
     return '';
@@ -127,10 +129,13 @@ test('B — sliceMeta.root_commission_id reference exists in verify-failure bloc
 
 console.log('\nPart 2: Functional — rom_no_commits does not crash');
 
-test('C — verifyRomActuallyWorked returns rom_no_commits for skeleton-only + high claims', () => {
+// The point of this case is only that a verify FAILURE completes without the TDZ
+// ReferenceError. Slice 375: an empty branch is the failure that still reads
+// rom_no_commits — one commit plus a big self-reported number no longer is.
+test('C — verifyRomActuallyWorked returns rom_no_commits for an empty branch', () => {
   const id = '99914';
   try {
-    mockRunGit(1); // skeleton commit only
+    mockRunGit(0); // nothing committed on the branch
     writeTempDone(id, 8600, 1980000); // high claimed tokens
     const result = verifyRomActuallyWorked(id, `slice/${id}`, 22000, 563);
     assert.strictEqual(result.ok, false, 'should reject');

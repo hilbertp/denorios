@@ -51,6 +51,7 @@ All 14 testable journeys from `docs/e2e-journeys/INDEX.md` (plus the discovered 
 |---|---|---|---|
 | J-rom-completes-slice | `dispatch-execution/j-rom-completes-slice.test.js` | 9 | The happy dispatch path: QUEUED pickup → IN_PROGRESS → DONE report appended → IN_REVIEW; register event sequence |
 | J-slice-broken-fast-path | `dispatch-execution/j-slice-broken-fast-path.test.js` | 10 | A slice that errors out fast: ERROR state, no phantom retries, queue not wedged, operator-visible error artifacts |
+| J-rom-work-substance | `orchestrator/j-rom-work-substance.test.js` | 10 | Whether Rom worked is decided by `git diff --numstat`, never by commit count or self-reported tokens (slice 375, after the rule filed finished slices 366 and 371 as fake): empty branch → `rom_no_commits`, bookkeeping-only branch → `rom_no_product_change`, one commit of real content passes, divergence warns only |
 
 ### Review & Verdict
 | Journey | Files | Tests | Guards |

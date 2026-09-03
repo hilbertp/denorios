@@ -1890,13 +1890,58 @@ function rescueWorktree(id, branchName, classification, stdout, stderr) {
   return rescuePath;
 }
 
+// Bookkeeping paths: the queue's own paperwork and the run's own records. A branch
+// whose entire diff lands inside this list carries no product change (slice 375).
+// Everything else — product code, tests, docs, config — counts as substance.
+const BOOKKEEPING_PATH_RES = [
+  /^bridge\/queue\/[^/]*-DONE\.md$/,
+  /^bridge\/state\//,
+  /^bridge\/heartbeat\.json$/,
+  /^bridge\/timesheet[^/]*\.jsonl$/,
+  /^bridge\/trash\//,
+];
+
+function isBookkeepingPath(p) {
+  return BOOKKEEPING_PATH_RES.some((re) => re.test(p));
+}
+
+/**
+ * productPathsFromNumstat(numstat)
+ *
+ * Reads `git diff --numstat --no-renames` output and returns the changed paths
+ * that are not bookkeeping. `--no-renames` is load-bearing: with rename detection
+ * on, git compacts a pair into `bridge/{state => trash}/x.json`, a string that is
+ * not a path and that no path matcher can classify. Binary rows ("-\t-\tpath")
+ * are ordinary changes here — only the path matters, never the line counts.
+ */
+function productPathsFromNumstat(numstat) {
+  const out = [];
+  for (const line of String(numstat || '').split('\n')) {
+    if (!line.trim()) continue;
+    const parts = line.split('\t');
+    if (parts.length < 3) continue;
+    const p = parts.slice(2).join('\t').trim(); // paths may contain tabs
+    if (p && !isBookkeepingPath(p)) out.push(p);
+  }
+  return out;
+}
+
 /**
  * verifyRomActuallyWorked(id, branchName, actualDurationMs, actualTokensOut)
  *
  * Checks that Rom's claimed DONE report corresponds to real work on the slice
- * branch. Primary gate: commit count. Advisory: metrics divergence.
+ * branch. The question is answered by WHAT THE DIFF CONTAINS, never by counting
+ * commits and never by the self-reported metrics.
  *
- * Returns { ok: true } or { ok: false, reason: 'rom_no_commits', detail: '...' }.
+ * Slice 375: the old rule failed any branch with exactly one commit whose DONE
+ * report claimed >1000 tokens_out. One clean commit is normal — better practice
+ * than two — so the rule filed two finished slices as fabricated: 366 (700
+ * insertions, a 274-line suite) and 371 (8 files, +988/−14). Self-reported
+ * numbers can no longer fail a slice; they only produce a log warning.
+ *
+ * Returns { ok: true } or { ok: false, reason, detail } where reason is
+ * 'rom_no_commits' (branch level with the integration branch) or
+ * 'rom_no_product_change' (commits exist but touch only bookkeeping files).
  */
 function verifyRomActuallyWorked(id, branchName, actualDurationMs, actualTokensOut) {
   // Guard: skip rev-list if branch no longer exists (deleted after merge/cleanup).
@@ -1934,14 +1979,46 @@ function verifyRomActuallyWorked(id, branchName, actualDurationMs, actualTokensO
     }
   } catch (_) {}
 
-  const highClaimOnSkeleton = commitCount === 1 && claimedTokensOut > 1000;
-  if (commitCount === 0 || highClaimOnSkeleton) {
+  if (commitCount === 0) {
     return {
       ok: false,
       reason: 'rom_no_commits',
-      detail: `Branch ${branchName} has ${commitCount} commit(s) ahead of main; DONE claimed ${claimedTokensOut} tokens_out and ${claimedElapsedMs} elapsed_ms.`,
+      detail: `Branch ${branchName} is level with ${INTEGRATION_BRANCH} — 0 commits ahead; DONE claimed ${claimedTokensOut} tokens_out and ${claimedElapsedMs} elapsed_ms.`,
     };
   }
+
+  // Substance is read off the diff. A git failure here must never file real work
+  // as fake, so the check fails open exactly like the rev-list above.
+  let numstat = '';
+  try {
+    numstat = String(gitFinalizer.runGit(
+      `git diff --numstat --no-renames ${INTEGRATION_BRANCH}...${branchName}`,
+      {
+        slice_id: id, op: 'verifyRomWork_numstat', encoding: 'utf-8',
+        execOpts: { stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 32 * 1024 * 1024 },
+      },
+    ));
+  } catch (err) {
+    log('warn', 'rom_verify', { id, msg: 'git diff --numstat failed during verification — skipping substance check', error: err.message });
+    return { ok: true };
+  }
+
+  const productPaths = productPathsFromNumstat(numstat);
+  if (productPaths.length === 0) {
+    return {
+      ok: false,
+      reason: 'rom_no_product_change',
+      detail: `Branch ${branchName} has ${commitCount} commit(s) ahead of ${INTEGRATION_BRANCH}, but the diff changes no product file — only bookkeeping (DONE report, bridge/state, heartbeat, timesheet, trash).`,
+    };
+  }
+
+  log('info', 'rom_verify', {
+    id,
+    msg: 'Substance confirmed from the diff',
+    commitCount,
+    productFiles: productPaths.length,
+    sample: productPaths.slice(0, 5),
+  });
 
   // Advisory: metrics divergence (soft flag, not blocking)
   if (actualTokensOut && claimedTokensOut > 10 * actualTokensOut) {
@@ -4155,12 +4232,14 @@ function writeErrorFile(errorPath, id, reason, err, stdout, stderr, extra) {
       : reason === 'crash'
         ? `The process exited with a non-zero status (exit code ${exitCode ?? 'unknown'}).`
         : reason === 'rom_no_commits'
-          ? `Rom wrote a DONE report but made no commits to slice/${id}. The report is fabricated (likely hit a rate limit or crashed early). ${extra && extra.detail ? extra.detail : ''}`
-          : reason === 'metrics_divergence'
-            ? `Rom's claimed metrics diverged from the actual process metrics by >10×. ${extra && extra.detail ? extra.detail : ''}`
-            : isRomSelfTerminated(reason)
-              ? `The process exited cleanly but wrote no DONE file (${reason}).${extra && extra.rescue_path ? ' Worktree rescued to ' + extra.rescue_path + '.' : ''}`
-              : `Slice frontmatter validation failed. Missing fields: ${(extra && extra.missingFields || []).join(', ')}.`;
+          ? `Rom wrote a DONE report but made no commits to slice/${id} — the branch is level with ${INTEGRATION_BRANCH}. The report is fabricated (likely hit a rate limit or crashed early). ${extra && extra.detail ? extra.detail : ''}`
+          : reason === 'rom_no_product_change'
+            ? `Rom committed to slice/${id}, but the branch changes no product file — the whole diff is bookkeeping (the DONE report, bridge/state, heartbeat, timesheet, trash). The work itself was not delivered. ${extra && extra.detail ? extra.detail : ''}`
+            : reason === 'metrics_divergence'
+              ? `Rom's claimed metrics diverged from the actual process metrics by >10×. ${extra && extra.detail ? extra.detail : ''}`
+              : isRomSelfTerminated(reason)
+                ? `The process exited cleanly but wrote no DONE file (${reason}).${extra && extra.rescue_path ? ' Worktree rescued to ' + extra.rescue_path + '.' : ''}`
+                : `Slice frontmatter validation failed. Missing fields: ${(extra && extra.missingFields || []).join(', ')}.`;
 
   const content = [
     ...frontmatter,
