@@ -70,8 +70,22 @@ node "$REPO_ROOT/dashboard/server.js" \
   >>"$DASHBOARD_LOG" 2>&1 &
 DASHBOARD_PID=$!
 
+# Refuse to start a second orchestrator. The PID-file check above only knows about
+# processes this script started; launchd runs one too (dev.denorios.orchestrator).
+# Two orchestrators race the queue and double-dispatch slices.
+if pgrep -f "bridge/orchestrator.js" >/dev/null 2>&1; then
+  echo "An orchestrator is already running:" >&2
+  ps -eo pid,command | grep "bridge/orchestrator.js" | grep -v grep >&2
+  echo "Not starting a second one. Stop the existing one first, or use only launchd:" >&2
+  echo "  launchctl kickstart -k gui/\$(id -u)/dev.denorios.orchestrator" >&2
+  exit 1
+fi
+
 echo "Starting relay orchestrator..."
-node "$REPO_ROOT/bridge/orchestrator.js" \
+# --env-file is load-bearing: without it DS9_USE_GATE_FLOW is unset and
+# acceptAndMerge takes the legacy direct-to-main path, bypassing dev and the
+# promote gate entirely. Cost one slice landing straight on the trunk (S375).
+node --env-file="$REPO_ROOT/.env" "$REPO_ROOT/bridge/orchestrator.js" \
   >>"$ORCHESTRATOR_LOG" 2>&1 &
 ORCHESTRATOR_PID=$!
 
