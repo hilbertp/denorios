@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 447,
+  "guardCount": 452,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -251,6 +251,31 @@
         "tag": "slice-375-ac-7",
         "file": "regression/orchestrator/j-rom-work-substance.test.js",
         "guardAcHash": "sha256:4c53cf94d41440f0ae8309cd10090aa774ce38081ef43aa0cac1a03e77d85f29"
+      },
+      {
+        "tag": "slice-376-ac-1",
+        "file": "regression/orchestrator/j-workspace-deps.test.js",
+        "guardAcHash": "sha256:6a3e93cb09290862898859e84a55c4a84e1ed098822d6c979614e58987cc81fb"
+      },
+      {
+        "tag": "slice-376-ac-2",
+        "file": "regression/orchestrator/j-workspace-deps.test.js",
+        "guardAcHash": "sha256:6e6f7b809a108ecd4bf3682f64f322e20cffd313e860f7bdd79eea5b9955b79f"
+      },
+      {
+        "tag": "slice-376-ac-3",
+        "file": "regression/orchestrator/j-workspace-deps.test.js",
+        "guardAcHash": "sha256:88379708bca6022c35bd2aa6b6ba2b07c4e87481138421b690e40ce99027fb55"
+      },
+      {
+        "tag": "slice-376-ac-4",
+        "file": "regression/orchestrator/j-workspace-deps.test.js",
+        "guardAcHash": "sha256:0ed0ae2330ee797d53c08877b0784d5a6a846af515916d7944d8b3ed9cae2bae"
+      },
+      {
+        "tag": "slice-376-ac-5",
+        "file": "regression/orchestrator/j-workspace-deps.test.js",
+        "guardAcHash": "sha256:821694680608016dfc35b296d765cefc16f22dd2c5fd30e54923fcdd726cbacf"
       },
       {
         "tag": "slice-99777-ac-1",
@@ -1778,6 +1803,33 @@
         "tag": "slice-353-ac-7",
         "file": "regression/orchestrator/j-slice-branch-base.test.js",
         "guardAcHash": "sha256:9e6e74b03e15a148a19a4c469fc90e233d85d8367d16a230801169dc9f107987"
+      }
+    ],
+    "regression/orchestrator/j-workspace-deps.test.js": [
+      {
+        "tag": "slice-376-ac-1",
+        "file": "regression/orchestrator/j-workspace-deps.test.js",
+        "guardAcHash": "sha256:6a3e93cb09290862898859e84a55c4a84e1ed098822d6c979614e58987cc81fb"
+      },
+      {
+        "tag": "slice-376-ac-2",
+        "file": "regression/orchestrator/j-workspace-deps.test.js",
+        "guardAcHash": "sha256:6e6f7b809a108ecd4bf3682f64f322e20cffd313e860f7bdd79eea5b9955b79f"
+      },
+      {
+        "tag": "slice-376-ac-3",
+        "file": "regression/orchestrator/j-workspace-deps.test.js",
+        "guardAcHash": "sha256:88379708bca6022c35bd2aa6b6ba2b07c4e87481138421b690e40ce99027fb55"
+      },
+      {
+        "tag": "slice-376-ac-4",
+        "file": "regression/orchestrator/j-workspace-deps.test.js",
+        "guardAcHash": "sha256:0ed0ae2330ee797d53c08877b0784d5a6a846af515916d7944d8b3ed9cae2bae"
+      },
+      {
+        "tag": "slice-376-ac-5",
+        "file": "regression/orchestrator/j-workspace-deps.test.js",
+        "guardAcHash": "sha256:821694680608016dfc35b296d765cefc16f22dd2c5fd30e54923fcdd726cbacf"
       }
     ],
     "regression/packaging/j-denorios-cli.test.js": [

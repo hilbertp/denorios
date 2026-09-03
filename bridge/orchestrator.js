@@ -1624,6 +1624,66 @@ function getWorktreePath(id) {
 }
 
 /**
+ * provisionWorkspaceDeps(wtPath, id)
+ *
+ * `git worktree add` checks out TRACKED files only, and node_modules is gitignored —
+ * so a fresh workspace cannot run either suite until someone plumbs the dependencies
+ * in by hand. On slice 371 Rom did exactly that: four calls of hand-plumbing, on every
+ * single run, ending in a delete-the-link-before-committing step he had to remember.
+ *
+ * The workspace gets a SYMLINK to the main checkout's node_modules instead of its own
+ * install:
+ *   - every workspace is a worktree of THIS repo at the same lockfile, so the
+ *     dependency tree is identical to the main checkout's by construction;
+ *   - it costs one syscall. `npm ci` would cost tens of seconds per slice, and
+ *     `npx playwright install` a browser download per slice — for browsers Playwright
+ *     already caches machine-wide, outside the repo (~/Library/Caches/ms-playwright on
+ *     macOS). Nothing here sets PLAYWRIGHT_BROWSERS_PATH; that default cache is the
+ *     point.
+ *
+ * A symlink named `node_modules` is NOT matched by the gitignore pattern
+ * `node_modules/`: a trailing slash means "directory only", and git sees the link as a
+ * file. That is why .gitignore carries the slashless `node_modules`. Do not put the
+ * slash back — with it, the link is untracked-and-visible and the first `git add -A`
+ * in a workspace commits it.
+ *
+ * Idempotent, and never fatal: a workspace without dependencies is a bad workspace,
+ * but it is not a reason to fail the slice.
+ *
+ * Returns true when the workspace ends up with dependencies available.
+ */
+function provisionWorkspaceDeps(wtPath, id) {
+  // The main checkout OWNS the real node_modules — never link it to itself.
+  if (!wtPath || path.resolve(wtPath) === path.resolve(PROJECT_DIR)) return true;
+
+  const source = path.join(PROJECT_DIR, 'node_modules');
+  const link   = path.join(wtPath, 'node_modules');
+
+  try {
+    // Already provisioned? lstat first, not existsSync — existsSync follows the link
+    // and answers false for a DANGLING one, which must be replaced, not skipped.
+    let entry = null;
+    try { entry = fs.lstatSync(link); } catch (_) {}
+    if (entry) {
+      if (fs.existsSync(link)) return true;                 // live dir, or live link
+      fs.rmSync(link, { recursive: true, force: true });    // dangling link — relink
+    }
+
+    if (!fs.existsSync(source)) {
+      log('warn', 'worktree', { id, msg: `No dependencies to link: ${source} does not exist — run npm install in the main checkout` });
+      return false;
+    }
+
+    fs.symlinkSync(source, link, 'dir');
+    log('info', 'worktree', { id, msg: `Linked dependencies into ${wtPath} -> ${source}` });
+    return true;
+  } catch (err) {
+    log('warn', 'worktree', { id, msg: 'Failed to provision workspace dependencies', error: err.message });
+    return false;
+  }
+}
+
+/**
  * createWorktree(id, branchName)
  *
  * Creates a git worktree at /tmp/ds9-worktrees/{id}/ for the given branch.
@@ -1640,6 +1700,9 @@ function createWorktree(id, branchName) {
 
   // If this ID already has a worktree, reuse it (Part 6: rejection requeue reuse)
   if (fs.existsSync(wtPath)) {
+    // A reused workspace is provisioned too — the dependencies may have been cleaned
+    // out from under it, and a workspace without them cannot run either suite.
+    provisionWorkspaceDeps(wtPath, id);
     log('info', 'worktree', { id, msg: `Reusing existing worktree at ${wtPath}`, branch: branchName });
     return wtPath;
   }
@@ -1682,8 +1745,12 @@ function createWorktree(id, branchName) {
     gitFinalizer.runGit(`git worktree add "${wtPath}" -b ${branchName} ${INTEGRATION_BRANCH}`, { slice_id: id, op: 'createWorktree', execOpts: { stdio: 'pipe' }, worktreePath: wtPath });
   }
 
-  registerEvent(id, 'WORKTREE_CREATED', { path: wtPath, branch: branchName });
-  log('info', 'worktree', { id, msg: `Created worktree at ${wtPath} on branch ${branchName}`, branchExists });
+  // Dependencies, immediately — the workspace is not usable without them and no one
+  // downstream (Rom, Nog, Bashir, the merge path) should have to plumb them in.
+  const deps = provisionWorkspaceDeps(wtPath, id);
+
+  registerEvent(id, 'WORKTREE_CREATED', { path: wtPath, branch: branchName, deps: deps ? 'linked' : 'missing' });
+  log('info', 'worktree', { id, msg: `Created worktree at ${wtPath} on branch ${branchName}`, branchExists, deps });
   return wtPath;
 }
 
@@ -3675,6 +3742,12 @@ function invokeNog(id) {
   } else if (!fs.existsSync(nogWorktreePath)) {
     nogWorktreePath = PROJECT_DIR;
   }
+
+  // The reviewer's workspace is provisioned exactly like the implementer's — same
+  // function, same symlink. Reached here as well as inside createWorktree, because the
+  // common case above REUSES Rom's existing worktree and never calls createWorktree.
+  // (A no-op when nogWorktreePath fell back to PROJECT_DIR, which owns the real one.)
+  provisionWorkspaceDeps(nogWorktreePath, id);
 
   // Build scope diff (same as evaluator used to do — now part of the single Nog pass).
   const scopeDiff = branchName ? buildScopeDiff(id, branchName, sliceContent) : '## SCOPE REVIEW — branch name unknown, scope diff unavailable\n';
@@ -7357,4 +7430,4 @@ function mergeDevToMain() {
 // Exports — for use by helper scripts (e.g. bridge/next-id.js)
 // ---------------------------------------------------------------------------
 
-module.exports = { startGate, abortGate, buildBashirPrompt, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, validateIntakeMeta, ensureIntegrationIsFresh, ensureMainIsFresh: ensureIntegrationIsFresh, fastForwardIntegrationRef, branchNamesFrom, INTEGRATION_BRANCH, TRUNK_BRANCH, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted };
+module.exports = { startGate, abortGate, buildBashirPrompt, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, validateIntakeMeta, ensureIntegrationIsFresh, ensureMainIsFresh: ensureIntegrationIsFresh, fastForwardIntegrationRef, branchNamesFrom, INTEGRATION_BRANCH, TRUNK_BRANCH, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, provisionWorkspaceDeps, _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted };

@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-ac-manifest.js",
-  "acCount": 212,
+  "acCount": 217,
   "legacyCount": 194,
   "byTag": {
     "slice-042-ac-1": {
@@ -632,6 +632,46 @@
       "text": "a test runs the new rule against the existing single-commit branch slice/371 and it passes without that commit being changed",
       "acHash": "sha256:4c53cf94d41440f0ae8309cd10090aa774ce38081ef43aa0cac1a03e77d85f29",
       "source": "bridge/queue/375-DONE.md",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-376-ac-1": {
+      "slice": "376",
+      "text": "a newly created slice workspace has its dependencies available immediately after creation, without any manual step",
+      "acHash": "sha256:6a3e93cb09290862898859e84a55c4a84e1ed098822d6c979614e58987cc81fb",
+      "source": "bridge/queue/376-DONE.md",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-376-ac-2": {
+      "slice": "376",
+      "text": "a fresh workspace can run the safety-net suite and can list the browser suite",
+      "acHash": "sha256:6e6f7b809a108ecd4bf3682f64f322e20cffd313e860f7bdd79eea5b9955b79f",
+      "source": "bridge/queue/376-DONE.md",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-376-ac-3": {
+      "slice": "376",
+      "text": "git status in a fresh workspace is clean, and the dependency directory cannot be committed",
+      "acHash": "sha256:88379708bca6022c35bd2aa6b6ba2b07c4e87481138421b690e40ce99027fb55",
+      "source": "bridge/queue/376-DONE.md",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-376-ac-4": {
+      "slice": "376",
+      "text": "no browser download occurs per slice; the existing machine-wide cache is used",
+      "acHash": "sha256:0ed0ae2330ee797d53c08877b0784d5a6a846af515916d7944d8b3ed9cae2bae",
+      "source": "bridge/queue/376-DONE.md",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-376-ac-5": {
+      "slice": "376",
+      "text": "the reviewer's workspace is provisioned the same way as the implementer's",
+      "acHash": "sha256:821694680608016dfc35b296d765cefc16f22dd2c5fd30e54923fcdd726cbacf",
+      "source": "bridge/queue/376-DONE.md",
       "status": "active",
       "legacy": false
     },

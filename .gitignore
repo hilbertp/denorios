@@ -7,7 +7,11 @@
 .bridge/heartbeat.json
 
 # Node
-node_modules/
+# NO TRAILING SLASH, deliberately (slice 376). Every slice/review workspace is a git
+# worktree whose node_modules is a SYMLINK to the main checkout's. `node_modules/`
+# means "directory only" and does not match a symlink, so with the slash the link
+# shows up as untracked and the first `git add -A` commits it.
+node_modules
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -55,7 +59,7 @@ regression/LAST-RUN.md
 .claude/roles/obrien/inbox/REGRESSION-FAILURE.md
 
 # Playwright e2e artifacts (generated)
-node_modules/
+node_modules
 test-results/
 playwright-report/
 blob-report/
