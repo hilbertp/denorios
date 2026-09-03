@@ -74,13 +74,11 @@ DASHBOARD_PID=$!
 # processes this script started; launchd runs one too (dev.denorios.orchestrator).
 # Two orchestrators race the queue and double-dispatch slices.
 if pgrep -f "bridge/orchestrator.js" >/dev/null 2>&1; then
-  echo "An orchestrator is already running:" >&2
+  echo "An orchestrator is already running — not starting a second one:" >&2
   ps -eo pid,command | grep "bridge/orchestrator.js" | grep -v grep >&2
-  echo "Not starting a second one. Stop the existing one first, or use only launchd:" >&2
-  echo "  launchctl kickstart -k gui/\$(id -u)/dev.denorios.orchestrator" >&2
-  exit 1
-fi
-
+  echo "(the dashboard above is up; the orchestrator is left as-is)" >&2
+  ORCHESTRATOR_PID=""
+else
 echo "Starting relay orchestrator..."
 # --env-file is load-bearing: without it DS9_USE_GATE_FLOW is unset and
 # acceptAndMerge takes the legacy direct-to-main path, bypassing dev and the
@@ -88,6 +86,7 @@ echo "Starting relay orchestrator..."
 node --env-file="$REPO_ROOT/.env" "$REPO_ROOT/bridge/orchestrator.js" \
   >>"$ORCHESTRATOR_LOG" 2>&1 &
 ORCHESTRATOR_PID=$!
+fi
 
 # Write PID file (dashboard PID on line 1, orchestrator PID on line 2)
 printf '%s\n%s\n' "$DASHBOARD_PID" "$ORCHESTRATOR_PID" > "$PID_FILE"
