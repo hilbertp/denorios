@@ -170,3 +170,10 @@
 - **Date:** 2026-09-01
 - **Idea:** The gate recognises an untagged check by its exact title text, so *renaming* one reads as "removed" plus "added" — a RED FLAG on honest work. Pair a disappearing title with a near-identical appearing one and label it **renamed**, showing before → after together. Two further fixes on the same screen: describe each item in plain behaviour language rather than the raw test title (a non-author cannot judge "MAIN_PUSHED_TO_ORIGIN emitted with ahead_count=3"), and stop policing `test/`, which the gate never actually runs.
 - **Why it matters:** This is the second false red flag in one day. A gate that cries wolf on renames trains the operator to tick the confirmation box reflexively — and then it gets ticked on the day a check is genuinely disabled. False positives don't just annoy; they destroy the gate's only real asset, which is being believed.
+
+## Lock scripts name a CLAUDE.md that does not exist; the live one is unlocked
+
+- **Source:** Worf (found while drafting the CLAUDE.md backstop patch for the test-ownership ruling, 2026-09-03)
+- **Date:** 2026-09-03
+- **Idea:** `scripts/lock-main.sh`, `scripts/unlock-main.sh` and `scripts/chmod-guard.sh` all name `$REPO/CLAUDE.md` at the repo root. That file does not exist. The file every role and every Rom workspace actually loads is `.claude/CLAUDE.md`, and it is writable today. Point the three scripts at `.claude/CLAUDE.md` (a one-line change each, Worf's surface) so the "Layer-2 locked" label on Rom's anchor becomes true. Until then, treat any edit to `.claude/CLAUDE.md` as Philipp-only by convention, not by mechanism.
+- **Why it matters:** A lock that guards the wrong path is worse than no lock: everyone believes the anchor is protected, so nobody watches it, and it is the one standing file Rom is guaranteed to have in context on every run.
