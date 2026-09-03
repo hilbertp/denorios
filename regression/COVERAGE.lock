@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 452,
+  "guardCount": 456,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -388,6 +388,22 @@
       {
         "tag": "slice-362-ac-4",
         "file": "regression/gate-merge/j-merge-truth-now.test.js"
+      },
+      {
+        "tag": "slice-373-ac-1",
+        "file": "regression/authoring-staging/j-backlog-row-controls.test.js"
+      },
+      {
+        "tag": "slice-373-ac-2",
+        "file": "regression/authoring-staging/j-backlog-row-controls.test.js"
+      },
+      {
+        "tag": "slice-373-ac-3",
+        "file": "regression/authoring-staging/j-backlog-row-controls.test.js"
+      },
+      {
+        "tag": "slice-373-ac-4",
+        "file": "regression/authoring-staging/j-backlog-row-controls.test.js"
       },
       {
         "tag": "slice-99777-ac-1",

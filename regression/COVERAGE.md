@@ -45,6 +45,7 @@ All 14 testable journeys from `docs/e2e-journeys/INDEX.md` (plus the discovered 
 | J-stage-and-watch-slice | `authoring-staging/j-stage-and-watch-slice.test.js`, `…-cli.test.js` | 9 + 10 | Staging a slice via the CLI and seeing it appear in Ops: file lands in `bridge/staged/`, staged listing serves it, frontmatter survives round-trips |
 | J-approve-and-reorder-queue | `authoring-staging/j-approve-and-reorder-queue.test.js` (+ helpers), `j-approve-and-reorder-server.test.js` | 11 + 7 | Approve moves `STAGED → QUEUED` with `HUMAN_APPROVAL` emitted; drag-reorder rewrites `queue-order.json` atomically; order survives restarts |
 | J-queue-detail-controls | `authoring-staging/j-queue-detail-controls.test.js`, `…-server.test.js` | 5 + 9 | Detail-overlay actions: save edits (frontmatter preserved), un-approve, remove-to-trash, return-to-O'Brien (`NEEDS_APENDMENT`), each with its register event |
+| J-backlog-row-controls | `authoring-staging/j-backlog-row-controls.test.js` | 6 | The controls a backlog row offers (slice 373): a proposed row is Approve + Reject only, an approved row is Un-approve only, and the retired `queueEdit` Edit button is gone from both; the shared slice-detail overlay and every handler it calls survive the removal; the surviving route to a staged slice's full brief is the row chevron, which renders the whole body |
 
 ### Dispatch & Execution
 | Journey | Files | Tests | Guards |

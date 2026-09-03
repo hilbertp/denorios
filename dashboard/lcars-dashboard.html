@@ -1912,27 +1912,6 @@
     }
   }
 
-  .queue-btn-edit {
-    -webkit-appearance: none;
-    appearance: none;
-    display: inline-flex;
-    align-items: center;
-    padding: 3px 10px;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 500;
-    cursor: pointer;
-    white-space: nowrap;
-    border: 1px solid var(--border);
-    background: var(--bg-panel);
-    color: #6b7280;
-    transition: background 0.15s;
-  }
-
-  .queue-btn-edit:hover {
-    background: var(--bg-hover);
-  }
-
   .queue-empty {
     font-size: 14px;
     color: #9ca3af;
@@ -9210,12 +9189,10 @@ body:not(.lcars-mode) .staged-details-body pre code {
     if (isQueued) {
       const unapproveBtn = isInPipeline ? ''
         : `<button class="btn btn-ghost queue-btn-unapprove" onclick="queueUnapprove('${eid}')" title="Move back to Proposed Improvement" aria-label="Un-approve and return to Proposed Improvement">&#8630;</button>`;
-      actionsHtml = `${unapproveBtn}
-        <button class="btn queue-btn-edit" onclick="queueEdit('${eid}')">Edit</button>`;
+      actionsHtml = unapproveBtn;
     } else if (isStaged) {
       actionsHtml = `
         <button class="btn btn-approve queue-btn-accept" onclick="queueAccept('${eid}')">&#10003; Approve</button>
-        <button class="btn queue-btn-edit" onclick="queueEdit('${eid}')">Edit</button>
         <button class="btn btn-reject queue-btn-reject" onclick="queueReject('${eid}')">&#10005; Reject</button>`;
     } else {
       actionsHtml = '';
@@ -9587,33 +9564,6 @@ body:not(.lcars-mode) .staged-details-body pre code {
   // ── Slice Detail overlay ──────────────────────────────────────────────────
   let sliceDetailState = null; // { id, context: 'staged'|'accepted', body, raw, frontmatter }
   let sliceDetailTab = 'rendered';
-
-  async function queueEdit(id) {
-    // Determine context: QUEUED/PENDING (in build queue) vs staged
-    const isAccepted = cachedBridgeSlices.some(b => b.id === String(id) && (b.state === 'QUEUED' || b.state === 'PENDING'));
-    const context = isAccepted ? 'accepted' : 'staged';
-
-    // Fetch full content from server
-    try {
-      const res = await fetch(`/api/queue/${id}/content`);
-      if (!res.ok) { alert('Could not load S' + id); return; }
-      const data = await res.json();
-      sliceDetailState = {
-        id: data.id,
-        context,
-        body: data.body,
-        raw: data.raw,
-        frontmatter: data.frontmatter,
-      };
-    } catch (err) {
-      alert('Error loading slice: ' + err.message);
-      return;
-    }
-
-    sliceDetailTab = 'rendered';
-    renderSliceDetail();
-    document.getElementById('slice-detail-overlay').style.display = '';
-  }
 
   function closeSliceDetail() {
     document.getElementById('slice-detail-overlay').style.display = 'none';
