@@ -1,17 +1,17 @@
 {
-  "ts": "2026-09-02T16:11:40.849Z",
-  "pickup_ts": "2026-09-02T14:57:25.104Z",
+  "ts": "2026-09-03T21:21:22.062Z",
+  "pickup_ts": "2026-09-03T21:16:18.049Z",
   "status": "nog_review",
-  "current_slice": "366",
+  "current_slice": "376",
   "current_slice_title": null,
-  "current_slice_goal": "Pair a disappearing check with a near-identical appearing one, merge and re-classify so a pure rename is clear while a rename-and-weaken still flags.",
-  "slice_elapsed_seconds": 4455,
+  "current_slice_goal": "A fresh slice workspace has no node_modules, so neither suite runs; Rom hand-symlinks it on every run and the link would have been committed.",
+  "slice_elapsed_seconds": 304,
   "last_activity_ts": null,
-  "processed_total": 149,
+  "processed_total": 1,
   "queue": {
-    "waiting": 1,
+    "waiting": 0,
     "active": 0,
-    "done": 23,
-    "error": 41
+    "done": 25,
+    "error": 44
   }
 }

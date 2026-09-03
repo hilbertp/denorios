@@ -1,20 +1,20 @@
 {
   "schema_version": 1,
   "main": {
-    "tip_sha": "f7fd23081c767db25a48c2a6b33e53ba10011e4d",
-    "tip_subject": "fix(dashboard): amend input + API-retry toast follow the LCARS skin",
-    "tip_ts": "2026-06-25T15:23:32+03:00"
+    "tip_sha": "d0834daa3a9575d94b030be94833bbafe403a688",
+    "tip_subject": "S375: DONE report + AC manifest",
+    "tip_ts": "2026-09-03T23:06:31+03:00"
   },
   "dev": {
-    "tip_sha": null,
-    "tip_ts": null,
+    "tip_sha": "217781bd0932478887f9185c8c6e47b99abe8522",
+    "tip_ts": "2026-09-03T22:06:18+03:00",
     "commits_ahead_of_main": 0,
     "commits": [],
     "deferred_slices": []
   },
   "last_merge": {
-    "sha": "f7fd23081c767db25a48c2a6b33e53ba10011e4d",
-    "ts": "2026-06-25T15:23:32+03:00"
+    "sha": "217781bd0932478887f9185c8c6e47b99abe8522",
+    "ts": "2026-09-03T22:06:18+03:00"
   },
   "gate": {
     "status": "IDLE",
@@ -30,6 +30,6 @@
       "surface_volatility": 0,
       "ac_coverage_gap": 0
     },
-    "computed_ts": "2026-09-02T16:11:47.693Z"
+    "computed_ts": "2026-09-03T21:21:30.389Z"
   }
 }
