@@ -34,6 +34,7 @@ bridge/
   scripts/         — helper scripts (one-off maintenance)
   logs/            — watcher + server runtime logs
   errors/          — error sidecars (BLOCKED and ERROR details)
+  state/           — per-slice stage results written by the watcher (e.g. breakit-{id}.json)
   new-slice.js     — sole slice-creation tool (O'Brien)
   orchestrator.js  — orchestrator (the only process that moves slice files across directories and performs git ops)
   register.jsonl   — append-only event log (see §7)
@@ -55,9 +56,9 @@ One file per slice. The filename suffix **is** the state. The watcher enforces o
 - `{id}` — zero-padded three-digit sequential string (e.g. `140`). Assigned by `new-slice.js` via `watcher.nextSliceId()`.
 - `{STATE}` — one of the suffixes in the state-mapping table (§4).
 
-Examples: `140-STAGED.md`, `140-IN_PROGRESS.md`, `140-DONE.md`, `140-ARCHIVED.md`.
+Examples: `140-STAGED.md`, `140-IN_PROGRESS.md`, `140-DONE.md`, `140-IN_QA.md`, `140-ARCHIVED.md`.
 
-There is never more than one live file for a given `{id}`. Prior rounds of review are kept as appended blocks *inside* the single file, not as sidecar files (see §8, append-only).
+There is never more than one live *state* file for a given `{id}`. Prior rounds of review are kept as appended blocks *inside* the single file, not as sidecar files (see §8, append-only). The one sidecar Julian's stage writes, `{id}-QA_QUESTION.md`, is a question for Philipp, not a state file; the slice itself stays in `{id}-IN_QA.md`.
 
 ---
 
@@ -94,7 +95,9 @@ Authored by O'Brien (via `new-slice.js --body-file` or stdin). The sections are:
 - `## Context` — prior state, links to relevant docs, constraints the reader needs.
 - `## Scope` / `## Out of scope` — what this slice changes / does not change.
 - `## Tasks` — numbered list of concrete steps for Rom.
-- `## Acceptance criteria` — explicit, checkable conditions. Nog evaluates against these.
+- `## Traps` *(when the change has known ways to go wrong)* — the ways the change is likely to go wrong; Rom writes one safety-net test per trap.
+- `## Acceptance criteria` — explicit, checkable, tagged conditions. Nog evaluates against these on the branch; Julian evaluates the screen-facing ones on dev with browser tests, reading them as O'Brien wrote them.
+- `## Screen hooks` *(required when a criterion touches the screen)* — one line per button, row, or field a browser test will click or read: either the stable names O'Brien already knows (an id, a data attribute, or a class that does not change when the layout does; the kind the existing browser tests already select by) or the words "Rom to declare", each with its starting state ("visible when ..."). A list of names Rom must report, not a design written before the code.
 - `## Quality + goal check` — sanity notes for Rom and Nog.
 - `## Files expected to change` — the expected diff surface.
 
@@ -104,7 +107,7 @@ A slice with no body is not valid. O'Brien never ships an empty `## Acceptance c
 
 ## 4. BR state → on-disk filename suffix
 
-The BR has 8 business states. The filesystem uses 7 suffixes. The mapping is:
+The BR has 9 business states. The filesystem uses 8 suffixes. The mapping is:
 
 | # | BR state     | On-disk suffix      | Location                 | Notes                                           |
 |---|--------------|---------------------|--------------------------|-------------------------------------------------|
@@ -114,8 +117,9 @@ The BR has 8 business states. The filesystem uses 7 suffixes. The mapping is:
 | 4 | DONE         | `-DONE.md`          | `bridge/queue/`          | Rom's completion report appended.               |
 | 5 | IN_REVIEW    | `-IN_REVIEW.md`     | `bridge/queue/`          | Legacy `-REVIEWED.md` dual-read for migration.  |
 | 6 | ACCEPTED     | `-ACCEPTED.md`      | `bridge/queue/`          | Nog has appended a PASS verdict.                |
-| 7 | MERGED       | (commit on `main`)  | n/a                      | Merge commit; file keeps `-ACCEPTED.md` until archive. |
-| 8 | ARCHIVED     | `-ARCHIVED.md`      | `bridge/queue/`          | Terminal read-only state. Branch + worktree pruned. |
+| 7 | IN_QA        | `-IN_QA.md`         | `bridge/queue/`          | Slice is on dev. Julian's stage: break-it check, browser tests, both suites once. A red ticket stays `-IN_QA.md`. |
+| 8 | MERGED       | (commit on `main`)  | n/a                      | Promotion dev → main via the Promote button; file keeps `-IN_QA.md` until archive. |
+| 9 | ARCHIVED     | `-ARCHIVED.md`      | `bridge/queue/`          | Terminal read-only state. Branch + worktree pruned. |
 
 > **Note:** `-PARKED.md` is an internal intermediate suffix (not a BR state) used by the watcher to park the original slice body while Nog evaluates. It replaces the previous use of `-ARCHIVED.md` for this purpose (slice 145). Legacy slices may still use `-ARCHIVED.md` as the parked suffix.
 
@@ -123,7 +127,7 @@ The BR has 8 business states. The filesystem uses 7 suffixes. The mapping is:
 
 ## 5. Transition mechanics
 
-Each transition is performed by exactly one actor. The primitive is either an atomic `fs.renameSync` (for state moves) or a single-writer file-append (for appending content into the slice file).
+Each transition is performed by exactly one actor, except IN_QA → MERGED, where the stage (watcher) records green and `promote.yml` performs the promotion. The primitive is either an atomic `fs.renameSync` (for state moves) or a single-writer file-append (for appending content into the slice file).
 
 | From → To                              | Actor           | Primitive                                                                                   |
 |----------------------------------------|-----------------|---------------------------------------------------------------------------------------------|
@@ -136,7 +140,10 @@ Each transition is performed by exactly one actor. The primitive is either an at
 | IN_REVIEW → QUEUED  *(reject, rework)* | Nog (via watcher) | Nog appends rejection block; watcher writes `-QUEUED.md`. Round counter + 1. Emits `REVIEWED` + `REVIEW_RECEIVED`. |
 | IN_PROGRESS → STAGED  *(slice-broken fast path)* | Rom → O'Brien | Rom appends an **escalation block** (see §10). Watcher `renameSync` → `staged/{id}-STAGED.md`. Round counter **not** incremented (§9). |
 | IN_REVIEW → STAGED  *(6th rejection)*  | Nog → O'Brien   | After a 6th Nog rejection, watcher `renameSync` → `staged/{id}-STAGED.md` for O'Brien rework. |
-| ACCEPTED → MERGED                      | Watcher         | `git merge --no-ff slice/{id}` on `main`, then `git push origin main`. Emits `MERGED` (or `MERGE_FAILED` on guard trip). |
+| ACCEPTED → IN_QA                       | Watcher         | Squashes `slice/{id}` onto `dev`, `renameSync` → `-IN_QA.md`, runs the break-it check (result in `bridge/state/breakit-{id}.json`; still-green = hollow, named, not deleted), builds Julian's packet ((1) the whole slice file with brief, tasks, traps and O'Brien's tagged criteria, (2) Rom's report, (3) Nog's verdict and review, (4) changed file names only, (5) screen hooks with starting states, (6) tests Rom moved, (7) the dev dashboard address, (8) the break-it result; never the diff, never the source), spawns Bashir. Ops shows "Julian is writing browser tests for slice N". Emits `IN_QA`. The stage starts by itself when the slice lands on dev. |
+| IN_QA → MERGED                         | Watcher / `promote.yml` | When Bashir signals done, the stage runs both suites once on dev and records green. Philipp presses the Promote button; `promote.yml` runs both suites once more and promotes `dev` → `main`. Emits `MERGED` (or `MERGE_FAILED` on guard trip). |
+| IN_QA (red, bug)                       | Bashir → O'Brien | Bashir appends the finding to the ticket. The stage parses the failing suite's output (safety-net or Playwright) and writes `HANDOFF-QA-RED-SLICE-{id}-FROM-BASHIR.md` into O'Brien's inbox naming the criterion, the failing test file, and an excerpt; a later green run does not delete it; O'Brien removes it when the fix slice is queued. A criterion whose only safety-net test is hollow takes this exit. The ticket stays `-IN_QA.md`. Emits `QA_RED`. |
+| IN_QA (red, unclear AC)                | Bashir → Philipp | Bashir appends the question to the ticket. The stage writes `bridge/queue/{id}-QA_QUESTION.md`; the Ops panel shows "slice N is waiting for Philipp" next to Julian's stage until Philipp answers. The answer is appended to the ticket and the stage re-runs. The ticket stays `-IN_QA.md`. Emits `QA_RED`. |
 | MERGED → ARCHIVED                      | Watcher         | `renameSync` → `-ARCHIVED.md`, `git worktree prune`, `git branch -D`. Emits `ARCHIVED`.     |
 
 ---
@@ -150,8 +157,9 @@ Each transition is performed by exactly one actor. The primitive is either an at
 | Watcher     | `bridge/orchestrator.js`                    | Single owner of directory moves + git ops. Polls on interval; one slice at a time.       |
 | Rom         | `claude -p` (spawned by watcher)       | Writes code on the slice branch + appends a DONE report to the slice file.               |
 | Nog         | `claude -p` (spawned by watcher)       | Reads the slice file + diff, appends a verdict (PASS / REJECT / ESCALATE-to-OBRIEN).     |
+| Bashir      | `claude -p` (spawned by watcher)       | Reads the eight-item packet and the product on dev. Writes browser tests under `e2e/`; `e2e/seed-fixture.js` and the existing `e2e/*.spec.js` are his own test code, which he reads and extends. His tests run against the fixture server the suite starts itself, not the live dashboard. Commits to `dev` from inside the stage with the watcher's commit permission; a refused commit is a stage failure shown in Ops, not a two-exit red. Never reads the diff or product source; never edits a safety-net test. |
 
-No actor other than the watcher performs `git checkout`, `git merge`, or cross-directory renames. This is the FUSE-safe discipline captured in `docs/git-strategy.md`.
+No actor other than the watcher performs `git checkout`, `git merge`, or cross-directory renames in the local repo; the one exception is `promote.yml`, which promotes `dev` → `main` on GitHub when Philipp presses the Promote button. Bashir commits to `dev` only from inside Julian's stage, with the watcher's commit permission. This is the FUSE-safe discipline captured in `docs/git-strategy.md`.
 
 ---
 
@@ -170,8 +178,10 @@ No actor other than the watcher performs `git checkout`, `git merge`, or cross-d
 | `NOG_PASS`        | Watcher | Specifically a PASS verdict. Paired with `ACCEPTED`.                                 |
 | `ACCEPTED`        | Watcher | State transition to ACCEPTED confirmed.                                              |
 | `REVIEW_RECEIVED` | Watcher | Mirror of the verdict for dashboard consumption.                                     |
-| `MERGED`          | Watcher | Merge commit succeeded and pushed.                                                   |
+| `MERGED`          | Watcher / `promote.yml` | Promotion `dev` → `main` succeeded via the Promote button.                                                   |
 | `MERGE_FAILED`    | Watcher | Merge blocked — commonly by the truncation guard (§11).                              |
+| `IN_QA`           | Watcher | Slice squashed onto dev; Julian's stage started (break-it check, browser tests).      |
+| `QA_RED`          | Watcher | Julian's stage went red: bug (handoff to O'Brien) or unclear AC (question to Philipp). |
 | `BLOCKED`         | Rom/Nog | Actor could not proceed; reason recorded in the corresponding `-DONE.md` / error file. |
 | `ERROR`           | Watcher | Infrastructure failure (role spawn crash, git failure, etc.).                        |
 | `API_RETRY`       | Watcher | Transient API hiccup retried transparently. Informational.                           |
@@ -189,6 +199,7 @@ BR invariant #5 — "the slice file is append-only after it leaves STAGED" — i
 - **O'Brien** writes a fresh slice file **only** through `new-slice.js`. Any attempt to overwrite a file that already exists in `bridge/staged/` is blocked by the script.
 - **Rom** never edits the slice file above his own appended report block. His implementation work happens on the `slice/{id}` git branch, not in the slice file.
 - **Nog** reads the slice file + the branch diff, then appends a clearly-delimited verdict block (Markdown heading `## Nog Review — Round N`). He does not modify anything above that heading.
+- **Bashir** appends his stage result (a finding or a question for Philipp) below Nog's verdict. He does not modify anything above it and never edits a safety-net test or product code.
 - **Watcher** renames files between directories but does not rewrite content. The suffix changes; the bytes above the last appended block are preserved.
 
 A rejection loop therefore produces a file with the structure:

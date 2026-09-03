@@ -25,8 +25,9 @@ escalates to Philipp** and stays RED until he rules. No role edits an AC to clea
 | Role | Owns | Never |
 |---|---|---|
 | **O'Brien** | Authors each AC as a tagged `- slice-<id>-ac-<k>: <text>` line in the slice's `## Acceptance criteria` block, at slice time (§11.6). | — |
-| **Julian (Bashir)** | Writes/updates **tests** from AC text inside the blind reconcile bundle; re-embeds `@ac-hash`. Escalates unresolvable AC-vs-test conflicts to Philipp. | Never edits an AC. Never sees source during reconcile. |
-| **Nog** | Non-author second-ack on any AC mutation; reviews legacy backfill against brief *intent*. | Is never the `Spec-Owner`. |
+| **Rom** | Writes the **safety-net tests** for his own change: one per AC plus one per trap in the brief, each carrying its AC tag, then stops. Runs the break-it check on them and reports which went red. Moves his own safety-net tests when needed and lists every move in his DONE report. | Never writes or commits a browser test. Never runs the browser suite. Never edits an AC. |
+| **Julian (Bashir)** | Writes/updates the **browser tests** from AC text after the slice is on dev, at his own visible stage (IN_QA), one slice at a time; re-embeds `@ac-hash`. Moves browser tests only. Escalates unresolvable AC-vs-test conflicts to Philipp. | Never edits an AC. Never sees the line-by-line code changes or the product source. Never edits product code. Never edits a safety-net test. |
+| **Nog** | Non-author second-ack on any AC mutation and on any moved or weakened test (the second signature comes from whoever is not doing the moving); reviews legacy backfill against brief *intent*. Checks that AC tags are present, that each test checks the criterion and not the code's shape, that nothing pins dead code, that the report lists which tests went red when the fix was removed, and that every screen hook the report or brief promises exists in the shipped page. One test per criterion plus the trap list is the target; he notes extra tests as a flag for O'Brien in the review and rejects only if the extra tests hide which one actually covers the criterion. Never rejects for a missing browser test or for not verifying in a browser; those are Julian's. | Authors no code and no tests (deliberate). Is never the `Spec-Owner`. |
 | **Philipp** | The only valid `Spec-Owner` of record; rules every AC conflict. | — |
 
 ## The staleness primitive
@@ -65,14 +66,18 @@ the lock current at commit, so commissioned ACs are always captured). On every p
 run, `scripts/ac-reconcile.js` diffs the manifest against Julian's drained ledger
 (`regression/AC-DRAINED.json`, tracked) and writes the undrained ones — the **new or changed
 active ACs** — to `.claude/roles/bashir/inbox/NEW-ACS.md` (generated, gitignored), each tagged
-NEW/CHANGED with its coverage status (MISSING/STALE/COVERED).
+NEW/CHANGED with its coverage status (MISSING/STALE/COVERED). The coverage status refers to the
+safety-net (regression) surface, which is Rom's; a MISSING or STALE entry is a finding for O'Brien's
+fix slice, not something Julian fills. Julian reads the feed once per slice, at his stage on dev.
 
-Julian's loop, every run:
-1. Read `NEW-ACS.md`. For each AC decide: does it **deliberately change existing behaviour**?
-   → update/add the guard test and re-embed its `@ac-hash` (a test update the gate audits).
-   New behaviour with no guard → write the test. No behavioural change → it drains as-is.
+Julian's loop, once per slice at his stage on dev:
+1. Read `NEW-ACS.md` for the slice. The safety-net test for each AC is already Rom's; Julian never edits it.
+   For each AC that touches the screen decide: does it **deliberately change existing behaviour**?
+   → update the browser test and re-embed its `@ac-hash` (a test update the gate audits).
+   New screen behaviour with no browser test → write it, using the screen hooks and their starting states.
+   No screen change → it drains as-is.
 2. `node scripts/ac-reconcile.js --drain` → advances `AC-DRAINED.json` to the current manifest;
    the feed clears. Commit the ledger. A later edit to an AC's text re-surfaces it (hash changes).
 
 Legacy (unhashed) entries never enter the new feed — they are the separate grandfathered
-backfill task. O'Brien dumps the ACs (manifest); Julian drains and owns the test decisions.
+backfill task. O'Brien dumps the ACs (manifest); Rom writes the safety-net test for each one; Julian drains the feed and owns the browser-test decisions.

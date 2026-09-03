@@ -24,7 +24,7 @@ A slice is a markdown file with YAML frontmatter, authored by O'Brien through `b
 ```
 
 - `{id}` — zero-padded three-digit sequential string (e.g. `142`). Assigned by `bridge/new-slice.js` via `watcher.nextSliceId()`.
-- `STAGED` — the initial state. Subsequent state suffixes (`-PENDING.md`, `-IN_PROGRESS.md`, `-DONE.md`, `-REVIEWED.md`, `-ACCEPTED.md`, `-ARCHIVED.md`) are set by the watcher as the slice progresses. See `slice-pipeline.md` §4 for the full state-to-suffix mapping.
+- `STAGED` — the initial state. Subsequent state suffixes (`-PENDING.md`, `-IN_PROGRESS.md`, `-DONE.md`, `-REVIEWED.md`, `-ACCEPTED.md`, `-IN_QA.md`, `-ARCHIVED.md`) are set by the watcher as the slice progresses. See `slice-pipeline.md` §4 for the full state-to-suffix mapping.
 
 ---
 
@@ -74,7 +74,7 @@ status: STAGED
 
 ## Markdown body
 
-The body is freeform prose read by the implementor. The following sections are required. Order them as shown.
+The body is freeform prose read by the implementor. The following sections are required unless their heading says otherwise (`## Traps` and `## Screen hooks` are conditional). Order them as shown.
 
 ### `## Goal`
 
@@ -102,9 +102,30 @@ What this slice does **not** change. Call out tempting adjacent work and explain
 
 A numbered list of concrete, verifiable steps. Each step should be specific enough that the implementor can mark it done or not done unambiguously. Include sub-tasks where helpful.
 
+**What the brief must never ask Rom to do.** Rom follows the brief word for word (slice 371 showed a brief overrides everything else he reads), so the brief must not ask for these:
+
+- Never "write guard tests" or "add tests" as an open task. Say instead, word for word: "Write one safety-net test per acceptance criterion, plus one for each trap, then stop."
+- Never "verify in a real browser". Rom may look in a browser to check his own work and say what he saw in his report. The browser tests themselves are Julian's, written after the slice is on dev.
+- Never ask Rom to write or add a browser test (a `*.spec.js` under `e2e/`), and never ask him to run the browser suite. Fixtures and helpers under `e2e/` that his product change genuinely requires (for example `e2e/seed-fixture.js`) are allowed; he lists them under `## What changed` with one line on why. A brief whose task is to build or change the test machinery itself says explicitly that Rom may touch `e2e/`.
+- Never write the break-it check as a task; the report template already requires Rom to report it.
+- Never ask for more tests than the criteria and traps need.
+
+Every brief carries the fixed "## What Rom does not do" block, verbatim, in the wording kept in `.claude/roles/obrien/slice-body-template.md`. `bridge/new-slice.js` refuses a brief that lacks the block, and refuses a brief that contains an imperative test-writing phrase aimed at Rom: "write guard tests", "guard tests, AC-tagged", "verify in a real browser", "write a browser test", "add a browser test", "add a test in e2e/", "run the browser suite", "run npx playwright test", and the bare `npx playwright test` unless followed by `--list`. Text inside code fences and inline code is ignored. The other never-ask rules above are O'Brien's discipline, not check inputs. The check is skipped for slices addressed to Bashir. The minimal example at the end of this document omits the block for brevity; a real brief may not.
+
+### `## Traps` *(when the change has known ways to go wrong)*
+
+A short numbered list of the ways this change is likely to go wrong. Rom writes one safety-net test per trap. Keep each trap to one or two sentences. The trap list is not the place for testing instructions; those belong to the rule above.
+
 ### `## Acceptance criteria`
 
-How Nog will evaluate the slice. Write these as explicit, checkable conditions — `grep`s, `git diff --stat` expectations, presence/absence of particular text, test outcomes. The implementor evaluates his own work against these criteria before writing the DONE report.
+How the slice is judged. Write these as explicit, checkable conditions — `grep`s, `git diff --stat` expectations, presence/absence of particular text, test outcomes. Each line carries its tag: `- slice-<id>-ac-<k>: <text>` (see `ac-custody.md`). The implementor evaluates his own work against these criteria before writing the DONE report. Nog checks them on the branch. Julian checks the ones that touch the screen with browser tests once the slice is on dev, reading the criteria as O'Brien wrote them.
+
+### `## Screen hooks` *(required when any criterion touches the screen)*
+
+For each criterion that touches the screen, one line per button, row, or field a browser test will click or read. Each line is either the stable names O'Brien already knows, or the words "Rom to declare". A stable name is an element id, a data attribute, or a class that does not change when the layout does; it is the kind of name the existing browser tests already select by. No new test-id scheme is required. Each hook also gets its starting state in plain words ("visible when ..."), written by O'Brien if he knows it or by Rom in his report. Nothing in this section is a design written before the code; it is a list of names Rom must report. Nog checks the named elements exist in the shipped page. Julian uses them. Example:
+
+- `slice-371-ac-1`: proposed rows carry `.queue-row[data-id]` with `draggable="true"`; amendment rows do not. Visible when the queue holds at least one proposed slice.
+- `slice-371-ac-2`: Rom to declare.
 
 ### `## Quality + goal check`
 
@@ -160,9 +181,9 @@ The repo root currently has no `.gitignore`. `.DS_Store` and `node_modules/` are
 3. Commit with message `chore: add .gitignore`.
 
 ## Acceptance criteria
-1. `.gitignore` exists at the project root.
-2. It contains `.DS_Store`, `node_modules/`, `*.log`, `.env`.
-3. `git diff --stat main` shows exactly 1 file changed: `.gitignore` (added).
+- slice-150-ac-1: `.gitignore` exists at the project root.
+- slice-150-ac-2: It contains `.DS_Store`, `node_modules/`, `*.log`, `.env`.
+- slice-150-ac-3: `git diff --stat main` shows exactly 1 file changed: `.gitignore` (added).
 
 ## Quality + goal check
 - Goal check: checking out main and running `cat .gitignore` shows the four expected entries.

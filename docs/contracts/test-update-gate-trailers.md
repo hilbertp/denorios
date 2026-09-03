@@ -97,11 +97,18 @@ Coverage-Removed: dashboard/legacy-widget.js widget retired in slice-420, tests 
 
 ## Who does what
 
-- **Bashir (QA)** authors and *moves* the assertions. He never weakens to go green; a
-  retired check leaves with a `Test-Loosen-OK`/`Coverage-Removed` trailer and a reason.
+- **Rom (implementor)** authors and *moves* the safety-net tests for his own change, one per
+  AC plus one per trap. Every moved or weakened test is listed in his DONE report under
+  `## Tests moved or weakened`. He never weakens to go green; a retired check leaves with a
+  `Test-Loosen-OK`/`Coverage-Removed` trailer and a reason. He never touches the browser tests.
+- **Bashir (QA)** authors and *moves* the browser tests, at his stage on dev, after the slice
+  has landed. He never edits a safety-net test. Same rule: never weaken to go green; retired
+  checks leave with a trailer and a reason.
 - **Nog (review)** is the trailer reviewer: he checks that each trailer is scoped, that
   the transition matches the real direction, and that the reason is a genuine spec change
   — not a cover for a regression. On a RED override he is the non-author second-ack.
+  **The second signature on a moved or weakened test comes from whoever is not doing the
+  moving.** Nog authors nothing, so that is always Nog.
 - **The operator (Philipp)** sees the verdict on the Ops checkpoint before dispatching a
   promotion. On RED the dashboard defaults to STOP; proceeding requires the non-author
   acknowledgement. `promote.yml` then re-runs `--strict` on the clean runner and blocks
@@ -116,6 +123,20 @@ Coverage-Removed: dashboard/legacy-widget.js widget retired in slice-420, tests 
 | `scripts/tests-needed.js` | `--strict` in `promote.yml` | **enforcing** — exits 1 on RED, before the suites run; fails closed if `HEAD != origin/dev` |
 | `scripts/tests-needed.js` | advisory in `ci.yml` (every dev push) | **warn-only** — verdict in the run summary, never blocks |
 | Ops dashboard | `/api/tests-needed` | banded chip on the Step-1 checkpoint; default STOP + second-ack on RED |
+| Julian's stage on dev (IN_QA) | after Julian (Bashir) signals his browser tests are in | the stage runs both suites once; RED goes to O'Brien (bug: per-slice handoff in his inbox) or to Philipp (unclear AC: question file, Ops shows the slice is waiting), never back to Nog; the ticket stays IN_QA |
+
+How often each suite runs per slice (the run-count rule):
+
+| Who | Safety-net suite | Browser suite |
+|---|---|---|
+| Rom, while working | his own new test file, as often as he likes; the full suite once before commit | never |
+| Julian, while writing | never (he does not run the full suites himself) | his own new browser test file, as often as he likes; never the full suite |
+| Julian's stage machinery, when Julian signals he is done | once, on dev | once, on dev |
+| Promote button (`promote.yml`) | once | once |
+
+The advisory safety-net run in `ci.yml` on every dev push is a warning light, not one of the counted runs.
+
+Which run counts: Julian's stage run decides whether the slice may merge. The Promote button's run is a last check that dev still passes at that moment, not a second decision; if it goes red, the promotion stops and O'Brien writes a fix slice.
 
 The backstop that makes corroboration file-grained is `regression/COVERAGE.lock`,
 derived by `scripts/build-coverage-map.js` and kept honest by
