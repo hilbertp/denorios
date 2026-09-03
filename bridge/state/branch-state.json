@@ -6,10 +6,18 @@
     "tip_ts": "2026-09-03T23:06:31+03:00"
   },
   "dev": {
-    "tip_sha": "217781bd0932478887f9185c8c6e47b99abe8522",
-    "tip_ts": "2026-09-03T22:06:18+03:00",
-    "commits_ahead_of_main": 0,
-    "commits": [],
+    "tip_sha": "4525a02e46509b0d5361b59a148d8c61d7f2fcc1",
+    "tip_ts": "2026-09-03T21:21:37.210Z",
+    "commits_ahead_of_main": 1,
+    "commits": [
+      {
+        "sha": "4525a02e46509b0d5361b59a148d8c61d7f2fcc1",
+        "slice_id": "376",
+        "title": "Every workspace gets its dependencies",
+        "ts": "2026-09-03T21:21:37.210Z",
+        "is_pending_squash": false
+      }
+    ],
     "deferred_slices": []
   },
   "last_merge": {
@@ -23,13 +31,13 @@
     "last_pass": null
   },
   "regression_risk": {
-    "rr": 0,
-    "band": "green",
+    "rr": 28,
+    "band": "amber",
     "inputs": {
-      "slice_pressure": 0,
-      "surface_volatility": 0,
+      "slice_pressure": 0.1,
+      "surface_volatility": 0.5,
       "ac_coverage_gap": 0
     },
-    "computed_ts": "2026-09-03T21:21:30.389Z"
+    "computed_ts": "2026-09-03T22:00:17.125Z"
   }
 }
