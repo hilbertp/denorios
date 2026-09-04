@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 489,
+  "guardCount": 497,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -430,6 +430,22 @@
         "file": "regression/gate-merge/j-merge-truth-now.test.js"
       },
       {
+        "tag": "slice-367-ac-1",
+        "file": "regression/gate-merge/j-merge-dialog-one-classification.test.js"
+      },
+      {
+        "tag": "slice-367-ac-2",
+        "file": "regression/gate-merge/j-merge-dialog-one-classification.test.js"
+      },
+      {
+        "tag": "slice-367-ac-3",
+        "file": "regression/gate-merge/j-merge-dialog-one-classification.test.js"
+      },
+      {
+        "tag": "slice-367-ac-4",
+        "file": "regression/gate-merge/j-merge-dialog-one-classification.test.js"
+      },
+      {
         "tag": "slice-371-ac-1",
         "file": "regression/authoring-staging/j-reorder-proposed-backlog.test.js",
         "guardAcHash": "sha256:1fac0d587e3eed45a1eee71c3e3486504826cdbbabcfa6d208a70d812a0bb1cd"
@@ -817,6 +833,22 @@
       {
         "tag": "slice-362-ac-4",
         "file": "regression/gate-merge/j-merge-truth-now.test.js"
+      },
+      {
+        "tag": "slice-367-ac-1",
+        "file": "regression/gate-merge/j-merge-dialog-one-classification.test.js"
+      },
+      {
+        "tag": "slice-367-ac-2",
+        "file": "regression/gate-merge/j-merge-dialog-one-classification.test.js"
+      },
+      {
+        "tag": "slice-367-ac-3",
+        "file": "regression/gate-merge/j-merge-dialog-one-classification.test.js"
+      },
+      {
+        "tag": "slice-367-ac-4",
+        "file": "regression/gate-merge/j-merge-dialog-one-classification.test.js"
       },
       {
         "tag": "slice-371-ac-1",

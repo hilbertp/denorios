@@ -600,96 +600,192 @@ function humanizeTestName(name) {
   return h.trim() || String(name || '');
 }
 
-// What changed in the REGRESSION + E2E suites between main and dev, in plain
-// language, so the operator can approve (intended behaviour change) or stop
-// (a removed/loosened check that may be masking a real regression) before the
-// gate runs. Cached briefly — it shells git per changed test file.
-let _testChangesCache = { key: null, value: null, fetchedAt: 0 };
-function getTestChanges() {
+// ── ONE classification, ONE range, ONE screen (slice 367) ────────────────────
+// The merge dialog shows a VERDICT chip and, beneath it, a breakdown of what
+// changed in the suites. Those used to be two independent computations: the
+// verdict over the pinned two-dot merge-base(main,dev)..dev across every policed
+// bucket, and the breakdown over its own three-dot origin/main...origin/dev,
+// narrowed by a hand-written `regression/ e2e/` pathspec and cached on the dev
+// tip ALONE — so a main that moved left the two halves of one screen reading
+// different evidence, and the chip could cite blockers the list beneath it never
+// showed. Both halves now project THIS single classify() result.
+//
+// There is one range and one set of policed paths on that screen because there is
+// one call: the range is pinned here (merge-base(origin/main, origin/dev)..origin/dev),
+// and which paths count is the engine's own bucketOf(), never a pathspec repeated
+// at a call site. Keyed on BOTH ends, so a main that moves under a still dev busts
+// the cache instead of serving a breakdown for a range the verdict no longer uses.
+let _pinnedCache = { key: null, value: null, fetchedAt: 0 };
+function getPinnedClassification() {
   const now = Date.now();
-  let head = null;
+  let head = null, base = null;
   try { head = execFileSync('git', ['rev-parse', 'origin/dev'], { cwd: REPO_ROOT, encoding: 'utf8', timeout: 5000 }).trim(); } catch (_) {}
-  const key = head;
-  if (key && _testChangesCache.key === key && (now - _testChangesCache.fetchedAt) < 30000) {
-    return _testChangesCache.value;
+  try { base = execFileSync('git', ['merge-base', 'origin/main', 'origin/dev'], { cwd: REPO_ROOT, encoding: 'utf8', timeout: 5000 }).trim(); } catch (_) {}
+  if (!head || !base) return { base, head, result: null, error: 'cannot resolve git refs' };
+
+  const key = base + '..' + head;
+  if (_pinnedCache.key === key && (now - _pinnedCache.fetchedAt) < 30000) return _pinnedCache.value;
+
+  // Lazily required (code, relative to this file) — the test harness compiles
+  // server.js at a faked path and only string-rewrites the bridge require, so
+  // nothing here may resolve through REPO_ROOT.
+  const { classify } = require(path.join(__dirname, '..', 'lib', 'tests-needed'));
+  let value;
+  try { value = { base, head, result: classify({ base, head, repoRoot: REPO_ROOT }) }; }
+  catch (err) { return { base, head, result: null, error: String(err && err.message || err) }; }
+  _pinnedCache = { key, value, fetchedAt: now };   // only a real result is cached
+  return value;
+}
+
+// Who did this? The operator reads "Slice 353 removed the check …", not a diff.
+// Attribution is per CHECK, not per file: two slices routinely share one suite file,
+// and "Slice 902 removed X" when 901 removed it is a lie the operator would act on.
+//
+// The cheap pass maps files → the slices that touched them, in one `git log`. A file
+// only ONE slice touched needs nothing more. A file several slices touched is re-read
+// commit by commit THROUGH THE SAME ENGINE the verdict uses, so the check keys line up
+// exactly and nothing here re-implements what a check is. `files` comes from the
+// classification itself — never a pathspec written out a second time at a call site.
+// A commit whose subject names no slice never overwrites a known owner; a check no
+// slice-named commit touched stays null and its sentence says "this promotion".
+function sliceAuthorsByCheck(base, head, files) {
+  const byCheck = {};                       // "<file>\0<tag>" (or "<file>\0*") → slice id
+  if (!files.length) return byCheck;
+  let log = '';
+  try {
+    log = execFileSync('git',
+      ['log', '--reverse', '--format=%x00%H %s', '--name-only', `${base}..${head}`, '--'].concat(files),
+      { cwd: REPO_ROOT, encoding: 'utf8', timeout: 8000 });
+  } catch (_) { return byCheck; }
+
+  const perFile = {};                       // file → [{sha, slice}], oldest-first
+  for (const rec of log.split('\0')) {
+    const lines = rec.split('\n');
+    const headline = (lines.shift() || '').trim();
+    const sp = headline.indexOf(' ');
+    if (sp === -1) continue;
+    const sha = headline.slice(0, sp), subject = headline.slice(sp + 1);
+    const m = subject.match(/^S(\d+)\b/i) || subject.match(/\bslice[/\s-](\d+)/i);
+    if (!m) continue;
+    for (const f of lines) { const p = f.trim(); if (p) (perFile[p] = perFile[p] || []).push({ sha, slice: m[1] }); }
   }
 
-  let files = [];
-  try {
-    const out = execFileSync('git',
-      ['diff', '--name-only', 'origin/main...origin/dev', '--', 'regression/', 'e2e/'],
-      { cwd: REPO_ROOT, encoding: 'utf8', timeout: 8000 }).trim();
-    files = out ? out.split('\n').filter(Boolean) : [];
-  } catch (_) { files = []; }
-
-  // Per-check classification (ADR-TEST-UPDATE-GATE, Slice A). The signed engine keys
-  // each check by its slice-ac tag, and reports a DIRECTION (tightened / loosened /
-  // reworded / removed / skipped) — so loosen/delete/skip are loud, not benign churn.
-  // Required lazily (code, relative to this file) so the test harness — which compiles
-  // server.js at a faked path and only string-rewrites the bridge require — never needs
-  // to stage lib/ unless a test actually exercises this endpoint.
   const { classifyFileDiff } = require(path.join(__dirname, '..', 'lib', 'assert-direction'));
-  const added = [], removed = [], modified = [];
-  for (const f of files) {
-    if (!/\.(test|spec)\.js$/.test(f)) continue;
-    let diff = '';
-    try {
-      diff = execFileSync('git', ['diff', 'origin/main...origin/dev', '--', f],
-        { cwd: REPO_ROOT, encoding: 'utf8', timeout: 8000 });
-    } catch (_) { continue; }
-    const byTag = classifyFileDiff(diff);
-    for (const k of Object.keys(byTag)) {
-      const e = byTag[k];
-      const name = humanizeTestName(e.name);
-      // A renamed check arrives already merged with its predecessor, so it lands in
-      // `modified` with a real direction plus a `renamedFrom` label -- never in `removed`.
-      const renamedFrom = e.rename ? humanizeTestName(e.rename.from) : null;
-      if (e.onPlus && !e.onMinus) added.push({ file: f, name, direction: 'added' });
-      else if (e.onMinus && !e.onPlus) removed.push({ file: f, name, direction: 'removed' });
-      else modified.push({ file: f, name, direction: e.direction, renamedFrom });
+  for (const f of Object.keys(perFile)) {
+    const commits = perFile[f];
+    if (new Set(commits.map(c => c.slice)).size === 1) { byCheck[f + '\0*'] = commits[0].slice; continue; }
+    // Oldest-first, last writer wins: the slice that most recently moved THIS check.
+    for (const c of commits) {
+      let diff = '';
+      try { diff = execFileSync('git', ['show', '--format=', c.sha, '--', f], { cwd: REPO_ROOT, encoding: 'utf8', timeout: 8000 }); } catch (_) { continue; }
+      for (const k of Object.keys(classifyFileDiff(diff))) byCheck[f + '\0' + k] = c.slice;
     }
   }
-  // The dangerous subset the gate + UI must surface loudly.
-  const loosened = modified.filter(m => m.direction === 'loosened');
-  const skipped  = modified.filter(m => m.direction === 'skipped');
+  return byCheck;
+}
+
+// The sentence the operator actually reads. Requirement 4 of slice 367: the screen
+// says what happened, in human terms, and names who did it — "Slice 353 removed the
+// check “a merge that does nothing is reported as success” and put nothing in its
+// place. Intended?" The raw check title is quoted inside it AND kept behind the
+// "show titles" toggle, because for an untagged check that exact title is the thing
+// a Test-Loosen-OK trailer has to name.
+function plainChangeSentence(it) {
+  const who = it.slice ? 'Slice ' + it.slice : 'This promotion';
+  const q = (s) => '“' + String(s == null ? '' : s) + '”';
+  const also = it.renamedFrom ? ' (renamed from ' + q(it.renamedFrom) + ')' : '';
+  if (it.kind === 'removed') return `${who} removed the check ${q(it.name)} and put nothing in its place. Intended?`;
+  if (it.kind === 'added') return `${who} added the check ${q(it.name)}.`;
+  if (it.direction === 'skipped') return `${who} disabled the check ${q(it.name)}${also} — it is still in the file but no longer runs. Intended?`;
+  if (it.direction === 'loosened') return `${who} weakened the check ${q(it.name)}${also} — it now proves less than it did. Intended?`;
+  if (it.renamedFrom) return `${who} renamed the check ${q(it.renamedFrom)} to ${q(it.name)}. It still runs and still proves what it did.`;
+  if (it.direction === 'tightened') return `${who} tightened the check ${q(it.name)} — it now proves more than it did.`;
+  return `${who} changed what the check ${q(it.name)} looks for.`;
+}
+
+// What changed in the POLICED suites over the pinned range, in plain language, so
+// the operator can approve (an intended behaviour change) or stop (a removed or
+// loosened check that may be masking a real regression) before the gate runs.
+// Every item here is one of the VERDICT'S OWN checks: this function runs no git
+// range and classifies nothing, it only groups and phrases what the verdict saw.
+//
+// Memoised because /api/branch-state calls this on EVERY poll (for `tests_changed`),
+// and the attribution pass below shells git — ~300ms on a 60-commit window.
+//
+// The cache key is the pinned classification OBJECT ITSELF, not its base..head SHAs.
+// Two reasons. A SHA key would go stale: gather() reads regression/COVERAGE.lock from
+// the WORKING TREE, so the same range can classify differently without either ref
+// moving — which is exactly why the pinned cache expires on time rather than on SHAs.
+// And identity cannot drift the way this slice's bug did: that came from a cache keyed
+// on the dev tip ALONE, which a moving main never busted. Keying on the object means
+// this breakdown is by construction never staler than the classification it projects.
+let _breakdownCache = { pinned: null, value: null };
+function getTestChanges() {
+  const pinned = getPinnedClassification();
+  if (!pinned.result) {
+    return { base: pinned.base, head: pinned.head, error: pinned.error || 'cannot classify the changeset',
+             counts: { added: 0, removed: 0, modified: 0, changed: 0, renamed: 0, weakened: 0, loosened: 0, skipped: 0 },
+             added: [], removed: [], modified: [], changed: [], renamed: [], weakened: [], loosened: [], skipped: [],
+             anyChange: false };
+  }
+  if (_breakdownCache.pinned === pinned) return _breakdownCache.value;
+  const checks = pinned.result.checks || [];
+  const authors = sliceAuthorsByCheck(pinned.base, pinned.head,
+    Array.from(new Set(checks.map(c => c.file))));
+
+  const added = [], removed = [], modified = [], changed = [], renamed = [], weakened = [];
+  for (const c of checks) {
+    const item = {
+      file: c.file, tag: c.tag, kind: c.kind,
+      name: humanizeTestName(c.name || c.tag),
+      direction: c.kind === 'added' ? 'added' : c.kind === 'removed' ? 'removed' : c.direction,
+      // A renamed check arrives already merged with its predecessor (slice 366), so it
+      // carries a real direction plus this label — it is never a phantom removal.
+      renamedFrom: c.rename ? humanizeTestName(c.rename.from) : null,
+      slice: authors[c.file + '\0' + c.tag] || authors[c.file + '\0*'] || null,
+    };
+    item.plain = plainChangeSentence(item);
+    if (c.kind === 'added') { added.push(item); continue; }
+    if (c.kind === 'removed') { removed.push(item); continue; }
+    modified.push(item);
+    // A weakened or disabled check is a WARNING wherever it came from: a rename that
+    // also guts its assertions stays in this pile, never in the neutral one.
+    if (item.direction === 'loosened' || item.direction === 'skipped') weakened.push(item);
+    else if (item.renamedFrom) renamed.push(item);   // a rename is information, not a warning
+    else changed.push(item);
+  }
+  const loosened = weakened.filter(m => m.direction === 'loosened');
+  const skipped = weakened.filter(m => m.direction === 'skipped');
 
   const value = {
-    base: 'origin/main', head: 'origin/dev',
+    base: pinned.base, head: pinned.head,
+    base7: String(pinned.base || '').slice(0, 7), head7: String(pinned.head || '').slice(0, 7),
     counts: { added: added.length, removed: removed.length, modified: modified.length,
+              changed: changed.length, renamed: renamed.length, weakened: weakened.length,
               loosened: loosened.length, skipped: skipped.length },
-    added, removed, modified, loosened, skipped,
+    added, removed, modified, changed, renamed, weakened, loosened, skipped,
     anyChange: added.length + removed.length + modified.length > 0,
   };
-  _testChangesCache = { key, value, fetchedAt: now };
+  _breakdownCache = { pinned, value };
   return value;
 }
 
 // The Test-Update Gate VERDICT for the dev→main promotion (ADR-TEST-UPDATE-GATE,
 // Slice D). getTestChanges() lists what changed; this says whether it's SAFE to run:
-// clear / needs_review / overridden / red_flag. Pins base = merge-base(main,dev),
-// head = dev tip, so the verdict is the exact promoted changeset. SHA-keyed cache.
+// clear / needs_review / overridden / red_flag. Reads the SAME pinned classification
+// the breakdown reads — the range and the policed paths are decided once, above.
 // The dashboard defaults to STOP on red_flag and demands a second acknowledgement.
-let _testsNeededCache = { key: null, value: null, fetchedAt: 0 };
 function getTestsNeeded() {
-  const now = Date.now();
-  let head = null, base = null;
-  try { head = execFileSync('git', ['rev-parse', 'origin/dev'], { cwd: REPO_ROOT, encoding: 'utf8', timeout: 5000 }).trim(); } catch (_) {}
-  try { base = execFileSync('git', ['merge-base', 'origin/main', 'origin/dev'], { cwd: REPO_ROOT, encoding: 'utf8', timeout: 5000 }).trim(); } catch (_) {}
-  if (!head || !base) return { error: 'cannot resolve git refs', decision: 'unknown', head, base };
+  const pinned = getPinnedClassification();
+  if (!pinned.result) return { error: pinned.error || 'cannot classify the changeset', decision: 'unknown', head: pinned.head, base: pinned.base };
+  const r = pinned.result;
 
-  const key = base + '..' + head;
-  if (_testsNeededCache.key === key && (now - _testsNeededCache.fetchedAt) < 30000) {
-    return _testsNeededCache.value;
-  }
-
-  // Lazily required (code, relative to this file) for the same reason as the engine
-  // in getTestChanges — the test harness compiles server.js at a faked path.
-  const { classify } = require(path.join(__dirname, '..', 'lib', 'tests-needed'));
-  let r;
-  try { r = classify({ base, head, repoRoot: REPO_ROOT }); }
-  catch (err) { return { error: String(err && err.message || err), decision: 'unknown', head, base }; }
-
-  const value = {
+  // Name a flagged check by its TITLE where the engine kept one; the tag is the
+  // fallback (and, for an untagged check, is the title). Display only — which
+  // checks are flagged, and the decision, are the engine's and are untouched.
+  const blocker = (kind) => (c) => ({ kind, name: humanizeTestName(c.name || c.tag), tag: c.tag, file: c.file,
+                                      renamedFrom: c.rename ? humanizeTestName(c.rename.from) : null });
+  return {
     decision: r.decision,
     base: r.base, head: r.head, base7: String(r.base || '').slice(0, 7), head7: String(r.head || '').slice(0, 7),
     counts: {
@@ -702,14 +798,12 @@ function getTestsNeeded() {
     mismatchedOverride: !!r.mismatchedOverride,
     // The dangerous, human-readable specifics the second-ack must enumerate.
     blockers: []
-      .concat(r.loosenedUndeclared.map(c => ({ kind: 'loosened', name: humanizeTestName(c.tag), file: c.file, renamedFrom: c.rename ? humanizeTestName(c.rename.from) : null })))
-      .concat(r.removedUndeclared.map(c => ({ kind: 'removed', name: humanizeTestName(c.tag), file: c.file, renamedFrom: null })))
-      .concat(r.skippedUndeclared.map(c => ({ kind: 'skipped', name: humanizeTestName(c.tag), file: c.file, renamedFrom: c.rename ? humanizeTestName(c.rename.from) : null })))
+      .concat(r.loosenedUndeclared.map(blocker('loosened')))
+      .concat(r.removedUndeclared.map(blocker('removed')))
+      .concat(r.skippedUndeclared.map(blocker('skipped')))
       .concat(r.newBehaviourNoTest.map(b => ({ kind: 'untested', name: b.path, file: b.path }))),
     needsReview: r.unguardedSourceChanges.map(b => b.path),
   };
-  _testsNeededCache = { key, value, fetchedAt: now };
-  return value;
 }
 
 // ── The Test Drift Gate (operator-facing review over the Test-Update classifier) ──
@@ -718,26 +812,21 @@ function getTestsNeeded() {
 // DELIBERATE CHANGE (behaviour moved, no test moved). Read-only/advisory; the dashboard
 // turns it into the OK/STOP checkpoint. Same changeset as the promote gate: origin/dev
 // vs merge-base(origin/main, origin/dev). Fails safe to STOP.
-let _testDriftCache = { key: null, value: null, fetchedAt: 0 };
 function getTestDrift() {
-  const now = Date.now();
-  let head = null, base = null;
-  try { head = execFileSync('git', ['rev-parse', 'origin/dev'], { cwd: REPO_ROOT, encoding: 'utf8', timeout: 5000 }).trim(); } catch (_) {}
-  try { base = execFileSync('git', ['merge-base', 'origin/main', 'origin/dev'], { cwd: REPO_ROOT, encoding: 'utf8', timeout: 5000 }).trim(); } catch (_) {}
+  const pinned = getPinnedClassification();
+  const { base, head } = pinned;
   const safeStop = (headline) => ({ decision: 'unknown', action: 'STOP', headline,
     regression: [], deliberate: [], declared: [], counts: { regression: 0, deliberate: 0, declared: 0 }, base, head });
-  if (!head || !base) return safeStop('Cannot resolve git refs — STOP (fail safe).');
-
-  const key = base + '..' + head;
-  if (_testDriftCache.key === key && (now - _testDriftCache.fetchedAt) < 30000) return _testDriftCache.value;
-
-  const { classify } = require(path.join(__dirname, '..', 'lib', 'tests-needed'));
+  // Same pinned classification as the verdict and the breakdown (slice 367) — this
+  // used to resolve the refs and re-run classify() a third time for the same range.
+  if (!pinned.result) {
+    return safeStop(pinned.error === 'cannot resolve git refs'
+      ? 'Cannot resolve git refs — STOP (fail safe).'
+      : 'Could not classify the changeset: ' + pinned.error);
+  }
   const { drift } = require(path.join(__dirname, '..', 'lib', 'test-drift'));
-  let value;
-  try { value = drift(classify({ base, head, repoRoot: REPO_ROOT })); }
-  catch (err) { value = safeStop('Could not classify the changeset: ' + String(err && err.message || err)); }
-  _testDriftCache = { key, value, fetchedAt: now };
-  return value;
+  try { return drift(pinned.result); }
+  catch (err) { return safeStop('Could not classify the changeset: ' + String(err && err.message || err)); }
 }
 
 // ── CHECK FOR TEST UPDATES — stage ① of the two-stage merge gate ──────────────
@@ -3564,4 +3653,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { mergeLockRefusal, buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, STALE_DONE_DAYS, deriveHistoryOutcome, deriveReviewStatus, authoringStateFor, kickOffAuthoring, createRevertCommit, resolveSquashSha, mapPromotePhases, parseGateFailures, isFreshPromoteCompletion, isReconciling, _promoteTtlMs };
+module.exports = { getPinnedClassification, getTestChanges, getTestsNeeded, mergeLockRefusal, buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, STALE_DONE_DAYS, deriveHistoryOutcome, deriveReviewStatus, authoringStateFor, kickOffAuthoring, createRevertCommit, resolveSquashSha, mapPromotePhases, parseGateFailures, isFreshPromoteCompletion, isReconciling, _promoteTtlMs };
