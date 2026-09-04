@@ -1,17 +1,17 @@
 {
-  "ts": "2026-09-03T22:00:07.699Z",
-  "pickup_ts": "2026-09-03T21:54:33.496Z",
+  "ts": "2026-09-04T09:06:20.146Z",
+  "pickup_ts": "2026-09-04T08:59:05.800Z",
   "status": "nog_review",
-  "current_slice": "373",
+  "current_slice": "372",
   "current_slice_title": null,
-  "current_slice_goal": "Edit is a view control mislabelled as an action, sitting between Approve and Reject. Remove it from proposed and approved rows; keep the brief readable by some route.",
-  "slice_elapsed_seconds": 334,
+  "current_slice_goal": "Untrack volatile runtime files so slice runs stop autocommitting bookkeeping to dev (23 such commits already); refuse to re-dispatch an already-merged slice; cap the unreadable-verdict retry that spun 297 times on S366.",
+  "slice_elapsed_seconds": 434,
   "last_activity_ts": null,
-  "processed_total": 3,
+  "processed_total": 5,
   "queue": {
     "waiting": 0,
     "active": 0,
     "done": 25,
-    "error": 44
+    "error": 42
   }
 }

@@ -6,15 +6,22 @@
     "tip_ts": "2026-09-03T23:06:31+03:00"
   },
   "dev": {
-    "tip_sha": "4525a02e46509b0d5361b59a148d8c61d7f2fcc1",
-    "tip_ts": "2026-09-03T21:21:37.210Z",
-    "commits_ahead_of_main": 1,
+    "tip_sha": "9ffbf472a86e641cc215dc400979bbdd714457d4",
+    "tip_ts": "2026-09-03T22:00:23.538Z",
+    "commits_ahead_of_main": 2,
     "commits": [
       {
         "sha": "4525a02e46509b0d5361b59a148d8c61d7f2fcc1",
         "slice_id": "376",
         "title": "Every workspace gets its dependencies",
         "ts": "2026-09-03T21:21:37.210Z",
+        "is_pending_squash": false
+      },
+      {
+        "sha": "9ffbf472a86e641cc215dc400979bbdd714457d4",
+        "slice_id": "373",
+        "title": "Remove the Edit button from the backlog rows",
+        "ts": "2026-09-03T22:00:23.538Z",
         "is_pending_squash": false
       }
     ],
@@ -31,13 +38,13 @@
     "last_pass": null
   },
   "regression_risk": {
-    "rr": 28,
-    "band": "amber",
+    "rr": 19,
+    "band": "green",
     "inputs": {
-      "slice_pressure": 0.1,
-      "surface_volatility": 0.5,
+      "slice_pressure": 0.2,
+      "surface_volatility": 0.25,
       "ac_coverage_gap": 0
     },
-    "computed_ts": "2026-09-03T22:00:17.125Z"
+    "computed_ts": "2026-09-04T09:06:27.747Z"
   }
 }

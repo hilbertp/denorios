@@ -1,1 +1,1 @@
-{"sliceId":"373","title":"Remove the Edit button from the backlog rows","round":1,"invokedAt":"2026-09-03T21:54:33.533Z","phase":"code_review"}
+{"sliceId":"372","title":"Stop the pipeline leaving debris — untrack runtime state, and never act on a finished slice","round":3,"invokedAt":"2026-09-04T08:59:05.910Z","phase":"code_review"}
