@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-ac-manifest.js",
-  "acCount": 227,
+  "acCount": 233,
   "legacyCount": 198,
   "byTag": {
     "slice-042-ac-1": {
@@ -624,6 +624,54 @@
       "text": "reordering of approved rows continues to work exactly as it does today",
       "acHash": "sha256:e88e5111d0f9835d7f3ca13a31d855588575e3c02a78a2eca07824b733f880fe",
       "source": "bridge/queue/371-DONE.md",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-372-ac-1": {
+      "slice": "372",
+      "text": "the volatile runtime state files are no longer tracked, and a slice run produces no autocommit of them",
+      "acHash": "sha256:9a7366ac20653967e8200c231bd0635bc73fae61c6989de8cc457192b82666af",
+      "source": "bridge/queue/372-DONE.md",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-372-ac-2": {
+      "slice": "372",
+      "text": "the files remain present and writable on disk, and a fresh clone still starts and runs",
+      "acHash": "sha256:a2fadb2068c1cfaec5213252e4c814a2629583888bf6e962df2f174becb34488",
+      "source": "bridge/queue/372-DONE.md",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-372-ac-3": {
+      "slice": "372",
+      "text": "a slice with a terminal merged or archived event is not dispatched again, and the stale queue file is cleared with the refusal logged",
+      "acHash": "sha256:d55029bf3e943d6c4d89ec20ac6897bea3eab8245ef4d03d178b7d3f3749db49",
+      "source": "bridge/queue/372-DONE.md",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-372-ac-4": {
+      "slice": "372",
+      "text": "a review rejection round and a restaged slice still dispatch normally",
+      "acHash": "sha256:4ed6a16ee6649ff661450fb62bdf0e93b79166d327c4de704915b6ac0ce5d420",
+      "source": "bridge/queue/372-DONE.md",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-372-ac-5": {
+      "slice": "372",
+      "text": "unreadable review verdicts retry a bounded number of times with backoff, then reach a terminal state naming the reason",
+      "acHash": "sha256:6276c065d9da3c28eb0b51fde8079fac09359383ff99bc4a911c4b9a9430c941",
+      "source": "bridge/queue/372-DONE.md",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-372-ac-6": {
+      "slice": "372",
+      "text": "existing history is not rewritten",
+      "acHash": "sha256:042403c9c5d6477b98df8e42269b27fd58ed7d312fb4de3f144167ff46067951",
+      "source": "bridge/queue/372-DONE.md",
       "status": "active",
       "legacy": false
     },

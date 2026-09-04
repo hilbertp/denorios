@@ -28,6 +28,30 @@ bridge/errors/*.json
 # Register log — append-only runtime file, not source code
 bridge/register.jsonl
 
+# Volatile runtime state (slice 372) — heartbeat ticks, queue ordering, branch
+# topology, timesheets and trash bookkeeping. These are rewritten continuously by
+# the running system. While they were tracked the working tree was never clean, so
+# the orchestrator's pre-checkout autocommit swept machine bookkeeping into a
+# commit on the integration branch on every slice run (23 such commits landed
+# before this was ignored). Nothing in git recreates them on a fresh clone —
+# bridge/state/seed-runtime-state.js seeds them at startup instead.
+bridge/heartbeat.json
+bridge/queue-order.json
+bridge/state/branch-state.json
+bridge/timesheet.jsonl
+bridge/timesheet-watcher.jsonl
+bridge/anchors.jsonl
+bridge/anchors-watcher.jsonl
+bridge/tt-audit.jsonl
+bridge/tt-audit-watcher.jsonl
+bridge/.usage-snapshot.json
+
+# Trash — where the pipeline sweeps finished queue files and runtime markers.
+# Ignored wholesale like bridge/queue/; archived slice reports that are worth
+# keeping are force-added as permanent records, exactly as queue reports are.
+bridge/trash/*
+!bridge/trash/.gitkeep
+
 # Environment
 .env
 .env.*

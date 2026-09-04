@@ -45,6 +45,8 @@ const BRANCH_STATE_PATH = path.resolve(__dirname, '..', 'bridge', 'state', 'bran
 const TEMPLATE_PATH = path.resolve(__dirname, '..', 'bridge', 'templates', 'bashir-prompt.md');
 
 // Save originals for cleanup
+// branch-state.json is untracked runtime state (slice 372) — a fresh clone has none.
+require('../bridge/state/seed-runtime-state').ensureRuntimeState();
 const originalBranchState = fs.readFileSync(BRANCH_STATE_PATH, 'utf-8');
 
 // Create test slice DONE files

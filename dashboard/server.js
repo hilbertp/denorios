@@ -31,6 +31,17 @@ const CONTROL_DIR   = path.join(REPO_ROOT, 'bridge', 'control');
 const SESSIONS      = path.join(REPO_ROOT, 'bridge', 'sessions.jsonl');
 const { translateEvent, resetDedupeState } = require(path.join(REPO_ROOT, 'bridge', 'lifecycle-translate'));
 
+// The volatile runtime state (heartbeat, queue order, branch-state schema) is
+// untracked (slice 372), so a fresh clone starts without it and the panels below
+// read it before the orchestrator has ever written it. Seed the missing files —
+// idempotent, and scoped to REPO_ROOT so e2e fixture roots are seeded too.
+try {
+  require(path.join(REPO_ROOT, 'bridge', 'state', 'seed-runtime-state')).ensureRuntimeState(REPO_ROOT);
+} catch (_) {
+  // A test/fixture REPO_ROOT that doesn't ship the seeder writes its own
+  // deterministic state — there is nothing to seed and nothing to fail on.
+}
+
 const CORS_ORIGIN  = 'https://dax-dashboard.lovable.app';
 
 // Hide DONE slices older than this many days from the Queue panel.

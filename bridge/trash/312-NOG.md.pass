@@ -1,7 +1,0 @@
----
-id: "312"
-round: 2
-verdict: ACCEPTED
-summary: "Both round-1 findings resolved (HEARTBEAT_STALE_MS constant extracted, arrow function used); all five ACs satisfied; intent achieved; scope clean."
-reviewed_at: "2026-06-04T12:30:00.000Z"
----

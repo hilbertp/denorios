@@ -49,6 +49,8 @@ telemetry.setRegisterPath(TEST_REGISTER);
 
 const { writeJsonAtomic } = require('../bridge/state/atomic-write');
 
+// branch-state.json is untracked runtime state (slice 372) — a fresh clone has none.
+require('../bridge/state/seed-runtime-state').ensureRuntimeState();
 const originalBranchState = fs.readFileSync(BRANCH_STATE_PATH, 'utf-8');
 let originalMainRegister = '';
 try { originalMainRegister = fs.readFileSync(MAIN_REGISTER, 'utf-8'); } catch (_) {}

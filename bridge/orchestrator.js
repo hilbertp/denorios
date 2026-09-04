@@ -12,6 +12,7 @@ const { recoverGateMutex, acquireGateMutex, releaseGateMutex, shouldDeferSquash 
 const { writeJsonAtomic } = require('./state/atomic-write');
 const { emit: emitGateTelemetry } = require('./state/gate-telemetry');
 const { computeRR } = require('./rr-compute');
+const { ensureRuntimeState, isVolatileRuntimePath } = require('./state/seed-runtime-state');
 
 // ---------------------------------------------------------------------------
 // Config
@@ -118,12 +119,34 @@ const CONTROL_DIR    = path.resolve(__dirname, 'control');
 const PIPELINE_PAUSED_FILE = path.resolve(__dirname, '.pipeline-paused');
 const MAX_ROUNDS     = 5; // Absolute cap — no round 6, ever, on any path.
 
+// ── Unreadable-verdict retry cap (slice 372) ────────────────────────────────
+// An unparseable Nog verdict is re-queued for another try. The round only
+// advances when Nog appends a "## Nog Review — Round N" heading — which is
+// exactly what an unreadable verdict fails to do — so MAX_ROUNDS never bit and
+// the retry spun at the poll interval: slice 366 logged 297 verdict_unreadable
+// events in two hours, and the operator saw only "reviewing for 71 minutes".
+//
+// This caps the retries WITHIN a round. MAX_ROUNDS still governs how many review
+// rounds a slice may have; the two guards are independent.
+const MAX_UNREADABLE_ATTEMPTS = 3;
+// Backoff before retry N (index = attempts already made). Escalating, so a
+// transient hiccup recovers fast and a systematic failure stops burning tokens.
+const UNREADABLE_BACKOFF_MS = [60000, 300000];
+
 // Ensure queue + trash + logs + escalations + control directories exist.
 fs.mkdirSync(QUEUE_DIR, { recursive: true });
 fs.mkdirSync(TRASH_DIR, { recursive: true });
 fs.mkdirSync(LOGS_DIR, { recursive: true });
 fs.mkdirSync(ESCALATIONS_DIR, { recursive: true });
 fs.mkdirSync(CONTROL_DIR, { recursive: true });
+
+// Seed the volatile runtime state (slice 372). These files are untracked, so a
+// fresh clone has none of them; the heartbeat, queue order and branch-state
+// schema are all read before they are first written. Idempotent — on an
+// established workspace this creates nothing.
+const _runtimeStateBootstrap = ensureRuntimeState(path.resolve(__dirname, '..'));
+const _seededRuntimeState = _runtimeStateBootstrap.seeded;
+const _restoredRuntimeState = _runtimeStateBootstrap.restored;
 
 // Deprecation check: timeoutMs was the old wall-clock timeout. It is now ignored.
 // Log once at startup if found in the config file.
@@ -687,6 +710,9 @@ function truncStderr(s) {
 const _writtenMerged = new Set();
 // In-memory dedup: only emit SLICE_DISPATCH_DEFERRED once per slice per process lifetime.
 const _deferredEmitted = new Set();
+// Same idiom for SLICE_DISPATCH_REFUSED: a stale queue file that cannot be moved
+// out of the way is re-examined on every poll, and must not narrate it every time.
+const _refusalEmitted = new Set();
 
 function registerEvent(id, event, extra) {
   // Dedupe MERGED at write time on (slice_id, sha)
@@ -1033,6 +1059,84 @@ function extractRomTelemetry(doneReportContent) {
 
 const BRANCH_NAME_REGEX = /^[a-zA-Z0-9._\/-]+$/;
 
+// The XY status field of a porcelain line, tolerating a stripped leading space.
+// The caller trims the whole `git status --porcelain` output, which eats the lead
+// space off the FIRST line only — so a fixed slice(3) reads ' M bridge/heartbeat.json'
+// correctly and 'M bridge/heartbeat.json' as 'ridge/heartbeat.json', which matches
+// no rule and lets the very file this slice is about slip into the commit.
+const PORCELAIN_STATUS_RE = /^[ MADRCU?!]{1,2}\s+/;
+
+/**
+ * porcelainPaths(line) → string[]
+ *
+ * The path(s) a `git status --porcelain` line refers to. A rename reads
+ * `R  old -> new` and names two. core.quotepath wraps a path containing non-ASCII
+ * in double quotes, so strip those too — an unstripped quote would make a volatile
+ * path look like source.
+ */
+function porcelainPaths(line) {
+  const rest = String(line).replace(PORCELAIN_STATUS_RE, '').trim();
+  if (!rest) return [];
+  const parts = rest.includes(' -> ') ? rest.split(' -> ') : [rest];
+  return parts.map(p => p.trim().replace(/^"(.*)"$/, '$1')).filter(Boolean);
+}
+
+/**
+ * recoverRuntimeStateAfterGit(op, id)
+ *
+ * Re-assert the untracked runtime state after any git operation that rewrites the
+ * working tree. Merging a commit that untracks a file DELETES it from the merging
+ * worktree — and that worktree is the live pipeline, whose timesheet, anchors and
+ * audit ledgers are append-only and reconstructible from nothing else. The seeder
+ * only ever creates what is absent, so this is a no-op on every ordinary run;
+ * when it is not, the recovery is logged as a warning rather than passing for a
+ * fresh start.
+ */
+function recoverRuntimeStateAfterGit(op, id) {
+  let result;
+  try {
+    result = ensureRuntimeState(PROJECT_DIR);
+  } catch (err) {
+    log('warn', 'git_safety', { id, msg: 'runtime-state recovery failed', op, error: err.message });
+    return { seeded: [], restored: [] };
+  }
+  if (result.restored.length) {
+    log('warn', 'git_safety', {
+      id,
+      op,
+      msg: `Recovered ${result.restored.length} runtime file(s) from git history after ${op} — they were removed from the working tree`,
+      files: result.restored,
+    });
+  } else if (result.seeded.length) {
+    log('info', 'git_safety', { id, op, msg: `Re-seeded runtime state after ${op}`, files: result.seeded });
+  }
+  return result;
+}
+
+/** Single-quote a path for the shell, so a space or a quote in it cannot split it. */
+function shQuote(p) {
+  return `'${String(p).replace(/'/g, `'\\''`)}'`;
+}
+
+/**
+ * stageablePathsFrom(statusLines) → string[]
+ *
+ * The paths from `git status --porcelain` lines that the autocommit may commit:
+ * everything except volatile runtime state. Naming the paths explicitly rather
+ * than excluding by pathspec keeps one rule — isVolatileRuntimePath — in charge,
+ * so an archived slice report under bridge/trash/ (a permanent record) is still
+ * committed while the markers beside it are not.
+ */
+function stageablePathsFrom(statusLines) {
+  const paths = [];
+  for (const line of statusLines) {
+    for (const p of porcelainPaths(line)) {
+      if (!isVolatileRuntimePath(p) && !paths.includes(p)) paths.push(p);
+    }
+  }
+  return paths;
+}
+
 /**
  * @deprecated No longer called — PROJECT_DIR stays on main permanently with
  * worktree-based execution. Retained as dead code for safety.
@@ -1048,16 +1152,34 @@ function autoCommitDirtyTree(reason) {
   try {
     const status = gitFinalizer.runGit('git status --porcelain', { slice_id: '0', op: 'autoCommit_status', encoding: 'utf-8' }).trim();
     // Only care about modified tracked files (M, D, R) — not untracked (??)
-    const trackedChanges = status.split('\n').filter(l => l && !l.startsWith('??'));
-    if (trackedChanges.length === 0) return false;
+    const allTracked = status.split('\n').filter(l => l && !l.startsWith('??'));
+
+    // …and never machine bookkeeping, even while it is still tracked. Untracking
+    // these files (slice 372) cannot protect the run that LANDS the untracking:
+    // the orchestrator performing that merge is still executing the previous
+    // code, from a tree where they are tracked and ticking. Filtering here closes
+    // that window, and keeps a path that is re-added by mistake later from
+    // reopening it.
+    const stagePaths = stageablePathsFrom(allTracked);
+    const skippedPaths = allTracked.flatMap(porcelainPaths).filter(isVolatileRuntimePath);
+
+    if (skippedPaths.length) {
+      log('info', 'git_safety', {
+        msg: `Autocommit skipped ${skippedPaths.length} volatile runtime file(s) — bookkeeping, not source`,
+        files: skippedPaths.join(', '),
+      });
+    }
+    if (stagePaths.length === 0) return false;
 
     const branch = gitFinalizer.runGit('git rev-parse --abbrev-ref HEAD', { slice_id: '0', op: 'autoCommit_branch', encoding: 'utf-8' }).trim();
-    const msg = `autocommit: ${reason} [${trackedChanges.length} file(s) on ${branch}]`;
-    log('warn', 'git_safety', { msg, files: trackedChanges.map(l => l.trim()).join(', ') });
+    const msg = `autocommit: ${reason} [${stagePaths.length} file(s) on ${branch}]`;
+    log('warn', 'git_safety', { msg, files: stagePaths.join(', ') });
 
-    gitFinalizer.runGit('git add -u', { slice_id: '0', op: 'autoCommit_add', execOpts: { stdio: 'pipe' } });
+    // `git add -u` still stages tracked modifications only — now against the named
+    // paths, so the message and the commit agree and nothing volatile can slip in.
+    gitFinalizer.runGit(`git add -u -- ${stagePaths.map(shQuote).join(' ')}`, { slice_id: '0', op: 'autoCommit_add', execOpts: { stdio: 'pipe' } });
     gitFinalizer.runGit(`git commit -m "${msg.replace(/"/g, '\\"')}"`, { slice_id: '0', op: 'autoCommit_commit', execOpts: { stdio: 'pipe' } });
-    log('info', 'git_safety', { msg: `Auto-committed ${trackedChanges.length} files to ${branch}` });
+    log('info', 'git_safety', { msg: `Auto-committed ${stagePaths.length} files to ${branch}` });
     return true;
   } catch (err) {
     log('warn', 'git_safety', { msg: 'autoCommitDirtyTree failed', error: err.message });
@@ -1213,6 +1335,11 @@ function fuseSafeCheckoutBranch(id, branchName) {
   let removed = 0;
   for (const file of diffFiles) {
     const diskPath = path.join(PROJECT_DIR, file);
+    // Volatile runtime state is not the branch's business. A branch that untracks
+    // it (slice 372) reads here as "the target does not have this file", and the
+    // removal below would sweep the live heartbeat, timesheet and branch-state
+    // into trash on the way to a checkout. Leave them exactly where they are.
+    if (isVolatileRuntimePath(file)) continue;
     let content = null;
     try {
       content = execSync(`git show ${branchName}:${file}`, { cwd: PROJECT_DIR, encoding: 'buffer' });
@@ -1243,6 +1370,12 @@ function fuseSafeCheckoutBranch(id, branchName) {
   if (verify !== branchName) {
     throw new Error(`fuseSafeCheckoutBranch: HEAD is ${verify}, expected ${branchName}`);
   }
+
+  // A checkout can still take the runtime state away — `git read-tree` above moves
+  // the index to a branch where these paths do not exist, and any later git command
+  // that syncs the tree acts on that. Re-assert it: present files are untouched,
+  // absent ones come back from history rather than as a blank ledger.
+  recoverRuntimeStateAfterGit(`checkout-${branchName}`, id);
 
   log('info', 'git_safety', {
     id,
@@ -3059,6 +3192,108 @@ function hasSquashedToDevEvent(id, regFile) {
 }
 
 /**
+ * countUnreadableVerdicts(id, round, regFile)
+ *
+ * How many times has Nog returned an unreadable verdict for this slice in THIS
+ * round? Counted per-round because the retry is per-round: a fresh round means a
+ * fresh budget. The RESTAGED cutoff applies for the same reason it does
+ * everywhere else — a restaged slice starts over.
+ */
+function countUnreadableVerdicts(id, round, regFile) {
+  const file = regFile || REGISTER_FILE;
+  let count = 0;
+  try {
+    const cutoff = latestRestagedTs(id, file);
+    for (const line of _getRegLines(file)) {
+      try {
+        const raw = JSON.parse(line);
+        if (String(raw.slice_id || raw.id || '') !== String(id)) continue;
+        if (raw.event !== 'NOG_DECISION' || raw.reason !== 'verdict_unreadable') continue;
+        if (String(raw.round) !== String(round)) continue;
+        if (cutoff && raw.ts && raw.ts <= cutoff) continue;
+        count += 1;
+      } catch (_) {}
+    }
+  } catch (_) {}
+  return count;
+}
+
+/**
+ * unreadableBackoffMs(attempts)
+ *
+ * Delay before the next retry, given how many attempts have already been made.
+ * Saturates at the last step so the schedule can never run off the end.
+ */
+function unreadableBackoffMs(attempts) {
+  const i = Math.max(0, attempts - 1);
+  return UNREADABLE_BACKOFF_MS[Math.min(i, UNREADABLE_BACKOFF_MS.length - 1)];
+}
+
+// Log a backoff hold once per (slice, deadline) instead of on every 5s poll.
+const _backoffNoticed = new Set();
+
+/**
+ * retryBackoffElapsed(candPath, candId)
+ *
+ * A slice re-queued after an unreadable verdict carries a `not_before` stamp.
+ * Returns false while that deadline is in the future, so the retry waits rather
+ * than spinning. Anything unstamped or unparseable dispatches normally.
+ */
+function retryBackoffElapsed(candPath, candId) {
+  let notBefore;
+  try {
+    const meta = parseFrontmatter(fs.readFileSync(candPath, 'utf-8'));
+    notBefore = meta && meta.not_before;
+  } catch (_) { return true; }
+  if (!notBefore || notBefore === 'null') return true;
+
+  const dueAt = Date.parse(String(notBefore).replace(/^["']|["']$/g, ''));
+  if (isNaN(dueAt) || Date.now() >= dueAt) return true;
+
+  const key = `${candId}:${notBefore}`;
+  if (!_backoffNoticed.has(key)) {
+    _backoffNoticed.add(key);
+    const waitS = Math.ceil((dueAt - Date.now()) / 1000);
+    log('info', 'dispatch', { id: candId, msg: `Retry backoff — holding slice ${candId} for ${waitS}s`, not_before: notBefore });
+    print(`  ${C.dim}\u23F8${C.reset}  Slice ${candId}${SYM.dash}retry backoff, holding ${waitS}s`);
+  }
+  return false;
+}
+
+// The events that mean "this slice has landed and is finished": squashed onto the
+// integration branch, merged to trunk, or archived after acceptance. Anything else
+// — a Nog rejection, a return-to-stage, an ERROR — is a re-entry, not an ending.
+const TERMINAL_LANDED_EVENTS = ['MERGED', 'SLICE_MERGED_TO_MAIN', 'SLICE_SQUASHED_TO_DEV', 'ARCHIVED'];
+
+/**
+ * hasTerminalLandedEvent(id, regFile)
+ *
+ * Has this slice already finished for good? Returns the event name that says so,
+ * or null.
+ *
+ * Deliberately NOT keyed on "have I seen this id before" — the pipeline reuses ids
+ * on purpose. A Nog rejection re-queues the same id for another round and a
+ * restaged slice reuses its id outright; neither has a landed event, so both still
+ * dispatch. Like hasMergedEvent, the RESTAGED marker is a cutoff: restaging a
+ * previously-merged slice starts a genuinely new life for that id.
+ */
+function hasTerminalLandedEvent(id, regFile) {
+  const file = regFile || REGISTER_FILE;
+  try {
+    const cutoff = latestRestagedTs(id, file);
+    for (const line of _getRegLines(file)) {
+      try {
+        const raw = JSON.parse(line);
+        if (String(raw.slice_id || raw.id || '') !== String(id)) continue;
+        if (!TERMINAL_LANDED_EVENTS.includes(raw.event)) continue;
+        if (!cutoff || (raw.ts && raw.ts > cutoff)) return raw.event;
+      } catch (_) {}
+    }
+  } catch (_) {}
+  return null;
+}
+
+/**
  * isTerminal(sliceId, opts)
  *
  * Returns true if a slice is definitively terminal — i.e. it has completed its
@@ -3920,10 +4155,61 @@ function invokeNog(id) {
         }
         // ────────────────────────────────────────────────────────────────────
 
-        // Rewrite slice in-place for O'Brien with error details.
-        handleNogReturn(id, rootId, round, branchName, donePath, updatedSliceContent, 'Nog verdict unreadable — manual review required', durationMs);
+        // ── Retry cap (within this round) ────────────────────────────────────
+        // The round only advances when Nog appends a round heading, which an
+        // unreadable verdict never does — so without a cap here the retry spins
+        // forever and MAX_ROUNDS above is unreachable. Bound the attempts, back
+        // off between them, and end in a state that names the reason.
+        const unreadableAttempts = countUnreadableVerdicts(id, round);
+        if (unreadableAttempts >= MAX_UNREADABLE_ATTEMPTS) {
+          registerEvent(id, 'VERDICT_UNREADABLE_EXHAUSTED', {
+            round,
+            attempts: unreadableAttempts,
+            max_attempts: MAX_UNREADABLE_ATTEMPTS,
+            reason: `Nog returned an unreadable verdict ${unreadableAttempts} times in round ${round} — retry budget exhausted, manual review required`,
+          });
 
-        print(`${B.vert}    ${C.yellow}${SYM.cross}${C.reset} Nog verdict UNREADABLE${SYM.sep}treated as RETURN (round ${round})`);
+          const stuckPathUnreadable = path.join(QUEUE_DIR, `${id}-STUCK.md`);
+          try {
+            fs.renameSync(donePath, stuckPathUnreadable);
+            log('info', 'state', { id, from: 'EVALUATING', to: 'STUCK', reason: 'verdict_unreadable_retry_cap' });
+          } catch (renameErr) {
+            log('warn', 'nog', { id, msg: 'Failed to rename to STUCK', error: renameErr.message });
+          }
+
+          log('error', 'nog', {
+            id,
+            msg: `Unreadable-verdict retry cap reached for slice ${id}`,
+            reason: 'verdict_unreadable_retry_cap',
+            round,
+            attempts: unreadableAttempts,
+          });
+
+          try { cleanupWorktree(id, branchName); } catch (_) {}
+          updateTimesheet(id, { result: 'STUCK', cycle: round, ts_result: new Date().toISOString() });
+
+          print(`${B.vert}    ${C.red}${SYM.cross}${C.reset} VERDICT_UNREADABLE_EXHAUSTED${SYM.sep}Slice ${id} — ${unreadableAttempts}/${MAX_UNREADABLE_ATTEMPTS} unreadable verdicts in round ${round}, terminal`);
+          print(`${B.bl}${B.sng.repeat(W - 1)}`);
+          print('');
+
+          processing = false;
+          heartbeatState.status = 'idle';
+          heartbeatState.current_slice = null;
+          heartbeatState.current_slice_goal = null;
+          heartbeatState.pickupTime = null;
+          heartbeatState.processed_total += 1;
+          writeHeartbeat();
+          return;
+        }
+
+        const backoffMs = unreadableBackoffMs(unreadableAttempts);
+        const notBefore = new Date(Date.now() + backoffMs).toISOString();
+        // ────────────────────────────────────────────────────────────────────
+
+        // Rewrite slice in-place for O'Brien with error details.
+        handleNogReturn(id, rootId, round, branchName, donePath, updatedSliceContent, 'Nog verdict unreadable — manual review required', durationMs, notBefore);
+
+        print(`${B.vert}    ${C.yellow}${SYM.cross}${C.reset} Nog verdict UNREADABLE${SYM.sep}retry ${unreadableAttempts}/${MAX_UNREADABLE_ATTEMPTS} in ${Math.round(backoffMs / 1000)}s (round ${round})`);
         print(`${B.bl}${B.sng.repeat(W - 1)}`);
         print('');
 
@@ -4176,7 +4462,7 @@ function invokeNog(id) {
  * "Apendment round N" section and rename back to QUEUED. The slice keeps its
  * original ID — no new slice is created.
  */
-function handleNogReturn(id, rootId, round, branchName, evaluatingPath, sliceContent, summary, durationMs) {
+function handleNogReturn(id, rootId, round, branchName, evaluatingPath, sliceContent, summary, durationMs, notBefore) {
   // Derive branch from rootId when DONE report didn't include one.
   if (!branchName) {
     branchName = `slice/${rootId}`;
@@ -4195,12 +4481,16 @@ function handleNogReturn(id, rootId, round, branchName, evaluatingPath, sliceCon
   }
 
   // Update frontmatter: set status=QUEUED, round, apendment_cycle, apendment, branch.
+  // `not_before` (slice 372) is the retry backoff: the dispatch loop holds the
+  // slice until that time. Always written — an empty value clears a stale stamp
+  // from a previous round, so a normal Nog return dispatches immediately.
   let updatedContent = updateFrontmatter(parkedContent, {
     status: 'QUEUED',
     round: String(round),
     apendment_cycle: String(round),
     apendment: branchName,
     branch: branchName,
+    not_before: notBefore ? String(notBefore) : 'null',
   });
 
   // Append the apendment round section to the body.
@@ -5136,10 +5426,63 @@ function poll() {
   let pendingFile = null;
   for (const candidate of pendingFiles) {
     const candPath = path.join(QUEUE_DIR, candidate);
+    const candId = candidate.replace(/-(?:QUEUED|PENDING)\.md$/, '');
+
+    // Finished-slice gate: never act on a slice that has already landed.
+    //
+    // Slice 366 was reviewed, squashed and archived at 16:11:51 and re-dispatched
+    // at 16:13:58 from a QUEUED file left behind by the archival. The re-run
+    // crashed, and its ERROR overwrote the slice's real outcome — a merged slice
+    // displayed as failed. A leftover queue file is debris, not an instruction:
+    // clear it and say so.
+    const landedEvent = hasTerminalLandedEvent(candId);
+    if (landedEvent) {
+      const cleared = path.join(TRASH_DIR, path.basename(candPath) + '.stale-after-' + landedEvent);
+      let clearError = null;
+      try { fs.renameSync(candPath, cleared); } catch (err) { clearError = err.message; }
+      const clearedOk = clearError === null;
+
+      // A failed clear leaves the file QUEUED, so the next poll refuses it again —
+      // the same unbounded-event shape the retry cap forty lines below exists to
+      // stop. Announce it once per slice per process, the way SLICE_DISPATCH_DEFERRED
+      // does, and raise the level: a stale file that cannot be cleared is an
+      // operator problem, not routine bookkeeping.
+      const firstRefusal = !_refusalEmitted.has(candId);
+      _refusalEmitted.add(candId);
+
+      if (firstRefusal) {
+        log(clearedOk ? 'warn' : 'error', 'dispatch', {
+          id: candId,
+          msg: clearedOk
+            ? `Refused to dispatch slice ${candId} — already ${landedEvent}; cleared stale queue file`
+            : `Refused to dispatch slice ${candId} — already ${landedEvent}; stale queue file COULD NOT be cleared, remove ${candidate} by hand`,
+          reason: 'already_landed',
+          terminal_event: landedEvent,
+          file: candidate,
+          cleared: clearedOk,
+          clear_error: clearError,
+        });
+        registerEvent(candId, 'SLICE_DISPATCH_REFUSED', {
+          reason: 'already_landed',
+          terminal_event: landedEvent,
+          file: candidate,
+          cleared: clearedOk,
+          clear_error: clearError,
+        });
+        print(clearedOk
+          ? `  ${C.yellow}${SYM.cross}${C.reset}  Slice ${candId}${SYM.dash}already ${landedEvent}; stale queue file cleared, not re-dispatched`
+          : `  ${C.red}${SYM.cross}${C.reset}  Slice ${candId}${SYM.dash}already ${landedEvent}; stale queue file could NOT be cleared — remove ${candidate} by hand`);
+      }
+      continue;
+    }
+
+    // Retry backoff: an unreadable-verdict re-queue carries a not_before stamp so
+    // the retry waits instead of spinning. Not yet due — leave it for a later tick.
+    if (!retryBackoffElapsed(candPath, candId)) continue;
+
     try {
       const candMeta = parseFrontmatter(fs.readFileSync(candPath, 'utf-8'));
       if (!depsAreMet(candMeta)) {
-        const candId = candidate.replace(/-(?:QUEUED|PENDING)\.md$/, '');
         const unmet = String(candMeta.depends_on).split(',').map(s => s.trim()).filter(s => s && !hasMergedEvent(s));
         print(`  ${C.yellow}\u23F8${C.reset}  Slice ${candId}${SYM.dash}blocked on #${unmet.join(', #')} (not yet merged)`);
         // Emit SLICE_DISPATCH_DEFERRED once per slice per process lifetime.
@@ -5920,6 +6263,20 @@ if (require.main === module) {
       maxRetries: config.maxRetries,
     },
   });
+
+  // Fresh-clone bootstrap: the untracked runtime state was just created.
+  if (_seededRuntimeState.length) {
+    log('info', 'startup', { msg: 'Seeded volatile runtime state (fresh workspace)', files: _seededRuntimeState });
+  }
+  // Recovery, not bootstrap: these were absent from disk but still in git history,
+  // which is what a merge of the untracking commit does to a live worktree. Say so
+  // loudly — an unnoticed empty timesheet reads as truth.
+  if (_restoredRuntimeState.length) {
+    log('warn', 'startup', {
+      msg: 'Recovered runtime state from git history — it was missing from disk, not empty',
+      files: _restoredRuntimeState,
+    });
+  }
 
   // Remove stale git lock files from prior crashes before any git operations.
   clearStaleGitLocks();
@@ -7071,6 +7428,12 @@ function squashSliceToDev(sliceId, sliceTitle, sliceBranch) {
     try { fs.unlinkSync(commitMsgFile); } catch (_) {}
   }
 
+  // The squash just applied the slice's tree to dev. If the slice untracked a
+  // runtime file, git has now DELETED it from this — the live — working tree.
+  // Put it back before step 3 reads branch-state.json, and before the ledgers
+  // are appended to and the loss becomes permanent.
+  recoverRuntimeStateAfterGit(`squash-${sliceBranch}`, sliceId);
+
   let devSha;
   try {
     devSha = execSync('git rev-parse HEAD', { cwd: PROJECT_DIR, encoding: 'utf-8' }).trim();
@@ -7430,4 +7793,4 @@ function mergeDevToMain() {
 // Exports — for use by helper scripts (e.g. bridge/next-id.js)
 // ---------------------------------------------------------------------------
 
-module.exports = { startGate, abortGate, buildBashirPrompt, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, validateIntakeMeta, ensureIntegrationIsFresh, ensureMainIsFresh: ensureIntegrationIsFresh, fastForwardIntegrationRef, branchNamesFrom, INTEGRATION_BRANCH, TRUNK_BRANCH, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, provisionWorkspaceDeps, _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted };
+module.exports = { startGate, abortGate, buildBashirPrompt, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, validateIntakeMeta, ensureIntegrationIsFresh, ensureMainIsFresh: ensureIntegrationIsFresh, fastForwardIntegrationRef, branchNamesFrom, INTEGRATION_BRANCH, TRUNK_BRANCH, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, provisionWorkspaceDeps, _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted, hasTerminalLandedEvent, countUnreadableVerdicts, unreadableBackoffMs, retryBackoffElapsed, MAX_UNREADABLE_ATTEMPTS, UNREADABLE_BACKOFF_MS, porcelainPaths, isVolatileRuntimePath, recoverRuntimeStateAfterGit, stageablePathsFrom, shQuote, _testResetRefusalEmitted: () => { _refusalEmitted.clear(); }, _testGetRefusalEmitted: () => _refusalEmitted };
