@@ -47,6 +47,15 @@ function queuedSlice(id, title) {
        + `## Goal\n\nE2E queued work order ${id}.\n\n## Acceptance criteria\n\n- it works\n`;
 }
 
+// A staged proposal O'Brien sent back for amendment. The server derives the status from
+// the FILENAME suffix (-NEEDS_APENDMENT.md), so the suffix — not the frontmatter — is what
+// makes the row render pinned and non-draggable.
+function apendmentSlice(id, title) {
+  return `---\nid: "${id}"\ntitle: "${title}"\nfrom: obrien\nto: rom\npriority: normal\n`
+       + `created: "2026-06-13T00:00:00.000Z"\nstatus: "NEEDS_APENDMENT"\napendment_note: "needs another pass"\n---\n\n`
+       + `## Goal\n\nE2E fixture amendment ${id}.\n\n## Acceptance criteria\n\n- it works\n`;
+}
+
 // ── Journey-specific seed helpers (each fully establishes the state it needs;
 //    tests run serially with workers:1, so overwriting shared files is safe). ──
 
@@ -117,6 +126,26 @@ function seedQueuedPair() {
   bumpHeartbeat();
 }
 
+// Both sections populated for the reorder journey (slice 371): three draggable proposals
+// in a known order, one pinned NEEDS_APENDMENT proposal, and two approved work orders to
+// drag at across the section divider.
+function seedReorderableSections() {
+  const b = path.join(ROOT, 'bridge');
+  for (const d of ['staged', 'queue']) {
+    const dir = path.join(b, d);
+    try { for (const f of fs.readdirSync(dir)) fs.rmSync(path.join(dir, f), { force: true }); } catch (_) {}
+  }
+  w(path.join(b, 'staged', '9101-STAGED.md'), stagedSlice('9101', 'Proposed order one'));
+  w(path.join(b, 'staged', '9102-STAGED.md'), stagedSlice('9102', 'Proposed order two'));
+  w(path.join(b, 'staged', '9103-STAGED.md'), stagedSlice('9103', 'Proposed order three'));
+  w(path.join(b, 'staged', '9104-NEEDS_APENDMENT.md'), apendmentSlice('9104', 'Sent back for amendment'));
+  w(path.join(b, 'queue', '5001-QUEUED.md'), queuedSlice('5001', 'Approved order one'));
+  w(path.join(b, 'queue', '5002-QUEUED.md'), queuedSlice('5002', 'Approved order two'));
+  w(path.join(b, 'staged-order.json'), JSON.stringify(['9101', '9102', '9103']));
+  w(path.join(b, 'queue-order.json'), JSON.stringify(['5001', '5002']));
+  bumpHeartbeat();
+}
+
 // Rewrite heartbeat.json with a fresh timestamp so its mtime advances and the server's
 // bridge-data cache invalidates (it keys on register + heartbeat mtimes).
 function bumpHeartbeat() {
@@ -182,4 +211,5 @@ module.exports.seedRegressionReport = seedRegressionReport;
 module.exports.seedHistorySlice = seedHistorySlice;
 module.exports.seedCostEvents = seedCostEvents;
 module.exports.seedQueuedPair = seedQueuedPair;
+module.exports.seedReorderableSections = seedReorderableSections;
 module.exports.seedRolledBackableSlice = seedRolledBackableSlice;

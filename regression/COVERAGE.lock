@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 456,
+  "guardCount": 468,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -390,6 +390,36 @@
         "file": "regression/gate-merge/j-merge-truth-now.test.js"
       },
       {
+        "tag": "slice-371-ac-1",
+        "file": "regression/authoring-staging/j-reorder-proposed-backlog.test.js",
+        "guardAcHash": "sha256:1fac0d587e3eed45a1eee71c3e3486504826cdbbabcfa6d208a70d812a0bb1cd"
+      },
+      {
+        "tag": "slice-371-ac-2",
+        "file": "regression/authoring-staging/j-reorder-proposed-backlog.test.js",
+        "guardAcHash": "sha256:b0c0d871210672c41213ff8f7f1d6279befbf75eeb18ae26c113897b43aeaf6a"
+      },
+      {
+        "tag": "slice-371-ac-3",
+        "file": "regression/authoring-staging/j-reorder-proposed-backlog.test.js",
+        "guardAcHash": "sha256:9569b7d08648d7542c1c79c217f8b29dfde1f836b629a5607a5f330751b42c8d"
+      },
+      {
+        "tag": "slice-371-ac-4",
+        "file": "regression/authoring-staging/j-reorder-proposed-backlog.test.js",
+        "guardAcHash": "sha256:2a603e6096184a531f08ce883abd00fbcefb5eff873b279edc167e6a4d7c5d02"
+      },
+      {
+        "tag": "slice-371-ac-5",
+        "file": "regression/authoring-staging/j-reorder-proposed-backlog.test.js",
+        "guardAcHash": "sha256:76bdc2652f6d6eb564cc64690b0c983e8515feede0a2357b0631c56fbb9b6e8f"
+      },
+      {
+        "tag": "slice-371-ac-6",
+        "file": "regression/authoring-staging/j-reorder-proposed-backlog.test.js",
+        "guardAcHash": "sha256:e88e5111d0f9835d7f3ca13a31d855588575e3c02a78a2eca07824b733f880fe"
+      },
+      {
         "tag": "slice-373-ac-1",
         "file": "regression/authoring-staging/j-backlog-row-controls.test.js"
       },
@@ -749,6 +779,36 @@
         "file": "regression/gate-merge/j-merge-truth-now.test.js"
       },
       {
+        "tag": "slice-371-ac-1",
+        "file": "regression/authoring-staging/j-reorder-proposed-backlog.test.js",
+        "guardAcHash": "sha256:1fac0d587e3eed45a1eee71c3e3486504826cdbbabcfa6d208a70d812a0bb1cd"
+      },
+      {
+        "tag": "slice-371-ac-2",
+        "file": "regression/authoring-staging/j-reorder-proposed-backlog.test.js",
+        "guardAcHash": "sha256:b0c0d871210672c41213ff8f7f1d6279befbf75eeb18ae26c113897b43aeaf6a"
+      },
+      {
+        "tag": "slice-371-ac-3",
+        "file": "regression/authoring-staging/j-reorder-proposed-backlog.test.js",
+        "guardAcHash": "sha256:9569b7d08648d7542c1c79c217f8b29dfde1f836b629a5607a5f330751b42c8d"
+      },
+      {
+        "tag": "slice-371-ac-4",
+        "file": "regression/authoring-staging/j-reorder-proposed-backlog.test.js",
+        "guardAcHash": "sha256:2a603e6096184a531f08ce883abd00fbcefb5eff873b279edc167e6a4d7c5d02"
+      },
+      {
+        "tag": "slice-371-ac-5",
+        "file": "regression/authoring-staging/j-reorder-proposed-backlog.test.js",
+        "guardAcHash": "sha256:76bdc2652f6d6eb564cc64690b0c983e8515feede0a2357b0631c56fbb9b6e8f"
+      },
+      {
+        "tag": "slice-371-ac-6",
+        "file": "regression/authoring-staging/j-reorder-proposed-backlog.test.js",
+        "guardAcHash": "sha256:e88e5111d0f9835d7f3ca13a31d855588575e3c02a78a2eca07824b733f880fe"
+      },
+      {
         "tag": "slice-901-ac-1",
         "file": "regression/observability/j-inspect-slice-history.test.js"
       },
@@ -1016,6 +1076,38 @@
         "tag": "slice-350-ac-2",
         "file": "e2e/s-numbering.spec.js",
         "guardAcHash": "sha256:d50f5fd02f6f499ec112e18416ff8915b2ae1008ee94b0e496fd659d4dcb618a"
+      }
+    ],
+    "e2e/staged-reorder.spec.js": [
+      {
+        "tag": "slice-371-ac-1",
+        "file": "e2e/staged-reorder.spec.js",
+        "guardAcHash": "sha256:1fac0d587e3eed45a1eee71c3e3486504826cdbbabcfa6d208a70d812a0bb1cd"
+      },
+      {
+        "tag": "slice-371-ac-2",
+        "file": "e2e/staged-reorder.spec.js",
+        "guardAcHash": "sha256:b0c0d871210672c41213ff8f7f1d6279befbf75eeb18ae26c113897b43aeaf6a"
+      },
+      {
+        "tag": "slice-371-ac-3",
+        "file": "e2e/staged-reorder.spec.js",
+        "guardAcHash": "sha256:9569b7d08648d7542c1c79c217f8b29dfde1f836b629a5607a5f330751b42c8d"
+      },
+      {
+        "tag": "slice-371-ac-4",
+        "file": "e2e/staged-reorder.spec.js",
+        "guardAcHash": "sha256:2a603e6096184a531f08ce883abd00fbcefb5eff873b279edc167e6a4d7c5d02"
+      },
+      {
+        "tag": "slice-371-ac-5",
+        "file": "e2e/staged-reorder.spec.js",
+        "guardAcHash": "sha256:76bdc2652f6d6eb564cc64690b0c983e8515feede0a2357b0631c56fbb9b6e8f"
+      },
+      {
+        "tag": "slice-371-ac-6",
+        "file": "e2e/staged-reorder.spec.js",
+        "guardAcHash": "sha256:e88e5111d0f9835d7f3ca13a31d855588575e3c02a78a2eca07824b733f880fe"
       }
     ],
     "lib/ac-block.js": [
@@ -1609,6 +1701,38 @@
         "tag": "slice-365-ac-3",
         "file": "regression/gate-merge/j-unrun-test-dir.test.js",
         "guardAcHash": "sha256:40a9dbadf30897d7501a560471d821a4e47cde70a7c6c7a63e1e7d4eadd5ab5f"
+      }
+    ],
+    "regression/authoring-staging/j-reorder-proposed-backlog.test.js": [
+      {
+        "tag": "slice-371-ac-1",
+        "file": "regression/authoring-staging/j-reorder-proposed-backlog.test.js",
+        "guardAcHash": "sha256:1fac0d587e3eed45a1eee71c3e3486504826cdbbabcfa6d208a70d812a0bb1cd"
+      },
+      {
+        "tag": "slice-371-ac-2",
+        "file": "regression/authoring-staging/j-reorder-proposed-backlog.test.js",
+        "guardAcHash": "sha256:b0c0d871210672c41213ff8f7f1d6279befbf75eeb18ae26c113897b43aeaf6a"
+      },
+      {
+        "tag": "slice-371-ac-3",
+        "file": "regression/authoring-staging/j-reorder-proposed-backlog.test.js",
+        "guardAcHash": "sha256:9569b7d08648d7542c1c79c217f8b29dfde1f836b629a5607a5f330751b42c8d"
+      },
+      {
+        "tag": "slice-371-ac-4",
+        "file": "regression/authoring-staging/j-reorder-proposed-backlog.test.js",
+        "guardAcHash": "sha256:2a603e6096184a531f08ce883abd00fbcefb5eff873b279edc167e6a4d7c5d02"
+      },
+      {
+        "tag": "slice-371-ac-5",
+        "file": "regression/authoring-staging/j-reorder-proposed-backlog.test.js",
+        "guardAcHash": "sha256:76bdc2652f6d6eb564cc64690b0c983e8515feede0a2357b0631c56fbb9b6e8f"
+      },
+      {
+        "tag": "slice-371-ac-6",
+        "file": "regression/authoring-staging/j-reorder-proposed-backlog.test.js",
+        "guardAcHash": "sha256:e88e5111d0f9835d7f3ca13a31d855588575e3c02a78a2eca07824b733f880fe"
       }
     ],
     "regression/direct-controls/j-dark-mode-label.test.js": [

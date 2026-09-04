@@ -227,6 +227,16 @@ function refExists(ref) {
 const HAS_371 = refExists('refs/heads/slice/371') && refExists(`refs/heads/${INTEGRATION}`);
 const SKIP_371 = 'slice/371 is not in this checkout (local-only branch) — nothing to run the rule against';
 
+// The commit this slice was written about is FROZEN, but `slice/371` is not the ref that
+// holds it any more. O'Brien re-staged 371 as attempt 2: the original branch was renamed
+// to slice/371-attempt1 and a fresh slice/371 cut from dev to continue the work on. The
+// artifact is unchanged — same commit, same blobs — so the assertions below name the ref
+// that actually preserves it. Pinning them to a live working branch made them fail the
+// moment anyone touched 371 again, which is the opposite of what a freeze guard is for.
+const FROZEN_371 = 'slice/371-attempt1';
+const HAS_FROZEN_371 = refExists(`refs/heads/${FROZEN_371}`) && refExists(`refs/heads/${INTEGRATION}`);
+const SKIP_FROZEN_371 = `${FROZEN_371} is not in this checkout (local-only branch) — nothing to compare against`;
+
 // Wires the real runGit to real git in this repo, with the orchestrator's own
 // dependency injection. Only the register and log sinks are redirected.
 function withRealGit(fn) {
@@ -274,29 +284,33 @@ test('J-rom-work-substance — trap 1: invokeRom still calls the function by nam
 // ── Trap 2: slice/371's commit was not touched to make this pass ────────────
 
 test('J-rom-work-substance — trap 2: slice/371 still stands as it was, one unmodified commit', (t) => {
-  if (!HAS_371) return t.skip(SKIP_371);
+  if (!HAS_FROZEN_371) return t.skip(SKIP_FROZEN_371);
 
-  assert.equal(git(['rev-parse', 'slice/371']), '4357ad2e3762fec1d5a468b58abde48c71d7207a',
-    'slice/371 must still point at its original commit — the rule was fixed, not the branch');
-  assert.equal(git(['rev-list', 'slice/371', `^${INTEGRATION}`, '--count']), '1',
+  assert.equal(git(['rev-parse', FROZEN_371]), '4357ad2e3762fec1d5a468b58abde48c71d7207a',
+    `${FROZEN_371} must still point at 371's original commit — the rule was fixed, not the branch`);
+  assert.equal(git(['rev-list', FROZEN_371, `^${INTEGRATION}`, '--count']), '1',
     'still exactly one commit ahead');
 });
 
 // ── Trap 3: the browser test on slice/371 is left alone ─────────────────────
 
 test('J-rom-work-substance — trap 3: the browser test on slice/371 is untouched, and this slice writes none', (t) => {
-  if (!HAS_371) return t.skip(SKIP_371);
+  if (!HAS_FROZEN_371) return t.skip(SKIP_FROZEN_371);
 
   // Not this slice's business to remove or reject it — Julian keeps, rewrites or
   // drops it at his stage.
-  assert.equal(git(['rev-parse', 'slice/371:e2e/staged-reorder.spec.js']),
+  assert.equal(git(['rev-parse', `${FROZEN_371}:e2e/staged-reorder.spec.js`]),
     '74f4ae4998c0fdfde202d6f08b2ea10fd2fc548e',
-    'the 201-line spec on slice/371 must still be there, byte for byte');
+    `the 201-line spec on ${FROZEN_371} must still be there, byte for byte`);
 
-  // And this branch adds no browser test of its own.
-  const own = git(['diff', '--numstat', '--no-renames', `${INTEGRATION}...HEAD`])
-    .split('\n').filter(Boolean)
-    .map((l) => l.split('\t').slice(2).join('\t'))
+  // And this branch WRITES no browser test of its own. Authorship, not reachability: the
+  // commits made on this branch are its first-parent, non-merge history. A merge that
+  // carries an already-existing commit across (371 attempt 1 → attempt 2, on O'Brien's
+  // instruction) brings that commit's spec with it, and reading the flat
+  // INTEGRATION...HEAD tree diff would book someone else's file as this branch's work.
+  const own = git(['log', '--first-parent', '--no-merges', '--name-only', '--format=', `${INTEGRATION}..HEAD`])
+    .split('\n').map((l) => l.trim()).filter(Boolean)
     .filter((p) => /^e2e\/.*\.spec\.js$/.test(p));
-  assert.deepEqual(own, [], `Rom never writes a browser test; this branch touches: ${own.join(', ')}`);
+  assert.deepEqual([...new Set(own)], [],
+    `Rom never writes a browser test; this branch touches: ${own.join(', ')}`);
 });

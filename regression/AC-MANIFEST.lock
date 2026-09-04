@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-ac-manifest.js",
-  "acCount": 221,
+  "acCount": 227,
   "legacyCount": 198,
   "byTag": {
     "slice-042-ac-1": {
@@ -576,6 +576,54 @@
       "text": "rename is carried as a label alongside a real direction, not as a substitute for one",
       "acHash": "sha256:6edf4e2b47a8db984130ab942d5c24430a695ab0c44e88f2e34d2d3f16363bf8",
       "source": "bridge/queue/366-DONE.md",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-371-ac-1": {
+      "slice": "371",
+      "text": "a proposed slice can be dragged by its handle and dropped into a new position within the proposed list",
+      "acHash": "sha256:1fac0d587e3eed45a1eee71c3e3486504826cdbbabcfa6d208a70d812a0bb1cd",
+      "source": "bridge/queue/371-DONE.md",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-371-ac-2": {
+      "slice": "371",
+      "text": "the new order is persisted and survives a page reload",
+      "acHash": "sha256:b0c0d871210672c41213ff8f7f1d6279befbf75eeb18ae26c113897b43aeaf6a",
+      "source": "bridge/queue/371-DONE.md",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-371-ac-3": {
+      "slice": "371",
+      "text": "amendment rows remain non-draggable and show the locked affordance",
+      "acHash": "sha256:9569b7d08648d7542c1c79c217f8b29dfde1f836b629a5607a5f330751b42c8d",
+      "source": "bridge/queue/371-DONE.md",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-371-ac-4": {
+      "slice": "371",
+      "text": "a row cannot be dragged between the proposed and approved sections",
+      "acHash": "sha256:2a603e6096184a531f08ce883abd00fbcefb5eff873b279edc167e6a4d7c5d02",
+      "source": "bridge/queue/371-DONE.md",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-371-ac-5": {
+      "slice": "371",
+      "text": "reordering never changes a slice's approval state",
+      "acHash": "sha256:76bdc2652f6d6eb564cc64690b0c983e8515feede0a2357b0631c56fbb9b6e8f",
+      "source": "bridge/queue/371-DONE.md",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-371-ac-6": {
+      "slice": "371",
+      "text": "reordering of approved rows continues to work exactly as it does today",
+      "acHash": "sha256:e88e5111d0f9835d7f3ca13a31d855588575e3c02a78a2eca07824b733f880fe",
+      "source": "bridge/queue/371-DONE.md",
       "status": "active",
       "legacy": false
     },

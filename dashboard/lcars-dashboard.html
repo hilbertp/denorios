@@ -9060,8 +9060,12 @@ body:not(.lcars-mode) .staged-details-body pre code {
     await fetchCombinedQueue();
   }
 
-  fetchBridge();
-  fetchCombinedQueue();
+  // Boot through pollAll, not as two parallel fetches: fetchCombinedQueue reads
+  // _lastBridgeData (for stagedOrder) BEFORE its own await, so firing them side by side
+  // leaves the first paint with no staged order at all — the proposed list renders
+  // newest-id-first until the 5s poll corrects it. Sequential costs one local round-trip
+  // and makes the order right on the first frame after a reload.
+  pollAll();
   setInterval(pollAll, 5000);
 
   function isApendment(item) {
@@ -9167,10 +9171,14 @@ body:not(.lcars-mode) .staged-details-body pre code {
     const isQueued = rowState === 'QUEUED';
     const isStaged = rowState === 'STAGED';
 
-    // Drag handle — only approved non-amendment rows are draggable
+    // Drag handle — both sections reorder by drag: approved work orders (QUEUED) and
+    // proposed improvements (STAGED). Amendment rows stay locked in both flavours:
+    // a QUEUED apendment (isAmd) is pinned to the head of the approved section, and a
+    // NEEDS_APENDMENT proposal has its own rowState so it never reads as STAGED here.
+    // Reordering is sequence only — it never moves a row between the two sections.
     let handleClass = 'locked';
     let draggable = 'false';
-    if (isQueued && !isAmd) {
+    if ((isQueued || isStaged) && !isAmd) {
       handleClass = 'active';
       draggable = 'true';
     }
@@ -9269,7 +9277,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
 
     container.innerHTML = html;
 
-    // Attach drag events to approved (QUEUED) rows only
+    // Attach drag events — approved (QUEUED) and proposed (STAGED) rows both reorder
     setupDragAndDrop();
     // Restore chevron expanded state after re-render
     restoreQueueExpanded();
@@ -9797,7 +9805,11 @@ body:not(.lcars-mode) .staged-details-body pre code {
     } catch (_) {}
   }
 
-  // ── Drag-to-reorder for accepted rows ──────────────────────────────────────
+  // ── Drag-to-reorder for approved (QUEUED) and proposed (STAGED) rows ───────
+  // renderQueueRow marks every reorderable row draggable="true"; amendment rows are
+  // left draggable="false" and so never become a drag SOURCE. Every row listens for
+  // dragover/drop, but onDragOver/onDrop refuse a cross-section pair, so a proposed
+  // row can only land among proposed rows and an approved one among approved.
   function setupDragAndDrop() {
     const rows = document.querySelectorAll('.queue-row[draggable="true"]');
     rows.forEach(row => {
@@ -9827,7 +9839,6 @@ body:not(.lcars-mode) .staged-details-body pre code {
   }
 
   function onDragOver(e) {
-    e.preventDefault();
     const target = e.currentTarget;
     if (target.dataset.apendment === 'true') return;
 
@@ -9836,9 +9847,14 @@ body:not(.lcars-mode) .staged-details-body pre code {
     const srcState = srcRow ? srcRow.dataset.state : null;
     const targetState = target.dataset.state;
 
-    // Block cross-section drops
+    // Block cross-section drops. NEEDS_APENDMENT carries its own rowState, so a pinned
+    // proposal is refused by this same comparison — reordering is never approving.
     if (srcState !== targetState) return;
 
+    // preventDefault() on dragover is what marks a row as a legal drop target. Calling it
+    // only for a pair onDrop will actually accept keeps the browser's own drag cursor
+    // honest, instead of promising a drop that would then be silently discarded.
+    e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     target.classList.add('drag-over');
   }
@@ -9884,9 +9900,11 @@ body:not(.lcars-mode) .staged-details-body pre code {
         body: JSON.stringify({ order }),
       }).catch(() => {});
     } else if (targetState === 'STAGED') {
-      // Reorder STAGED: client-side only
+      // Reorder STAGED: move dragSrcId before targetId in the proposed order
       let order = [...cachedStagedOrder];
-      // Ensure both IDs are in the order array
+      // staged-order.json is a PARTIAL list — a freshly staged proposal renders without
+      // being in it. Backfill every currently-proposed id before splicing, or reordering
+      // one row would silently drop the absent ones out of the persisted sequence.
       const allStagedIds = cachedStagedItems
         .filter(s => s.status !== 'NEEDS_APENDMENT')
         .map(s => s.id);

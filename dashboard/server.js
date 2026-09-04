@@ -1686,15 +1686,24 @@ function getCachedBridgeData() {
   // e.g. an external edit). Without these keys the bridge view can serve stale queue state.
   const qMtime = _getMtimeMs(QUEUE_DIR);
   const sMtime = _getMtimeMs(STAGED_DIR);
+  // buildBridgeData also reads the two ORDER files, and a drag-reorder rewrites one of
+  // them without touching any other keyed path. Without these keys the operator drags a
+  // row, the POST persists, and the very next /api/bridge — a poll or a page reload —
+  // replays the pre-drag order from cache. In production constant heartbeat churn hides
+  // this; with a quiet orchestrator the reorder visibly springs back.
+  const qoMtime = _getMtimeMs(QUEUE_ORDER);
+  const soMtime = _getMtimeMs(STAGED_ORDER);
   if (_bridgeDataCache.value !== null &&
       _bridgeDataCache.regMtime === regMtime &&
       _bridgeDataCache.hbMtime === hbMtime &&
       _bridgeDataCache.qMtime === qMtime &&
-      _bridgeDataCache.sMtime === sMtime) {
+      _bridgeDataCache.sMtime === sMtime &&
+      _bridgeDataCache.qoMtime === qoMtime &&
+      _bridgeDataCache.soMtime === soMtime) {
     return _bridgeDataCache.value;
   }
   const value = buildBridgeData();
-  _bridgeDataCache = { regMtime, hbMtime, qMtime, sMtime, value };
+  _bridgeDataCache = { regMtime, hbMtime, qMtime, sMtime, qoMtime, soMtime, value };
   return value;
 }
 
