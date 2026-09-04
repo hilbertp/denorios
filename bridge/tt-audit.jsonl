@@ -4,3 +4,7 @@
 { "role": "obrien", "ts": "2026-06-17T09:56:28Z", "to": "bashir", "ref": "HANDOFF-AC-DRAIN-FEED-FROM-OBRIEN.md" }
 { "role": "bashir", "ts": "2026-09-01T19:08:55Z", "to": "obrien", "ref": "HANDOFF-PHILIPP-RULING-SEQUENTIAL-TEST-FLOW-FROM-BASHIR.md" }
 { "role": "bashir", "ts": "2026-09-01T20:08:31Z", "to": "obrien", "ref": "HANDOFF-MERGE-WARNING-SCREEN-REQUIREMENTS-FROM-BASHIR.md" }
+{ "role": "obrien", "ts": "2026-09-02T17:54:42Z", "to": "dax", "ref": "HANDOFF-ARCHITECTURE-REVIEW-AND-ROLE-CONTRACTS-FROM-OBRIEN.md" }
+{ "role": "worf", "ts": "2026-09-03T07:38:13Z", "to": "obrien", "ref": "HANDOFF-TEST-OWNERSHIP-RULING-AND-PLUMBING-SLICES-FROM-WORF.md" }
+{ "role": "worf", "ts": "2026-09-03T07:38:13Z", "to": "dax", "ref": "HANDOFF-TEST-OWNERSHIP-SETTLED-FROM-WORF.md" }
+{ "role": "worf", "ts": "2026-09-03T19:06:18Z", "to": "obrien", "ref": "HANDOFF-TEST-OWNERSHIP-ADDENDUM-CONTRACTS-LIVE-FROM-WORF.md" }

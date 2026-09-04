@@ -1,1 +1,1 @@
-{"sliceId":"372","title":"Stop the pipeline leaving debris — untrack runtime state, and never act on a finished slice","round":3,"invokedAt":"2026-09-04T08:59:05.910Z","phase":"code_review"}
+{"sliceId":"371","title":"Let the operator drag proposed slices into order","round":1,"invokedAt":"2026-09-04T15:46:28.335Z","phase":"code_review"}
