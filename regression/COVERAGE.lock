@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 479,
+  "guardCount": 489,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -1604,6 +1604,31 @@
     ],
     "regression/AC-MANIFEST.lock": [
       {
+        "tag": "slice-379-ac-1",
+        "file": "regression/gate-merge/j-ac-manifest-trailer-source.test.js",
+        "guardAcHash": "sha256:8dd1883e49fa0fd5a37acd536aebffe580303172f57de744ee63f9ff8e8c5687"
+      },
+      {
+        "tag": "slice-379-ac-2",
+        "file": "regression/gate-merge/j-ac-manifest-trailer-source.test.js",
+        "guardAcHash": "sha256:7e0434a4b9f94c61c9bacf1163e9e62f62802818c84532f2e97771b2d9c48937"
+      },
+      {
+        "tag": "slice-379-ac-3",
+        "file": "regression/gate-merge/j-ac-manifest-trailer-source.test.js",
+        "guardAcHash": "sha256:89a49d6b5d91e31bba03666d386f2e3939b53b213c3327886d680abab97fb750"
+      },
+      {
+        "tag": "slice-379-ac-4",
+        "file": "regression/gate-merge/j-ac-manifest-trailer-source.test.js",
+        "guardAcHash": "sha256:91b66583b30f7f61296131874031f46324632b7401b60d4cb8838f99ee765724"
+      },
+      {
+        "tag": "slice-379-ac-5",
+        "file": "regression/gate-merge/j-ac-manifest-trailer-source.test.js",
+        "guardAcHash": "sha256:80a2be997538d1e071cdb54efdb5d487adc525909c991a3801ae2089b5a9cd80"
+      },
+      {
         "tag": "slice-99826-ac-1",
         "file": "regression/gate-merge/j-ac-manifest-integrity.test.js"
       },
@@ -1868,6 +1893,33 @@
         "tag": "slice-372-ac-6",
         "file": "regression/dispatch-execution/j-untracked-runtime-state.test.js",
         "guardAcHash": "sha256:042403c9c5d6477b98df8e42269b27fd58ed7d312fb4de3f144167ff46067951"
+      }
+    ],
+    "regression/gate-merge/j-ac-manifest-trailer-source.test.js": [
+      {
+        "tag": "slice-379-ac-1",
+        "file": "regression/gate-merge/j-ac-manifest-trailer-source.test.js",
+        "guardAcHash": "sha256:8dd1883e49fa0fd5a37acd536aebffe580303172f57de744ee63f9ff8e8c5687"
+      },
+      {
+        "tag": "slice-379-ac-2",
+        "file": "regression/gate-merge/j-ac-manifest-trailer-source.test.js",
+        "guardAcHash": "sha256:7e0434a4b9f94c61c9bacf1163e9e62f62802818c84532f2e97771b2d9c48937"
+      },
+      {
+        "tag": "slice-379-ac-3",
+        "file": "regression/gate-merge/j-ac-manifest-trailer-source.test.js",
+        "guardAcHash": "sha256:89a49d6b5d91e31bba03666d386f2e3939b53b213c3327886d680abab97fb750"
+      },
+      {
+        "tag": "slice-379-ac-4",
+        "file": "regression/gate-merge/j-ac-manifest-trailer-source.test.js",
+        "guardAcHash": "sha256:91b66583b30f7f61296131874031f46324632b7401b60d4cb8838f99ee765724"
+      },
+      {
+        "tag": "slice-379-ac-5",
+        "file": "regression/gate-merge/j-ac-manifest-trailer-source.test.js",
+        "guardAcHash": "sha256:80a2be997538d1e071cdb54efdb5d487adc525909c991a3801ae2089b5a9cd80"
       }
     ],
     "regression/gate-merge/j-merge-lock-server.test.js": [
@@ -2151,6 +2203,31 @@
       }
     ],
     "scripts/build-ac-manifest.js": [
+      {
+        "tag": "slice-379-ac-1",
+        "file": "regression/gate-merge/j-ac-manifest-trailer-source.test.js",
+        "guardAcHash": "sha256:8dd1883e49fa0fd5a37acd536aebffe580303172f57de744ee63f9ff8e8c5687"
+      },
+      {
+        "tag": "slice-379-ac-2",
+        "file": "regression/gate-merge/j-ac-manifest-trailer-source.test.js",
+        "guardAcHash": "sha256:7e0434a4b9f94c61c9bacf1163e9e62f62802818c84532f2e97771b2d9c48937"
+      },
+      {
+        "tag": "slice-379-ac-3",
+        "file": "regression/gate-merge/j-ac-manifest-trailer-source.test.js",
+        "guardAcHash": "sha256:89a49d6b5d91e31bba03666d386f2e3939b53b213c3327886d680abab97fb750"
+      },
+      {
+        "tag": "slice-379-ac-4",
+        "file": "regression/gate-merge/j-ac-manifest-trailer-source.test.js",
+        "guardAcHash": "sha256:91b66583b30f7f61296131874031f46324632b7401b60d4cb8838f99ee765724"
+      },
+      {
+        "tag": "slice-379-ac-5",
+        "file": "regression/gate-merge/j-ac-manifest-trailer-source.test.js",
+        "guardAcHash": "sha256:80a2be997538d1e071cdb54efdb5d487adc525909c991a3801ae2089b5a9cd80"
+      },
       {
         "tag": "slice-99826-ac-1",
         "file": "regression/gate-merge/j-ac-manifest-integrity.test.js"

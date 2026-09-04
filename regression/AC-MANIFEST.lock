@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-ac-manifest.js",
-  "acCount": 233,
+  "acCount": 238,
   "legacyCount": 198,
   "byTag": {
     "slice-042-ac-1": {
@@ -543,7 +543,7 @@
       "slice": "366",
       "text": "a check renamed within a file is classified as renamed rather than removed, and does not flag",
       "acHash": "sha256:a5753433cefe8419398b772a22a3cf59494d1bedd0a6a765c915a1ad24866c86",
-      "source": "bridge/queue/366-DONE.md",
+      "source": "commit-trailer",
       "status": "active",
       "legacy": false
     },
@@ -551,7 +551,7 @@
       "slice": "366",
       "text": "a rename that also weakens or deletes assertions still flags",
       "acHash": "sha256:0b3658abeaaeeb4b710714d1b1ed433137ee54a5fd58d2e5fa5d989e6e006b25",
-      "source": "bridge/queue/366-DONE.md",
+      "source": "commit-trailer",
       "status": "active",
       "legacy": false
     },
@@ -559,7 +559,7 @@
       "slice": "366",
       "text": "pairing is one-to-one within a file and two distinct checks with similar titles are never paired",
       "acHash": "sha256:c22b86654f7de3e4a3227f47917ba879dfcae757884be2301d568604fa8d9572",
-      "source": "bridge/queue/366-DONE.md",
+      "source": "commit-trailer",
       "status": "active",
       "legacy": false
     },
@@ -567,7 +567,7 @@
       "slice": "366",
       "text": "an unpaired disappearance is still reported as removed",
       "acHash": "sha256:638dd7781fe06807df49f53852807588dac0a65d2b4340cb6d1c3463abb0a9e0",
-      "source": "bridge/queue/366-DONE.md",
+      "source": "commit-trailer",
       "status": "active",
       "legacy": false
     },
@@ -575,7 +575,7 @@
       "slice": "366",
       "text": "rename is carried as a label alongside a real direction, not as a substitute for one",
       "acHash": "sha256:6edf4e2b47a8db984130ab942d5c24430a695ab0c44e88f2e34d2d3f16363bf8",
-      "source": "bridge/queue/366-DONE.md",
+      "source": "commit-trailer",
       "status": "active",
       "legacy": false
     },
@@ -583,7 +583,7 @@
       "slice": "371",
       "text": "a proposed slice can be dragged by its handle and dropped into a new position within the proposed list",
       "acHash": "sha256:1fac0d587e3eed45a1eee71c3e3486504826cdbbabcfa6d208a70d812a0bb1cd",
-      "source": "bridge/queue/371-DONE.md",
+      "source": "commit-trailer",
       "status": "active",
       "legacy": false
     },
@@ -591,7 +591,7 @@
       "slice": "371",
       "text": "the new order is persisted and survives a page reload",
       "acHash": "sha256:b0c0d871210672c41213ff8f7f1d6279befbf75eeb18ae26c113897b43aeaf6a",
-      "source": "bridge/queue/371-DONE.md",
+      "source": "commit-trailer",
       "status": "active",
       "legacy": false
     },
@@ -599,7 +599,7 @@
       "slice": "371",
       "text": "amendment rows remain non-draggable and show the locked affordance",
       "acHash": "sha256:9569b7d08648d7542c1c79c217f8b29dfde1f836b629a5607a5f330751b42c8d",
-      "source": "bridge/queue/371-DONE.md",
+      "source": "commit-trailer",
       "status": "active",
       "legacy": false
     },
@@ -607,7 +607,7 @@
       "slice": "371",
       "text": "a row cannot be dragged between the proposed and approved sections",
       "acHash": "sha256:2a603e6096184a531f08ce883abd00fbcefb5eff873b279edc167e6a4d7c5d02",
-      "source": "bridge/queue/371-DONE.md",
+      "source": "commit-trailer",
       "status": "active",
       "legacy": false
     },
@@ -615,7 +615,7 @@
       "slice": "371",
       "text": "reordering never changes a slice's approval state",
       "acHash": "sha256:76bdc2652f6d6eb564cc64690b0c983e8515feede0a2357b0631c56fbb9b6e8f",
-      "source": "bridge/queue/371-DONE.md",
+      "source": "commit-trailer",
       "status": "active",
       "legacy": false
     },
@@ -623,7 +623,7 @@
       "slice": "371",
       "text": "reordering of approved rows continues to work exactly as it does today",
       "acHash": "sha256:e88e5111d0f9835d7f3ca13a31d855588575e3c02a78a2eca07824b733f880fe",
-      "source": "bridge/queue/371-DONE.md",
+      "source": "commit-trailer",
       "status": "active",
       "legacy": false
     },
@@ -631,7 +631,7 @@
       "slice": "372",
       "text": "the volatile runtime state files are no longer tracked, and a slice run produces no autocommit of them",
       "acHash": "sha256:9a7366ac20653967e8200c231bd0635bc73fae61c6989de8cc457192b82666af",
-      "source": "bridge/queue/372-ARCHIVED.md",
+      "source": "commit-trailer",
       "status": "active",
       "legacy": false
     },
@@ -639,7 +639,7 @@
       "slice": "372",
       "text": "the files remain present and writable on disk, and a fresh clone still starts and runs",
       "acHash": "sha256:a2fadb2068c1cfaec5213252e4c814a2629583888bf6e962df2f174becb34488",
-      "source": "bridge/queue/372-ARCHIVED.md",
+      "source": "commit-trailer",
       "status": "active",
       "legacy": false
     },
@@ -647,7 +647,7 @@
       "slice": "372",
       "text": "a slice with a terminal merged or archived event is not dispatched again, and the stale queue file is cleared with the refusal logged",
       "acHash": "sha256:d55029bf3e943d6c4d89ec20ac6897bea3eab8245ef4d03d178b7d3f3749db49",
-      "source": "bridge/queue/372-ARCHIVED.md",
+      "source": "commit-trailer",
       "status": "active",
       "legacy": false
     },
@@ -655,7 +655,7 @@
       "slice": "372",
       "text": "a review rejection round and a restaged slice still dispatch normally",
       "acHash": "sha256:4ed6a16ee6649ff661450fb62bdf0e93b79166d327c4de704915b6ac0ce5d420",
-      "source": "bridge/queue/372-ARCHIVED.md",
+      "source": "commit-trailer",
       "status": "active",
       "legacy": false
     },
@@ -663,7 +663,7 @@
       "slice": "372",
       "text": "unreadable review verdicts retry a bounded number of times with backoff, then reach a terminal state naming the reason",
       "acHash": "sha256:6276c065d9da3c28eb0b51fde8079fac09359383ff99bc4a911c4b9a9430c941",
-      "source": "bridge/queue/372-ARCHIVED.md",
+      "source": "commit-trailer",
       "status": "active",
       "legacy": false
     },
@@ -671,7 +671,7 @@
       "slice": "372",
       "text": "existing history is not rewritten",
       "acHash": "sha256:042403c9c5d6477b98df8e42269b27fd58ed7d312fb4de3f144167ff46067951",
-      "source": "bridge/queue/372-ARCHIVED.md",
+      "source": "commit-trailer",
       "status": "active",
       "legacy": false
     },
@@ -711,7 +711,7 @@
       "slice": "375",
       "text": "a branch with zero commits ahead of the integration branch still fails verification with the existing no-commits reason",
       "acHash": "sha256:2203ba7486a7a086162e3dfc4068556b900ca31cb5bdcdc343da1c2d6ebc49da",
-      "source": "bridge/queue/375-DONE.md",
+      "source": "commit-trailer",
       "status": "active",
       "legacy": false
     },
@@ -719,7 +719,7 @@
       "slice": "375",
       "text": "a branch with one commit that changes at least one file outside the bookkeeping paths passes verification, decided from the diff rather than the report",
       "acHash": "sha256:d0fc52e37e3e94d478131522a418bd7db12fefa8a058eaf47564544670298c27",
-      "source": "bridge/queue/375-DONE.md",
+      "source": "commit-trailer",
       "status": "active",
       "legacy": false
     },
@@ -727,7 +727,7 @@
       "slice": "375",
       "text": "a branch whose commits change only the DONE report fails with a distinct reason naming the absence of a product change",
       "acHash": "sha256:2bfeb0423c80dec8e346be4ff570e3cd5f17fba3588e8aff5214f4219815d1a0",
-      "source": "bridge/queue/375-DONE.md",
+      "source": "commit-trailer",
       "status": "active",
       "legacy": false
     },
@@ -735,7 +735,7 @@
       "slice": "375",
       "text": "the self-reported token count is no longer able to fail a slice, and the claimed-versus-actual divergence still appears as a warning",
       "acHash": "sha256:e5df61a9766d3c5fb5f6534c3fa26dba65ea06858bbdc762b09eca00964b548b",
-      "source": "bridge/queue/375-DONE.md",
+      "source": "commit-trailer",
       "status": "active",
       "legacy": false
     },
@@ -743,7 +743,7 @@
       "slice": "375",
       "text": "no failure message claims there are no commits when the branch has one",
       "acHash": "sha256:cea49fb58eeef9175d0d21ba1e7b772e06ec490ce5ddf30e4fab6628637b0a31",
-      "source": "bridge/queue/375-DONE.md",
+      "source": "commit-trailer",
       "status": "active",
       "legacy": false
     },
@@ -751,7 +751,7 @@
       "slice": "375",
       "text": "the verification function keeps its existing name and signature",
       "acHash": "sha256:5c2d774d14e8a6377fdc227636fb590507840948e9fe677be2062112c812e6e1",
-      "source": "bridge/queue/375-DONE.md",
+      "source": "commit-trailer",
       "status": "active",
       "legacy": false
     },
@@ -759,7 +759,7 @@
       "slice": "375",
       "text": "a test runs the new rule against the existing single-commit branch slice/371 and it passes without that commit being changed",
       "acHash": "sha256:4c53cf94d41440f0ae8309cd10090aa774ce38081ef43aa0cac1a03e77d85f29",
-      "source": "bridge/queue/375-DONE.md",
+      "source": "commit-trailer",
       "status": "active",
       "legacy": false
     },
@@ -767,7 +767,7 @@
       "slice": "376",
       "text": "a newly created slice workspace has its dependencies available immediately after creation, without any manual step",
       "acHash": "sha256:6a3e93cb09290862898859e84a55c4a84e1ed098822d6c979614e58987cc81fb",
-      "source": "bridge/queue/376-ARCHIVED.md",
+      "source": "commit-trailer",
       "status": "active",
       "legacy": false
     },
@@ -775,7 +775,7 @@
       "slice": "376",
       "text": "a fresh workspace can run the safety-net suite and can list the browser suite",
       "acHash": "sha256:6e6f7b809a108ecd4bf3682f64f322e20cffd313e860f7bdd79eea5b9955b79f",
-      "source": "bridge/queue/376-ARCHIVED.md",
+      "source": "commit-trailer",
       "status": "active",
       "legacy": false
     },
@@ -783,7 +783,7 @@
       "slice": "376",
       "text": "git status in a fresh workspace is clean, and the dependency directory cannot be committed",
       "acHash": "sha256:88379708bca6022c35bd2aa6b6ba2b07c4e87481138421b690e40ce99027fb55",
-      "source": "bridge/queue/376-ARCHIVED.md",
+      "source": "commit-trailer",
       "status": "active",
       "legacy": false
     },
@@ -791,7 +791,7 @@
       "slice": "376",
       "text": "no browser download occurs per slice; the existing machine-wide cache is used",
       "acHash": "sha256:0ed0ae2330ee797d53c08877b0784d5a6a846af515916d7944d8b3ed9cae2bae",
-      "source": "bridge/queue/376-ARCHIVED.md",
+      "source": "commit-trailer",
       "status": "active",
       "legacy": false
     },
@@ -799,7 +799,47 @@
       "slice": "376",
       "text": "the reviewer's workspace is provisioned the same way as the implementer's",
       "acHash": "sha256:821694680608016dfc35b296d765cefc16f22dd2c5fd30e54923fcdd726cbacf",
-      "source": "bridge/queue/376-ARCHIVED.md",
+      "source": "commit-trailer",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-379-ac-1": {
+      "slice": "379",
+      "text": "criterion text is taken from immutable commit history rather than from working files that can be renamed or deleted",
+      "acHash": "sha256:8dd1883e49fa0fd5a37acd536aebffe580303172f57de744ee63f9ff8e8c5687",
+      "source": "commit-trailer",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-379-ac-2": {
+      "slice": "379",
+      "text": "archiving a slice, renaming its queue file, or deleting it from the working tree leaves the manifest unchanged",
+      "acHash": "sha256:7e0434a4b9f94c61c9bacf1163e9e62f62802818c84532f2e97771b2d9c48937",
+      "source": "commit-trailer",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-379-ac-3": {
+      "slice": "379",
+      "text": "every criterion that resolves as active today still resolves as active, and the legacy count does not grow",
+      "acHash": "sha256:89a49d6b5d91e31bba03666d386f2e3939b53b213c3327886d680abab97fb750",
+      "source": "commit-trailer",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-379-ac-4": {
+      "slice": "379",
+      "text": "a criterion whose text was amended across commits resolves to the newest declaration",
+      "acHash": "sha256:91b66583b30f7f61296131874031f46324632b7401b60d4cb8838f99ee765724",
+      "source": "commit-trailer",
+      "status": "active",
+      "legacy": false
+    },
+    "slice-379-ac-5": {
+      "slice": "379",
+      "text": "the manifest integrity and determinism guards still pass",
+      "acHash": "sha256:80a2be997538d1e071cdb54efdb5d487adc525909c991a3801ae2089b5a9cd80",
+      "source": "commit-trailer",
       "status": "active",
       "legacy": false
     },
