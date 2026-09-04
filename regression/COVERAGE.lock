@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 497,
+  "guardCount": 517,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -218,6 +218,26 @@
         "guardAcHash": "sha256:9e6e74b03e15a148a19a4c469fc90e233d85d8367d16a230801169dc9f107987"
       },
       {
+        "tag": "slice-370-ac-1",
+        "file": "regression/direct-controls/j-return-to-stage-truthful.test.js"
+      },
+      {
+        "tag": "slice-370-ac-2",
+        "file": "regression/direct-controls/j-return-to-stage-truthful.test.js"
+      },
+      {
+        "tag": "slice-370-ac-3",
+        "file": "regression/direct-controls/j-return-to-stage-truthful.test.js"
+      },
+      {
+        "tag": "slice-370-ac-4",
+        "file": "regression/direct-controls/j-return-to-stage-truthful.test.js"
+      },
+      {
+        "tag": "slice-370-ac-5",
+        "file": "regression/direct-controls/j-return-to-stage-truthful.test.js"
+      },
+      {
         "tag": "slice-372-ac-1",
         "file": "regression/dispatch-execution/j-runtime-state-survives-landing.test.js",
         "guardAcHash": "sha256:9a7366ac20653967e8200c231bd0635bc73fae61c6989de8cc457192b82666af"
@@ -342,6 +362,28 @@
         "file": "regression/observability/j-watch-slice-live-log.test.js"
       }
     ],
+    "bridge/return-to-stage-eligibility.js": [
+      {
+        "tag": "slice-370-ac-1",
+        "file": "regression/direct-controls/j-return-to-stage-truthful.test.js"
+      },
+      {
+        "tag": "slice-370-ac-2",
+        "file": "regression/direct-controls/j-return-to-stage-truthful.test.js"
+      },
+      {
+        "tag": "slice-370-ac-3",
+        "file": "regression/direct-controls/j-return-to-stage-truthful.test.js"
+      },
+      {
+        "tag": "slice-370-ac-4",
+        "file": "regression/direct-controls/j-return-to-stage-truthful.test.js"
+      },
+      {
+        "tag": "slice-370-ac-5",
+        "file": "regression/direct-controls/j-return-to-stage-truthful.test.js"
+      }
+    ],
     "dashboard/lcars-dashboard.html": [
       {
         "tag": "slice-340-ac-1",
@@ -444,6 +486,26 @@
       {
         "tag": "slice-367-ac-4",
         "file": "regression/gate-merge/j-merge-dialog-one-classification.test.js"
+      },
+      {
+        "tag": "slice-370-ac-1",
+        "file": "regression/direct-controls/j-return-to-stage-truthful.test.js"
+      },
+      {
+        "tag": "slice-370-ac-2",
+        "file": "regression/direct-controls/j-return-to-stage-truthful.test.js"
+      },
+      {
+        "tag": "slice-370-ac-3",
+        "file": "regression/direct-controls/j-return-to-stage-truthful.test.js"
+      },
+      {
+        "tag": "slice-370-ac-4",
+        "file": "regression/direct-controls/j-return-to-stage-truthful.test.js"
+      },
+      {
+        "tag": "slice-370-ac-5",
+        "file": "regression/direct-controls/j-return-to-stage-truthful.test.js"
       },
       {
         "tag": "slice-371-ac-1",
@@ -849,6 +911,26 @@
       {
         "tag": "slice-367-ac-4",
         "file": "regression/gate-merge/j-merge-dialog-one-classification.test.js"
+      },
+      {
+        "tag": "slice-370-ac-1",
+        "file": "regression/direct-controls/j-return-to-stage-truthful.test.js"
+      },
+      {
+        "tag": "slice-370-ac-2",
+        "file": "regression/direct-controls/j-return-to-stage-truthful.test.js"
+      },
+      {
+        "tag": "slice-370-ac-3",
+        "file": "regression/direct-controls/j-return-to-stage-truthful.test.js"
+      },
+      {
+        "tag": "slice-370-ac-4",
+        "file": "regression/direct-controls/j-return-to-stage-truthful.test.js"
+      },
+      {
+        "tag": "slice-370-ac-5",
+        "file": "regression/direct-controls/j-return-to-stage-truthful.test.js"
       },
       {
         "tag": "slice-371-ac-1",

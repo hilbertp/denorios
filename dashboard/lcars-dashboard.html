@@ -3028,6 +3028,27 @@
     transition: background 0.15s;
   }
   .return-to-stage-btn:hover { background: #fef3c7; }
+  /* An ineligible row keeps the control visible but inert, with the reason on
+     hover — an operator should never be able to click a no-op. (Slice 370.) */
+  .return-to-stage-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    border-style: dashed;
+  }
+  .return-to-stage-btn:disabled:hover { background: none; }
+  /* In-flight / refused states, shared by both return-to-stage entry points
+     (the History row button and the slice-detail modal button). */
+  .rts-waiting {
+    border-style: dashed;
+    animation: blocked-pulse 1.4s ease-in-out infinite;
+  }
+  .rts-refused {
+    border-color: var(--err, #b91c1c) !important;
+    color: var(--err, #b91c1c) !important;
+    white-space: normal;
+    text-align: left;
+  }
+  .slice-action-return-stage:disabled { opacity: 0.5; cursor: not-allowed; }
 
   /* ── ROLL BACK (revert-forward through the gate) ─────── */
   .rollback-btn {
@@ -7896,9 +7917,24 @@ body:not(.lcars-mode) .staged-details-body pre code {
 
       const expandDesc = isFail && c.reason ? humanReason(c.reason) : firstSentence;
 
-      const returnBtn = isFail
-        ? `<button class="return-to-stage-btn" onclick="returnToStage('${eid}', this)">\u21a9 Return to stage</button>`
-        : '';
+      // Return to stage: offered only where it can actually succeed. Eligibility
+      // comes from the server, which reads the slice's *current* file state —
+      // the row's outcome is history and says nothing about whether the slice
+      // can be returned today. Three renderings, deliberately:
+      //   returnable          → a live button;
+      //   not returnable, but the row FAILED → the button, disabled, carrying
+      //     the reason on hover: the operator expected the action here, so he is
+      //     told why it is off rather than left to click a no-op;
+      //   not returnable, and the row succeeded → nothing. A merged slice was
+      //     never a candidate for return, and 200 disabled buttons down the
+      //     History page would be noise, not an explanation.
+      // (Slice 370, AC-1.)
+      const returnReason = c.returnReason || 'This slice cannot be returned to stage.';
+      const returnBtn = c.returnable
+        ? `<button class="return-to-stage-btn" data-return-id="${eid}" title="Return S${eid} to the staged list for another round" onclick="returnToStage('${eid}', this)">\u21a9 Return to stage</button>`
+        : (isFail
+            ? `<button class="return-to-stage-btn" data-return-id="${eid}" disabled title="${escHtml(returnReason)}">\u21a9 Return to stage</button>`
+            : '');
 
       // Roll back: offered only for slices that actually reached main and carry a
       // squashed dev commit to revert (ADR-ROLLBACK-MODEL \u2014 revert-forward).
@@ -7963,41 +7999,140 @@ body:not(.lcars-mode) .staged-details-body pre code {
   }
 
   // ── Return to stage ──────────────────────────────────────────────────────
-  async function returnToStage(id, btnEl) {
-    if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Returning\u2026'; }
-    try {
-      const res = await fetch(`/api/bridge/return-to-stage/${id}`, { method: 'POST' });
-      if (res.ok) {
-        // Show success toast
-        const toast = document.createElement('div');
-        toast.className = 'return-toast';
-        toast.textContent = `S${id} returned to stage`;
-        document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 3000);
-        fetchBridge();
-        fetchCombinedQueue();
-      } else {
-        const data = await res.json().catch(() => ({}));
-        const errMsg = data.error || 'Failed to return to stage';
-        if (btnEl) {
-          btnEl.textContent = errMsg;
-          btnEl.style.color = '#dc2626';
-          btnEl.style.borderColor = '#dc2626';
-          setTimeout(() => {
-            btnEl.textContent = '\u21a9 Return to stage';
-            btnEl.style.color = '';
-            btnEl.style.borderColor = '';
-            btnEl.disabled = false;
-          }, 3000);
-        }
+  // One implementation for both entry points (the History row and the
+  // slice-detail modal), so the same slice cannot behave differently depending
+  // on where the operator clicked. (Slice 370, AC-4.)
+  //
+  // A slice that never ran is returned by the server there and then. A slice
+  // that has already run is handed to the orchestrator, which owns queue
+  // mutations — the server answers 202 (accepted, not done) and we follow the
+  // request to its real outcome. Success is only ever reported once the return
+  // has actually happened.
+
+  // The orchestrator polls every 5s, stretching as it idles, so a return pressed
+  // on a quiet system legitimately takes a few seconds to land.
+  const RETURN_POLL_MS    = 700;
+  const RETURN_TIMEOUT_MS = 45000;
+  const RETURN_LABEL      = '↩ Return to stage';
+
+  function showReturnToast(message) {
+    const toast = document.createElement('div');
+    toast.className = 'return-toast';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  }
+
+  function setReturnBtnState(btnEl, { label, mode, disabled }) {
+    if (!btnEl) return;
+    btnEl.textContent = label;
+    btnEl.disabled = !!disabled;
+    btnEl.classList.toggle('rts-waiting', mode === 'waiting');
+    btnEl.classList.toggle('rts-refused', mode === 'refused');
+  }
+
+  function resetReturnBtn(btnEl, delayMs, label) {
+    if (!btnEl) return;
+    setTimeout(() => {
+      setReturnBtnState(btnEl, { label: label || RETURN_LABEL, mode: null, disabled: false });
+      btnEl.removeAttribute('title');
+    }, delayMs);
+  }
+
+  // Follow an accepted control-file request until the orchestrator acts on it.
+  async function awaitReturnOutcome(id, since) {
+    const deadline = Date.now() + RETURN_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      await new Promise(r => setTimeout(r, RETURN_POLL_MS));
+      let data;
+      try {
+        const qs = since ? `?since=${encodeURIComponent(since)}` : '';
+        const res = await fetch(`/api/bridge/return-to-stage/${id}/status${qs}`);
+        data = await res.json();
+      } catch (_) {
+        continue;   // transient — keep following
       }
-    } catch (err) {
-      if (btnEl) {
-        btnEl.textContent = 'Network error';
-        btnEl.disabled = false;
-        setTimeout(() => { btnEl.textContent = '\u21a9 Return to stage'; }, 2000);
-      }
+      if (data && data.outcome && data.outcome !== 'pending') return data;
     }
+    return { outcome: 'timeout' };
+  }
+
+  /**
+   * returnToStage(id, btnEl, opts)
+   *
+   * opts.endpoint  — which of the two POST routes to use. They behave
+   *                  identically; each entry point keeps its own for continuity.
+   * opts.onSuccess — extra work after a *confirmed* return (the modal closes).
+   */
+  async function returnToStage(id, btnEl, opts) {
+    const options  = opts || {};
+    const endpoint = options.endpoint || `/api/bridge/return-to-stage/${id}`;
+    // The two entry points label their button differently; restore whichever
+    // label this one started with.
+    const label = btnEl ? btnEl.textContent : RETURN_LABEL;
+
+    setReturnBtnState(btnEl, { label: 'Returning…', mode: 'waiting', disabled: true });
+
+    const refuse = (reason) => {
+      const message = reason || 'Failed to return to stage';
+      setReturnBtnState(btnEl, { label: message, mode: 'refused', disabled: true });
+      if (btnEl) btnEl.title = message;
+      else alert(message);
+      resetReturnBtn(btnEl, 6000, label);
+      // Refresh: a refusal usually means the row's state has moved on, and the
+      // re-render will drop or disable the control accordingly.
+      fetchBridge();
+      fetchCombinedQueue();
+    };
+
+    const succeed = () => {
+      showReturnToast(`S${id} returned to stage`);
+      setReturnBtnState(btnEl, { label: '✓ Returned', mode: null, disabled: true });
+      fetchBridge();
+      fetchCombinedQueue();
+      if (typeof options.onSuccess === 'function') options.onSuccess();
+    };
+
+    let res, data;
+    try {
+      res = await fetch(endpoint, { method: 'POST' });
+      data = await res.json().catch(() => ({}));
+    } catch (_) {
+      setReturnBtnState(btnEl, { label: 'Network error', mode: 'refused', disabled: true });
+      resetReturnBtn(btnEl, 3000, label);
+      return { outcome: 'error' };
+    }
+
+    if (!res.ok) {
+      refuse(data.reason || data.error);
+      return { outcome: 'refused', reason: data.reason || data.error };
+    }
+
+    // Synchronous path (a slice that never ran): already done.
+    if (data.outcome === 'returned') {
+      succeed();
+      return { outcome: 'returned' };
+    }
+
+    // Asynchronous path: the orchestrator has the request but has not acted yet.
+    setReturnBtnState(btnEl, { label: 'Waiting for orchestrator…', mode: 'waiting', disabled: true });
+    const result = await awaitReturnOutcome(id, data.requested_at);
+
+    if (result.outcome === 'returned') {
+      succeed();
+      return result;
+    }
+    if (result.outcome === 'refused') {
+      refuse(result.reason);
+      return result;
+    }
+    // Never claim a success we cannot see. The request is still queued; say so.
+    const stalled = 'Still waiting — the orchestrator has not picked up the request. Check that it is running.';
+    setReturnBtnState(btnEl, { label: stalled, mode: 'refused', disabled: true });
+    if (btnEl) btnEl.title = stalled;
+    else alert(stalled);
+    resetReturnBtn(btnEl, 8000, label);
+    return { outcome: 'timeout' };
   }
 
   // ── Roll back (revert-forward through the gate) ──────────────────────────
@@ -9696,11 +9831,31 @@ body:not(.lcars-mode) .staged-details-body pre code {
     } else {
       container.innerHTML = `
         <button class="slice-action-btn slice-action-save" onclick="sliceDetailSave()">Save edits</button>
-        <button class="slice-action-btn slice-action-return-stage" onclick="sliceDetailReturnToStage()">Return to Dev Lead</button>
+        <button class="slice-action-btn slice-action-return-stage" onclick="sliceDetailReturnToStage(this)">Return to Dev Lead</button>
         <div class="slice-detail-actions-spacer"></div>
         <button class="slice-action-btn" onclick="sliceDetailUnapprove()">Un-approve</button>
         <button class="slice-action-btn slice-action-destructive" onclick="sliceDetailRemove()">Remove from queue</button>
       `;
+      // Same gate as the History row, same server answer: a slice that cannot be
+      // returned says so on the control instead of accepting a doomed click.
+      applyReturnGate(container.querySelector('.slice-action-return-stage'), s.id);
+    }
+  }
+
+  // Ask the server the same question the History rows are rendered from, and
+  // disable the control with the reason when the answer is no. (Slice 370, AC-1.)
+  async function applyReturnGate(btnEl, id) {
+    if (!btnEl) return;
+    try {
+      const res = await fetch(`/api/bridge/return-to-stage/${id}/eligibility`);
+      const verdict = await res.json();
+      if (verdict && verdict.returnable === false) {
+        btnEl.disabled = true;
+        btnEl.title = verdict.reason || 'This slice cannot be returned to stage.';
+      }
+    } catch (_) {
+      // Eligibility unknown — leave the control live. The POST still refuses
+      // with a reason, so the operator is not told a lie either way.
     }
   }
 
@@ -9768,17 +9923,16 @@ body:not(.lcars-mode) .staged-details-body pre code {
     } catch (_) {}
   }
 
-  async function sliceDetailReturnToStage() {
+  // Same action as the History row, same function, same outcome reporting — the
+  // modal differs only in its confirm prompt and in closing itself afterwards.
+  async function sliceDetailReturnToStage(btnEl) {
     if (!sliceDetailState) return;
-    if (!confirm(`Return S${sliceDetailState.id} to the dev lead for revision?`)) return;
-    try {
-      const res = await fetch(`/api/queue/${sliceDetailState.id}/return-to-stage`, { method: 'POST' });
-      if (res.ok) {
-        closeSliceDetail();
-        fetchCombinedQueue();
-        fetchBridge();
-      }
-    } catch (_) {}
+    const id = sliceDetailState.id;
+    if (!confirm(`Return S${id} to the dev lead for revision?`)) return;
+    await returnToStage(id, btnEl || null, {
+      endpoint: `/api/queue/${id}/return-to-stage`,
+      onSuccess: () => closeSliceDetail(),
+    });
   }
 
   async function sliceDetailUnapprove() {

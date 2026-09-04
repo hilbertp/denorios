@@ -45,7 +45,9 @@ test('Queued-slice action footer has return and unapprove controls before Remove
   const removeIdx = html.indexOf('onclick="sliceDetailRemove()"');
   assert.ok(removeIdx !== -1, 'sliceDetailRemove button should exist');
 
-  const returnIdx = html.indexOf('onclick="sliceDetailReturnToStage()"');
+  // Slice 370: the control passes its own element so the button can carry the
+  // in-flight and refusal states. Same assertion, new call shape.
+  const returnIdx = html.indexOf('onclick="sliceDetailReturnToStage(this)"');
   assert.ok(returnIdx !== -1, 'sliceDetailReturnToStage button should exist');
   assert.ok(returnIdx < removeIdx, "Return to O'Brien button should appear before Remove from queue");
 
@@ -56,14 +58,14 @@ test('Queued-slice action footer has return and unapprove controls before Remove
 });
 
 test("Return button has O'Brien label and uses the return-to-stage endpoint", () => {
-  const match = html.match(/<button[^>]*onclick="sliceDetailReturnToStage\(\)"[^>]*>([^<]+)<\/button>/);
+  const match = html.match(/<button[^>]*onclick="sliceDetailReturnToStage\(this\)"[^>]*>([^<]+)<\/button>/);
   assert.ok(match, "Return to O'Brien button should be a <button> element");
   assert.strictEqual(match[1].trim(), "Return to O'Brien", `expected label "Return to O'Brien", got "${match[1].trim()}"`);
 
-  const fnStart = html.indexOf('async function sliceDetailReturnToStage()');
+  const fnStart = html.indexOf('async function sliceDetailReturnToStage(btnEl)');
   assert.ok(fnStart !== -1, 'sliceDetailReturnToStage function should be defined');
   const snippet = html.slice(fnStart, fnStart + 600);
-  assert.ok(snippet.includes('/api/queue/${sliceDetailState.id}/return-to-stage'), 'should call return-to-stage API');
+  assert.ok(snippet.includes('/api/queue/${id}/return-to-stage'), 'should call return-to-stage API');
   const obsoleteSendRoute = `send-to-${String.fromCharCode(107, 105, 114, 97)}`;
   assert.ok(!snippet.includes(obsoleteSendRoute), 'should not call obsolete send API');
 });

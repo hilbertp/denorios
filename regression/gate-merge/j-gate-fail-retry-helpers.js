@@ -150,6 +150,14 @@ function writeStubGh(tmpRoot) {
 function compileServer(tmpRoot) {
   const dashboardDir = path.join(tmpRoot, 'dashboard');
   const lifecyclePath = path.join(tmpRoot, 'bridge', 'lifecycle-translate.js');
+  // Slice 370: the return-to-stage rules are one shared bridge module, read by the
+  // dashboard server and the orchestrator alike. The fixture root gets the REAL one —
+  // a stub here would be a second set of rules that ships nowhere.
+  fs.writeFileSync(
+    path.join(tmpRoot, 'bridge', 'return-to-stage-eligibility.js'),
+    `module.exports = require(${JSON.stringify(path.resolve(__dirname, '..', '..', 'bridge', 'return-to-stage-eligibility.js'))});\n`,
+    'utf8',
+  );
   fs.writeFileSync(lifecyclePath, [
     "'use strict';",
     'module.exports = {',

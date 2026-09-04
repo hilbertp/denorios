@@ -13,6 +13,10 @@ const { writeJsonAtomic } = require('./state/atomic-write');
 const { emit: emitGateTelemetry } = require('./state/gate-telemetry');
 const { computeRR } = require('./rr-compute');
 const { ensureRuntimeState, isVolatileRuntimePath } = require('./state/seed-runtime-state');
+// The rules for "can this slice be returned to stage?" are shared with the
+// dashboard, so the button that offers the action and the code that performs it
+// cannot disagree. (Slice 370.)
+const { evaluateReturnToStage } = require('./return-to-stage-eligibility');
 
 // ---------------------------------------------------------------------------
 // Config
@@ -4668,16 +4672,6 @@ function writeErrorFile(errorPath, id, reason, err, stdout, stderr, extra) {
 // ---------------------------------------------------------------------------
 
 /**
- * Terminal file suffixes for slices eligible for return-to-stage.
- * Maps suffix → the terminal event name that produced it.
- */
-const TERMINAL_SUFFIXES = [
-  { suffix: '-ACCEPTED.md', event: 'ACCEPTED' },
-  { suffix: '-STUCK.md',    event: 'MAX_ROUNDS_EXHAUSTED' },
-  { suffix: '-ERROR.md',    event: 'ERROR' },
-];
-
-/**
  * findOriginalSliceBody(id)
  *
  * Recovers the original slice content for an ERROR sidecar. Checks:
@@ -4730,62 +4724,60 @@ function findOriginalSliceBody(id) {
 }
 
 /**
+ * refuseReturnToStage(id, reason, state, extra)
+ *
+ * Every way this action can fail, funnelled through one place. Before slice 370
+ * a refusal only reached bridge.log — the dashboard had already flashed success
+ * at the operator by then. RETURN_TO_STAGE_REFUSED is the counterpart of
+ * RETURN_TO_STAGE: whichever the orchestrator writes, the request that is
+ * waiting on the register learns what actually happened.
+ */
+function refuseReturnToStage(id, reason, state, extra) {
+  registerEvent(id, 'RETURN_TO_STAGE_REFUSED', Object.assign({ reason, state: state ?? null }, extra || {}));
+  return { ok: false, error: reason, state: state ?? null };
+}
+
+/**
  * handleReturnToStage(sliceId)
  *
- * Validates the slice is in a terminal state, emits RETURN_TO_STAGE, and
- * moves the slice file back into bridge/staged/ with status: STAGED.
+ * Validates the slice's state, emits RETURN_TO_STAGE, and moves the slice file
+ * back into bridge/staged/ with status: STAGED.
  * Returns { ok, error } for the caller to log.
+ *
+ * The state rules live in bridge/return-to-stage-eligibility.js so the button
+ * offers exactly what this function accepts (slice 370). In terminal-state
+ * terms that is still ACCEPTED / STUCK / ERROR plus QUEUED / PENDING, and a
+ * slice that is IN_PROGRESS, EVALUATING or IN_REVIEW is still refused — that
+ * guard is load-bearing and is not relaxed here.
  */
 function handleReturnToStage(sliceId) {
   const id = String(sliceId);
 
-  // Reject if currently active (IN_PROGRESS or EVALUATING).
-  const activeSuffixes = ['-IN_PROGRESS.md', '-EVALUATING.md', '-IN_REVIEW.md'];
-  for (const s of activeSuffixes) {
-    if (fs.existsSync(path.join(QUEUE_DIR, `${id}${s}`))) {
-      return { ok: false, error: `Slice ${id} is currently active (${s.replace(/^-|\.md$/g, '')}) — cannot return to stage` };
-    }
+  const verdict = evaluateReturnToStage(id, { queueDir: QUEUE_DIR, stagedDir: STAGED_DIR });
+  if (!verdict.eligible) {
+    return refuseReturnToStage(id, verdict.reason, verdict.state);
   }
 
-  // Find the terminal file (includes QUEUED/PENDING so accepted slices can return to stage).
-  const RETURNABLE_SUFFIXES = [
-    ...TERMINAL_SUFFIXES,
-    { suffix: '-QUEUED.md',  event: 'QUEUED' },
-    { suffix: '-PENDING.md', event: 'PENDING' },
-  ];
-  let terminalPath = null;
-  let fromEvent = null;
-  for (const { suffix, event } of RETURNABLE_SUFFIXES) {
-    const p = path.join(QUEUE_DIR, `${id}${suffix}`);
-    if (fs.existsSync(p)) {
-      terminalPath = p;
-      fromEvent = event;
-      break;
-    }
-  }
-
-  // Also check PARKED (stuck from Nog escalation) — Nog escalation renames to STUCK.
-  // And check staged dir for STAGED files that might be re-returned.
-  if (!terminalPath) {
-    // Check if slice exists at all in any known state.
-    const anyFile = fs.readdirSync(QUEUE_DIR).find(f => f.startsWith(`${id}-`));
-    if (anyFile) {
-      return { ok: false, error: `Slice ${id} is in state ${anyFile} — not a terminal state eligible for return` };
-    }
-    // Check staged dir.
-    const stagedFile = fs.readdirSync(STAGED_DIR).find(f => f.startsWith(`${id}-`));
-    if (stagedFile) {
-      return { ok: false, error: `Slice ${id} is already STAGED` };
-    }
-    return { ok: false, error: `Slice ${id} not found in queue or staged directory` };
-  }
+  // The state that let it through also names the event it is coming back from.
+  const FROM_EVENT_BY_STATE = {
+    ACCEPTED: 'ACCEPTED',
+    STUCK:    'MAX_ROUNDS_EXHAUSTED',
+    ERROR:    'ERROR',
+    QUEUED:   'QUEUED',
+    PENDING:  'PENDING',
+  };
+  // The verdict carries the file it was read from. Rebuilding the name against
+  // QUEUE_DIR would be wrong the moment a returnable state turns up in staged/,
+  // which the eligibility scan already looks at.
+  const terminalPath = verdict.path || path.join(QUEUE_DIR, `${id}-${verdict.state}.md`);
+  let fromEvent = FROM_EVENT_BY_STATE[verdict.state] || verdict.state;
 
   // Read the terminal file content.
   let content;
   try {
     content = fs.readFileSync(terminalPath, 'utf-8');
   } catch (err) {
-    return { ok: false, error: `Failed to read terminal file for slice ${id}: ${err.message}` };
+    return refuseReturnToStage(id, `Failed to read terminal file for slice ${id}: ${err.message}`, verdict.state);
   }
 
   // Also check the register for the most recent terminal event (more accurate fromEvent).
@@ -4815,8 +4807,14 @@ function handleReturnToStage(sliceId) {
     // ERROR sidecars lack required frontmatter + body — reconstruct from trash/register.
     const recovered = findOriginalSliceBody(id);
     if (!recovered) {
-      registerEvent(id, 'RETURN_TO_STAGE', { from_event: fromEvent, reason: 'manual', body_source: 'none' });
-      return { ok: false, error: `Slice ${id}: ERROR sidecar has no usable body and no recoverable source found in trash or register. Cannot return to stage.` };
+      // A refusal, not a return — so it must not be written as RETURN_TO_STAGE.
+      // Anything watching the register for the outcome would read that as done.
+      return refuseReturnToStage(
+        id,
+        `Slice ${id}: the ERROR file has no usable brief and no recoverable source was found in trash or the register. Nothing to return.`,
+        verdict.state,
+        { from_event: fromEvent, body_source: 'none' },
+      );
     }
 
     // Validate recovered content has all required frontmatter fields.
@@ -4824,8 +4822,12 @@ function handleReturnToStage(sliceId) {
     const requiredFields = ['id', 'title', 'goal', 'from', 'to', 'priority', 'created'];
     const missing = requiredFields.filter(f => !recoveredFm[f]);
     if (missing.length > 0) {
-      registerEvent(id, 'RETURN_TO_STAGE', { from_event: fromEvent, reason: 'manual', body_source: recovered.source });
-      return { ok: false, error: `Slice ${id}: recovered body from ${recovered.source} is missing required fields: ${missing.join(', ')}. Cannot return to stage.` };
+      return refuseReturnToStage(
+        id,
+        `Slice ${id}: the brief recovered from ${recovered.source} is missing required fields (${missing.join(', ')}). Nothing usable to return.`,
+        verdict.state,
+        { from_event: fromEvent, body_source: recovered.source },
+      );
     }
 
     // Inject Return-to-Stage notice at the top of the body.
@@ -4865,7 +4867,7 @@ function handleReturnToStage(sliceId) {
     }
     log('info', 'control', { id, from: fromEvent, to: 'STAGED', msg: `Return-to-stage: moved slice ${id} from ${fromEvent} to STAGED`, body_source: bodySource });
   } catch (err) {
-    return { ok: false, error: `Failed to move slice ${id} to staged: ${err.message}` };
+    return refuseReturnToStage(id, `Slice ${id} could not be moved to staged: ${err.message}`, verdict.state, { from_event: fromEvent });
   }
 
   print(`  ${C.cyan}${SYM.back}${C.reset} Return-to-stage${SYM.sep}Slice ${id} (was ${fromEvent})${SYM.arrow}STAGED`);

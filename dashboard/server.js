@@ -30,6 +30,16 @@ const NOG_ACTIVE    = path.join(REPO_ROOT, 'bridge', 'nog-active.json');
 const CONTROL_DIR   = path.join(REPO_ROOT, 'bridge', 'control');
 const SESSIONS      = path.join(REPO_ROOT, 'bridge', 'sessions.jsonl');
 const { translateEvent, resetDedupeState } = require(path.join(REPO_ROOT, 'bridge', 'lifecycle-translate'));
+// "Can this slice be returned to stage?" is answered in one place, shared with
+// bridge/orchestrator.js — so the control this server offers is the control the
+// orchestrator will honour, and a refusal is decided before the operator is
+// told anything. (Slice 370.)
+//
+// Resolved at the point of use off REPO_ROOT, like this file's other bridge/ and
+// lib/ dependencies (tests-needed, assert-direction, gate-alerts, orchestrator).
+function returnToStageRules() {
+  return require(path.join(REPO_ROOT, 'bridge', 'return-to-stage-eligibility'));
+}
 
 // The volatile runtime state (heartbeat, queue order, branch-state schema) is
 // untracked (slice 372), so a fresh clone starts without it and the panels below
@@ -1749,6 +1759,211 @@ function writeRegisterEvent(event) {
   fs.appendFileSync(REGISTER, line, 'utf8');
 }
 
+// ── Return to stage — one action, one implementation ─────────────────────────
+// The History row and the slice-detail modal are the same user-visible action,
+// so they run the same function. They used to be two endpoints with two ideas
+// of what "return" meant, and the History one answered 200 the instant it had
+// written a control file — before the orchestrator had looked at the slice, let
+// alone agreed to move it. (Slice 370.)
+//
+// The control-file handoff stays asynchronous: the orchestrator still owns queue
+// mutations for a slice that has run. What changed is that the refusal is
+// decided here, ahead of the answer, and the caller can follow an accepted
+// request to its real outcome instead of being shown a success animation.
+
+/** True while the orchestrator holds this slice — a dispatched slice must not move. */
+function heartbeatOwnsSlice(id) {
+  try {
+    const hb = JSON.parse(fs.readFileSync(HEARTBEAT, 'utf8'));
+    return hb.current_slice != null && String(hb.current_slice) === String(id);
+  } catch (_) {
+    return false;
+  }
+}
+
+/**
+ * performReturnToStage(id, { note }) → { status, body }
+ *
+ * Refuses with a reason, or performs the return the way the slice's state calls
+ * for:
+ *   mode 'queued'  — the slice never ran. Hand it straight back to the dev lead
+ *                    as NEEDS_APENDMENT. Synchronous, 200, already done.
+ *   mode 'control' — the slice ran and finished. Hand the orchestrator a control
+ *                    file and report the request as *accepted*, not done: 202,
+ *                    and the caller follows it via
+ *                    GET /api/bridge/return-to-stage/:id/status.
+ */
+function performReturnToStage(id, { note } = {}) {
+  // Race guard, ahead of the state check because heartbeat ownership can precede
+  // the rename to IN_PROGRESS.
+  if (heartbeatOwnsSlice(id)) {
+    return {
+      status: 409,
+      body: {
+        error: 'already-picked-up',
+        reason: `Slice ${id} has just been picked up for a build — stop the build before returning it.`,
+        state: 'IN_PROGRESS',
+        returnable: false,
+      },
+    };
+  }
+
+  const verdict = returnToStageRules().evaluateReturnToStage(id, { queueDir: QUEUE_DIR, stagedDir: STAGED_DIR });
+  if (!verdict.eligible) {
+    // 404 when the slice is nowhere at all; 409 when it exists but its state
+    // forbids the action. No register event — a refused action did not happen.
+    return {
+      status: verdict.state == null ? 404 : 409,
+      body: { error: verdict.reason, reason: verdict.reason, state: verdict.state, returnable: false },
+    };
+  }
+
+  return verdict.mode === 'queued'
+    ? returnQueuedSliceToDevLead(id, verdict.state, note)
+    : requestOrchestratorReturn(id, verdict.state);
+}
+
+/** mode 'queued': the slice never ran — hand it back to the dev lead for revision. */
+function returnQueuedSliceToDevLead(id, state, note) {
+  const sourcePath = path.join(QUEUE_DIR, `${id}-${state}.md`);
+  try {
+    const resolvedNote = typeof note === 'string' && note.trim()
+      ? note.trim()
+      : "Returned to O'Brien from Ops queue";
+    let content = fs.readFileSync(sourcePath, 'utf8');
+    content = updateFrontmatter(content, { status: 'NEEDS_APENDMENT', apendment_note: resolvedNote });
+
+    const destPath = path.join(STAGED_DIR, `${id}-NEEDS_APENDMENT.md`);
+    fs.writeFileSync(destPath, content, 'utf8');
+
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const trashName = `${path.basename(sourcePath)}.returned-to-stage-${ts}`;
+    try { fs.renameSync(sourcePath, path.join(TRASH_DIR, trashName)); }
+    catch (_) {
+      try { fs.unlinkSync(sourcePath); } catch (_) {}
+    }
+
+    const qOrder = readQueueOrder().filter(oid => oid !== String(id));
+    writeQueueOrder(qOrder);
+    const sOrder = readStagedOrder();
+    if (!sOrder.includes(String(id))) sOrder.push(String(id));
+    writeStagedOrder(sOrder);
+
+    writeRegisterEvent({ event: 'returned_to_stage', slice_id: String(id), source: 'dashboard', note: resolvedNote });
+
+    return {
+      status: 200,
+      body: {
+        ok: true,
+        action: 'returned_to_stage',
+        outcome: 'returned',
+        state,
+        mode: 'queued',
+        message: `S${id} returned to the dev lead for revision`,
+      },
+    };
+  } catch (err) {
+    return {
+      status: 500,
+      body: { error: String(err), reason: `Slice ${id} could not be moved to staged: ${err.message}`, state, returnable: false },
+    };
+  }
+}
+
+/** mode 'control': the slice already ran — the orchestrator owns the move. */
+function requestOrchestratorReturn(id, state) {
+  if (!fs.existsSync(CONTROL_DIR)) fs.mkdirSync(CONTROL_DIR, { recursive: true });
+  const requestedAt = new Date().toISOString();
+  const controlFile = path.join(CONTROL_DIR, `return-${id}-${Date.now()}.json`);
+  try {
+    fs.writeFileSync(controlFile, JSON.stringify({ action: 'return_to_stage', slice_id: String(id) }), 'utf8');
+    writeRegisterEvent({ event: 'RETURN_TO_STAGE_REQUESTED', slice_id: String(id), source: 'dashboard', state });
+    // 202, not 200: the request is accepted, the return has not happened yet.
+    return {
+      status: 202,
+      body: {
+        ok: true,
+        action: 'return_to_stage_requested',
+        outcome: 'pending',
+        state,
+        mode: 'control',
+        requested_at: requestedAt,
+        message: `S${id} handed to the orchestrator — waiting for it to return the slice`,
+      },
+    };
+  } catch (err) {
+    return {
+      status: 500,
+      body: { error: String(err), reason: `Could not hand slice ${id} to the orchestrator: ${err.message}`, state, returnable: false },
+    };
+  }
+}
+
+/**
+ * returnToStageOutcome(id, sinceIso) → { outcome, reason, state, ts }
+ *
+ * Follows an accepted control-file request to its real end. The orchestrator
+ * records what it did in the register — RETURN_TO_STAGE when it moved the slice,
+ * RETURN_TO_STAGE_REFUSED with a reason when it would not — so the outcome is
+ * read from there rather than from a return value this process never gets.
+ *
+ * Reads the register raw, not through the mtime-cached translated reader: a poll
+ * started a second ago has to see the line the orchestrator just appended.
+ */
+function returnToStageOutcome(id, sinceIso) {
+  const sid = String(id);
+  const sinceMs = sinceIso ? new Date(sinceIso).getTime() : NaN;
+  const after = isNaN(sinceMs) ? -Infinity : sinceMs;
+
+  let lines = [];
+  try {
+    lines = fs.readFileSync(REGISTER, 'utf8').split('\n').filter(l => l.trim());
+  } catch (_) {}
+
+  for (let i = lines.length - 1; i >= 0; i--) {
+    let ev;
+    try { ev = JSON.parse(lines[i]); } catch (_) { continue; }
+    if (String(ev.slice_id ?? ev.id ?? '') !== sid) continue;
+    if (ev.event !== 'RETURN_TO_STAGE' && ev.event !== 'RETURN_TO_STAGE_REFUSED') continue;
+    // Register timestamps have millisecond resolution and the request line is
+    // written first, so a verdict sharing the request's millisecond still counts.
+    const evMs = ev.ts ? new Date(ev.ts).getTime() : NaN;
+    if (!isNaN(evMs) && evMs < after) break;
+    if (ev.event === 'RETURN_TO_STAGE') {
+      return { outcome: 'returned', reason: null, state: 'STAGED', ts: ev.ts ?? null };
+    }
+    return {
+      outcome: 'refused',
+      reason: ev.reason || `Slice ${sid} could not be returned to stage.`,
+      state: ev.state ?? null,
+      ts: ev.ts ?? null,
+    };
+  }
+
+  // No verdict on the register yet. A staged file written *since the request*
+  // still means the return landed — an older orchestrator, or a line written
+  // before `since`. A staged file older than the request does not: the queue
+  // wins over a lingering staged copy (see the eligibility scan), so reading one
+  // as success would toast "returned" while the control file is still unread.
+  // Without a `since` to measure against there is no basis for the claim at all,
+  // so the honest answer is that nothing has happened yet.
+  if (!isNaN(sinceMs)) {
+    let stagedAt = null;
+    try {
+      for (const f of fs.readdirSync(STAGED_DIR)) {
+        if (!f.startsWith(`${sid}-`) || !f.endsWith('.md')) continue;
+        const { mtimeMs } = fs.statSync(path.join(STAGED_DIR, f));
+        if (stagedAt === null || mtimeMs > stagedAt) stagedAt = mtimeMs;
+      }
+    } catch (_) {}
+    if (stagedAt !== null && stagedAt >= sinceMs) {
+      return { outcome: 'returned', reason: null, state: 'STAGED', ts: new Date(stagedAt).toISOString() };
+    }
+  }
+
+  return { outcome: 'pending', reason: null, state: null, ts: null };
+}
+
 // ── Title/goal fallback ─────────────────────────────────────────────────────
 // First try the COMMISSIONED register event, then fall back to {id}-PARKED.md (or legacy ARCHIVED).
 function getTitleAndGoal(id, commissioned) {
@@ -1976,6 +2191,22 @@ function buildBridgeData() {
                onMain, regressionPassed: onMain,
                squash_sha: squashShaById[String(entry.id)] || null };
     });
+
+  // Return-to-stage eligibility per row, read from where the slice's file sits
+  // *today*. A History row's outcome is a past event and says nothing about
+  // whether the slice can be returned now — rendering the button from the
+  // former is what made it a no-op on most rows. (Slice 370.)
+  const returnVerdicts = returnToStageRules().evaluateManyReturnToStage(recent.map(r => r.id), {
+    queueDir: QUEUE_DIR,
+    stagedDir: STAGED_DIR,
+  });
+  for (const row of recent) {
+    const verdict = returnVerdicts[String(row.id)];
+    row.returnable   = verdict.eligible;
+    row.returnState  = verdict.state;
+    row.returnMode   = verdict.mode;
+    row.returnReason = verdict.reason;
+  }
 
   // Queue files (cached dir scan — avoids re-stat + re-parse of 348 files)
   const queueCache = getCachedDir(
@@ -2748,85 +2979,58 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // ── Return queued slice to staged for O'Brien revision ──────────────────
+  // ── Return to stage — slice-detail entry point ──────────────────────────
+  // Same action, same function as the History entry point below: for a given
+  // slice the two produce the same verdict, the same move and the same answer.
   const returnQueuedMatch = pathname.match(/^\/api\/queue\/(\d+)\/return-to-stage$/);
   if (returnQueuedMatch && req.method === 'POST') {
     const id = returnQueuedMatch[1];
     const payload = await readJsonBody(req);
-
-    // Race protection: if currently dispatched, reject
-    let hbCurrent = null;
-    try {
-      const hb = JSON.parse(fs.readFileSync(HEARTBEAT, 'utf8'));
-      hbCurrent = hb.current_slice ? String(hb.current_slice) : null;
-    } catch (_) {}
-    if (hbCurrent === id) {
-      res.writeHead(409, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'already-picked-up' }));
-      return;
-    }
-
-    const queuedPath  = path.join(QUEUE_DIR, `${id}-QUEUED.md`);
-    const pendingPath = path.join(QUEUE_DIR, `${id}-PENDING.md`);
-    const sourcePath  = fs.existsSync(queuedPath) ? queuedPath
-                      : fs.existsSync(pendingPath) ? pendingPath
-                      : null;
-    if (!sourcePath) {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: `Queued slice ${id} not found` }));
-      return;
-    }
-
-    try {
-      const note = payload && typeof payload.note === 'string' && payload.note.trim()
-        ? payload.note.trim()
-        : "Returned to O'Brien from Ops queue";
-      let content = fs.readFileSync(sourcePath, 'utf8');
-      content = updateFrontmatter(content, { status: 'NEEDS_APENDMENT', apendment_note: note });
-
-      const destPath = path.join(STAGED_DIR, `${id}-NEEDS_APENDMENT.md`);
-      fs.writeFileSync(destPath, content, 'utf8');
-
-      const ts = new Date().toISOString().replace(/[:.]/g, '-');
-      const trashName = `${path.basename(sourcePath)}.returned-to-stage-${ts}`;
-      try { fs.renameSync(sourcePath, path.join(TRASH_DIR, trashName)); }
-      catch (_) {
-        try { fs.unlinkSync(sourcePath); } catch (_) {}
-      }
-
-      const qOrder = readQueueOrder().filter(oid => oid !== id);
-      writeQueueOrder(qOrder);
-      const sOrder = readStagedOrder();
-      if (!sOrder.includes(id)) sOrder.push(id);
-      writeStagedOrder(sOrder);
-
-      writeRegisterEvent({ event: 'returned_to_stage', slice_id: id, source: 'dashboard', note });
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, action: 'returned_to_stage' }));
-    } catch (err) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: String(err) }));
-    }
+    const result = performReturnToStage(id, { note: payload && payload.note });
+    res.writeHead(result.status, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(result.body));
     return;
   }
 
-  // ── Return-to-stage (writes control file for watcher) ────────────────────
+  // ── Return to stage — History entry point ────────────────────────────────
   const returnMatch = pathname.match(/^\/api\/bridge\/return-to-stage\/(\d+)$/);
   if (returnMatch && req.method === 'POST') {
     const id = returnMatch[1];
-    // Ensure control dir exists
-    if (!fs.existsSync(CONTROL_DIR)) fs.mkdirSync(CONTROL_DIR, { recursive: true });
-    const controlFile = path.join(CONTROL_DIR, `return-${id}-${Date.now()}.json`);
-    try {
-      fs.writeFileSync(controlFile, JSON.stringify({ action: 'return_to_stage', slice_id: id }), 'utf8');
-      writeRegisterEvent({ event: 'RETURN_TO_STAGE_REQUESTED', slice_id: id, source: 'dashboard' });
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true }));
-    } catch (err) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: String(err) }));
-    }
+    const payload = await readJsonBody(req);
+    const result = performReturnToStage(id, { note: payload && payload.note });
+    res.writeHead(result.status, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(result.body));
+    return;
+  }
+
+  // ── Return to stage — outcome of an accepted control-file request ────────
+  // The handoff to the orchestrator is asynchronous by design, so the caller
+  // follows the request here rather than being told "success" the moment the
+  // control file hits the disk.
+  const returnStatusMatch = pathname.match(/^\/api\/bridge\/return-to-stage\/(\d+)\/status$/);
+  if (returnStatusMatch && req.method === 'GET') {
+    const id = returnStatusMatch[1];
+    const since = new URL(req.url, `http://${req.headers.host || 'localhost'}`).searchParams.get('since');
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(returnToStageOutcome(id, since)));
+    return;
+  }
+
+  // ── Return to stage — is this slice returnable right now? ────────────────
+  // The question the button asks before it renders itself, available to any
+  // caller that has one slice rather than a whole History page.
+  const returnEligibilityMatch = pathname.match(/^\/api\/bridge\/return-to-stage\/(\d+)\/eligibility$/);
+  if (returnEligibilityMatch && req.method === 'GET') {
+    const id = returnEligibilityMatch[1];
+    const verdict = returnToStageRules().evaluateReturnToStage(id, { queueDir: QUEUE_DIR, stagedDir: STAGED_DIR });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      id: String(id),
+      returnable: verdict.eligible,
+      state: verdict.state,
+      mode: verdict.mode,
+      reason: verdict.reason,
+    }));
     return;
   }
 

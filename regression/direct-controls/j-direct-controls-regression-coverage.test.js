@@ -50,6 +50,14 @@ let coveragePath;
 function compileServer(root) {
   const dashboardDir = path.join(root, 'dashboard');
   const lifecyclePath = path.join(root, 'bridge', 'lifecycle-translate.js');
+  // Slice 370: the return-to-stage rules are one shared bridge module, read by the
+  // dashboard server and the orchestrator alike. The fixture root gets the REAL one —
+  // a stub here would be a second set of rules that ships nowhere.
+  fs.writeFileSync(
+    path.join(root, 'bridge', 'return-to-stage-eligibility.js'),
+    `module.exports = require(${JSON.stringify(path.resolve(__dirname, '..', '..', 'bridge', 'return-to-stage-eligibility.js'))});\n`,
+    'utf8',
+  );
   fs.writeFileSync(lifecyclePath, `
 'use strict';
 module.exports = {
