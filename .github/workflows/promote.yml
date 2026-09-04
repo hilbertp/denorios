@@ -47,7 +47,12 @@ jobs:
       - name: Update tests — what changed in this promotion
         run: |
           echo "::group::Update tests — files changed between origin/main and the dev commit being promoted"
-          git fetch origin main --depth=1 || true
+          # No --depth here. The checkout above is full (fetch-depth: 0); a shallow
+          # fetch would convert this clone to a shallow one, truncating history for
+          # everything downstream — the merge-base this gate classifies against, and
+          # any suite that walks the log. Cost one false regression failure (S372 ac-6
+          # saw 2 autocommits instead of 27).
+          git fetch origin main || true
           git diff --stat origin/main...HEAD || true
           echo ""
           echo "Reminder: regression/ + e2e/ test INTENDED behaviour. If any of the commits above"
