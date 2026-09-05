@@ -954,6 +954,10 @@ function recordAcDecision(tag, decision) {
   let cur = {}; try { cur = JSON.parse(fs.readFileSync(p, 'utf8')); } catch (_) {}
   if (decision === 'update' || decision === 'keep') cur[tag] = decision;
   else delete cur[tag];
+  // Slice 381 untracked this ledger, so a fresh checkout may not have it — nor,
+  // in a bare fixture root, the directory it lives in. An absent ledger reads as
+  // "nothing ruled yet" everywhere; the first ruling must still be able to land.
+  try { fs.mkdirSync(path.dirname(p), { recursive: true }); } catch (_) {}
   fs.writeFileSync(p, JSON.stringify(cur, null, 1));
   return cur;
 }

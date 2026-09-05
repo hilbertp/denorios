@@ -63,6 +63,8 @@ fi
 
 # Kept in step with bridge/state/seed-runtime-state.js — RUNTIME_FILES + the
 # volatile trash markers. Changing one without the other reopens the autocommit.
+# regression/AC-DECISIONS.json joined the list in slice 381: slice 372 missed it,
+# and it kept the tree dirty on its own.
 RUNTIME_PATHS=(
   bridge/heartbeat.json
   bridge/queue-order.json
@@ -74,6 +76,7 @@ RUNTIME_PATHS=(
   bridge/tt-audit.jsonl
   bridge/tt-audit-watcher.jsonl
   bridge/.usage-snapshot.json
+  regression/AC-DECISIONS.json
 )
 
 # Only what is actually tracked right now.

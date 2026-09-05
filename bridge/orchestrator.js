@@ -3674,6 +3674,131 @@ function archiveSiblingStateFiles(id, terminalState, opts) {
 }
 
 /**
+ * recordArchivedQueueRename(id, opts) → { recorded, reason, paths }
+ *
+ * Queue reports are permanent records by contract, and they are tracked — but
+ * `bridge/queue/*.md` is gitignored, so that tracking is force-added and git has
+ * no way to follow a report when the pipeline renames it. Archiving does exactly
+ * that: the report travels forward through its state suffixes to
+ * {id}-ARCHIVED.md, and the siblings beside it are swept into bridge/trash/. On
+ * disk the record is intact. To git a tracked file simply vanished and no file
+ * arrived, so the next pre-checkout autocommit commits four bare deletions
+ * (027f09c) — pipeline paperwork wedged between every pair of real commits, and
+ * four manual repairs in two days.
+ *
+ * The answer is not to untrack the reports: they are the audit trail this queue
+ * exists to keep. It is to tell git about the rename in the step that performs
+ * it, so the old name leaves and the new one arrives together. Only this slice's
+ * queue paths are ever touched.
+ *
+ * Runs inside the merge path, which is why it takes nothing and waits for
+ * nothing: git's own index.lock is the only lock here and a git command that
+ * cannot take it fails rather than blocks. If the commit fails, the paths this
+ * staged are reset — a half-staged index would be swept by the very autocommit
+ * this exists to silence.
+ *
+ * The commit stays local; ensureIntegrationIsFresh() pushes a local-ahead
+ * integration branch on the next cycle, so this adds no network call to archival.
+ * It is written only when HEAD is that integration branch — never the trunk, which
+ * the promote gate fast-forwards and a local commit would strand.
+ *
+ * `opts.runGit` is a seam for the tests (same shape as gitFinalizer.runGit).
+ */
+function recordArchivedQueueRename(id, opts) {
+  opts = opts || {};
+  const repoRoot = opts.repoRoot || PROJECT_DIR;
+  const queueDir = opts.queueDir || QUEUE_DIR;
+  const git = opts.runGit || gitFinalizer.runGit;
+
+  // A fixture queue dir (backfill tests, the e2e seed root) is not a repository.
+  if (!fs.existsSync(path.join(repoRoot, '.git'))) {
+    return { recorded: false, reason: 'not_a_repo', paths: [] };
+  }
+  const queueRel = path.relative(repoRoot, queueDir).split(path.sep).join('/');
+  if (!queueRel || queueRel.startsWith('..') || path.isAbsolute(queueRel)) {
+    return { recorded: false, reason: 'queue_outside_repo', paths: [] };
+  }
+
+  // What git still believes about this slice's queue files, whatever suffix it
+  // last saw them under.
+  let tracked;
+  try {
+    const raw = git(`git ls-files -- ${shQuote(queueRel)}`, {
+      slice_id: String(id), op: 'archiveRename_lsFiles', cwd: repoRoot, encoding: 'utf-8',
+    });
+    tracked = String(raw || '').split('\n').map(l => l.trim()).filter(Boolean)
+      .filter(rel => path.basename(rel).startsWith(`${id}-`) && CANONICAL_SUFFIX_RE.test(rel));
+  } catch (err) {
+    log('warn', 'archive', { id, msg: 'Could not list tracked queue files', error: err.message });
+    return { recorded: false, reason: 'ls_files_failed', error: err.message, paths: [] };
+  }
+
+  // Archival runs at the end of the squash, with the tree on the integration
+  // branch — which is where the swept deletions landed. Anywhere else, and
+  // notably on the trunk (backfillArchive runs at startup, wherever HEAD happens
+  // to be), a commit here would put a local-only change on a branch the promote
+  // gate fast-forwards. Leave it to the operator rather than diverge main.
+  let head;
+  try {
+    head = String(git('git rev-parse --abbrev-ref HEAD', {
+      slice_id: String(id), op: 'archiveRename_head', cwd: repoRoot, encoding: 'utf-8',
+    })).trim();
+  } catch (err) {
+    return { recorded: false, reason: 'head_unreadable', paths: [] };
+  }
+  if (head !== INTEGRATION_BRANCH) {
+    log('info', 'archive', { id, msg: `Not recording archive rename on '${head}' — only ${INTEGRATION_BRANCH} carries queue bookkeeping` });
+    return { recorded: false, reason: 'not_on_integration_branch', head, paths: [] };
+  }
+
+  const archivedRel = `${queueRel}/${id}-ARCHIVED.md`;
+  const departed = tracked.filter(rel => !fs.existsSync(path.join(repoRoot, rel)));
+  const paths = [];
+  if (fs.existsSync(path.join(repoRoot, archivedRel)) && !tracked.includes(archivedRel)) paths.push(archivedRel);
+  for (const rel of departed) if (!paths.includes(rel)) paths.push(rel);
+  if (!paths.length) return { recorded: false, reason: 'nothing_to_record', paths: [] };
+
+  const quoted = paths.map(shQuote).join(' ');
+  const from = departed.length ? departed.map(rel => path.basename(rel)).join(', ') : '(nothing tracked)';
+  const msg = `chore(queue): record slice ${id} archive rename (${from} -> ${id}-ARCHIVED.md)`;
+
+  try {
+    // -f because the queue is ignored and the new name would be invisible without
+    // it; -A over the same pathspec is what stages the old name's disappearance.
+    git(`git add -f -A -- ${quoted}`, {
+      slice_id: String(id), op: 'archiveRename_add', cwd: repoRoot, execOpts: { stdio: 'pipe' },
+    });
+    // Per-COMMAND, never process-wide: this commits in the MAIN working tree,
+    // where the Layer-1 pre-commit hook only lets the watcher merge path through.
+    git(`git commit --only -m ${shQuote(msg)} -- ${quoted}`, {
+      slice_id: String(id), op: 'archiveRename_commit', cwd: repoRoot,
+      execOpts: { stdio: 'pipe', env: Object.assign({}, process.env, { DS9_WATCHER_MERGE: '1' }) },
+    });
+  } catch (err) {
+    try {
+      git(`git reset -q HEAD -- ${quoted}`, {
+        slice_id: String(id), op: 'archiveRename_reset', cwd: repoRoot, execOpts: { stdio: 'pipe' },
+      });
+    } catch (_) { /* the index lock is held or HEAD is unborn — nothing was staged either */ }
+    log('warn', 'archive', { id, msg: 'Could not record the archive rename in git', error: err.message, paths });
+    return { recorded: false, reason: 'git_failed', error: err.message, paths };
+  }
+
+  let sha = null;
+  try {
+    sha = String(git('git rev-parse HEAD', {
+      slice_id: String(id), op: 'archiveRename_sha', cwd: repoRoot, encoding: 'utf-8',
+    })).trim();
+  } catch (_) {}
+
+  registerEvent(id, 'QUEUE_ARCHIVE_RENAME_RECORDED', {
+    slice_id: String(id), from: departed, to: archivedRel, sha,
+  });
+  log('info', 'archive', { id, msg: `Recorded archive rename of ${paths.length} queue path(s)`, sha });
+  return { recorded: true, reason: 'ok', paths, sha };
+}
+
+/**
  * archiveAcceptedSlice(id, branchName, opts)
  *
  * Rename {id}-ACCEPTED.md → {id}-ARCHIVED.md. Prune worktree. Delete branch.
@@ -3723,7 +3848,17 @@ function archiveAcceptedSlice(id, branchName, opts) {
   // Clean up sibling state files
   archiveSiblingStateFiles(id, 'ARCHIVED', { queueDir, trashDir });
 
-  return { archived: true, reason: 'ok' };
+  // …and only now tell git, so the one commit carries the ARCHIVED name in and
+  // every name the sweep above took out. Best-effort: the archival itself has
+  // already happened and must not be undone by a git failure.
+  let renameRecord = { recorded: false, reason: 'not_attempted' };
+  try {
+    renameRecord = recordArchivedQueueRename(id, { queueDir, repoRoot: opts && opts.repoRoot, runGit: opts && opts.runGit });
+  } catch (err) {
+    log('warn', 'archive', { id, msg: 'Archive rename recording threw', error: err.message });
+  }
+
+  return { archived: true, reason: 'ok', renameRecorded: renameRecord.recorded, renameReason: renameRecord.reason };
 }
 
 /**
@@ -7795,4 +7930,4 @@ function mergeDevToMain() {
 // Exports — for use by helper scripts (e.g. bridge/next-id.js)
 // ---------------------------------------------------------------------------
 
-module.exports = { startGate, abortGate, buildBashirPrompt, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, validateIntakeMeta, ensureIntegrationIsFresh, ensureMainIsFresh: ensureIntegrationIsFresh, fastForwardIntegrationRef, branchNamesFrom, INTEGRATION_BRANCH, TRUNK_BRANCH, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, provisionWorkspaceDeps, _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted, hasTerminalLandedEvent, countUnreadableVerdicts, unreadableBackoffMs, retryBackoffElapsed, MAX_UNREADABLE_ATTEMPTS, UNREADABLE_BACKOFF_MS, porcelainPaths, isVolatileRuntimePath, recoverRuntimeStateAfterGit, stageablePathsFrom, shQuote, _testResetRefusalEmitted: () => { _refusalEmitted.clear(); }, _testGetRefusalEmitted: () => _refusalEmitted };
+module.exports = { startGate, abortGate, buildBashirPrompt, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, recordArchivedQueueRename, validateIntakeMeta, ensureIntegrationIsFresh, ensureMainIsFresh: ensureIntegrationIsFresh, fastForwardIntegrationRef, branchNamesFrom, INTEGRATION_BRANCH, TRUNK_BRANCH, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, provisionWorkspaceDeps, _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted, hasTerminalLandedEvent, countUnreadableVerdicts, unreadableBackoffMs, retryBackoffElapsed, MAX_UNREADABLE_ATTEMPTS, UNREADABLE_BACKOFF_MS, porcelainPaths, isVolatileRuntimePath, recoverRuntimeStateAfterGit, stageablePathsFrom, shQuote, _testResetRefusalEmitted: () => { _refusalEmitted.clear(); }, _testGetRefusalEmitted: () => _refusalEmitted };

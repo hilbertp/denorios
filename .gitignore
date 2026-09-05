@@ -92,6 +92,10 @@ regression/TESTS-NEEDED.json
 
 # AC-reconcile generated outputs (the manifest lock IS tracked; these regenerate)
 regression/AC-RECONCILE.json
+# The CHECK overlay's per-AC rulings — runtime state, rewritten whenever the
+# operator presses update/keep (slice 381). Seeded and restored by
+# bridge/state/seed-runtime-state.js, exactly like the slice-372 files above.
+regression/AC-DECISIONS.json
 .claude/roles/bashir/inbox/RECONCILE-NEEDED.md
 .claude/roles/bashir/inbox/NEW-ACS.md
 

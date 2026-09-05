@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 517,
+  "guardCount": 522,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -336,6 +336,31 @@
         "tag": "slice-376-ac-5",
         "file": "regression/orchestrator/j-workspace-deps.test.js",
         "guardAcHash": "sha256:821694680608016dfc35b296d765cefc16f22dd2c5fd30e54923fcdd726cbacf"
+      },
+      {
+        "tag": "slice-381-ac-1",
+        "file": "regression/dispatch-execution/j-archive-rename-recorded.test.js",
+        "guardAcHash": "sha256:aba759cd1c2159128889f1c65a1a6021df375fc1f864815e88d5325d66d0e10f"
+      },
+      {
+        "tag": "slice-381-ac-2",
+        "file": "regression/dispatch-execution/j-archive-rename-recorded.test.js",
+        "guardAcHash": "sha256:348a6a6a95ebf61153896af246cd0c7a72d21be8f867ff7eaa3e536563353bd8"
+      },
+      {
+        "tag": "slice-381-ac-3",
+        "file": "regression/dispatch-execution/j-archive-rename-recorded.test.js",
+        "guardAcHash": "sha256:835b7c59385046e53c56832cc7638bd96b5a5818c0efa963eac3022a696e1609"
+      },
+      {
+        "tag": "slice-381-ac-4",
+        "file": "regression/dispatch-execution/j-archive-rename-recorded.test.js",
+        "guardAcHash": "sha256:61c3cc9ff71e1a7e681ba02df683d7ea991677faf07768c69cc648c26108bd10"
+      },
+      {
+        "tag": "slice-381-ac-5",
+        "file": "regression/dispatch-execution/j-archive-rename-recorded.test.js",
+        "guardAcHash": "sha256:042403c9c5d6477b98df8e42269b27fd58ed7d312fb4de3f144167ff46067951"
       },
       {
         "tag": "slice-99777-ac-1",
@@ -1966,6 +1991,33 @@
         "tag": "slice-340-ac-6",
         "file": "regression/direct-controls/j-devops-station.test.js",
         "guardAcHash": "sha256:84c994374c163ed0b343600152a47ba7960bb36bebe31a40b1228e89a309562b"
+      }
+    ],
+    "regression/dispatch-execution/j-archive-rename-recorded.test.js": [
+      {
+        "tag": "slice-381-ac-1",
+        "file": "regression/dispatch-execution/j-archive-rename-recorded.test.js",
+        "guardAcHash": "sha256:aba759cd1c2159128889f1c65a1a6021df375fc1f864815e88d5325d66d0e10f"
+      },
+      {
+        "tag": "slice-381-ac-2",
+        "file": "regression/dispatch-execution/j-archive-rename-recorded.test.js",
+        "guardAcHash": "sha256:348a6a6a95ebf61153896af246cd0c7a72d21be8f867ff7eaa3e536563353bd8"
+      },
+      {
+        "tag": "slice-381-ac-3",
+        "file": "regression/dispatch-execution/j-archive-rename-recorded.test.js",
+        "guardAcHash": "sha256:835b7c59385046e53c56832cc7638bd96b5a5818c0efa963eac3022a696e1609"
+      },
+      {
+        "tag": "slice-381-ac-4",
+        "file": "regression/dispatch-execution/j-archive-rename-recorded.test.js",
+        "guardAcHash": "sha256:61c3cc9ff71e1a7e681ba02df683d7ea991677faf07768c69cc648c26108bd10"
+      },
+      {
+        "tag": "slice-381-ac-5",
+        "file": "regression/dispatch-execution/j-archive-rename-recorded.test.js",
+        "guardAcHash": "sha256:042403c9c5d6477b98df8e42269b27fd58ed7d312fb4de3f144167ff46067951"
       }
     ],
     "regression/dispatch-execution/j-finished-slice-not-redispatched.test.js": [

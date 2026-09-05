@@ -33,6 +33,14 @@
  * heartbeat is worth exactly one 60-second tick. It is always seeded, never
  * restored.
  *
+ * ── Slice 381 ──────────────────────────────────────────────────────────────────
+ * Slice 372 shrank the autocommits but did not stop them: it missed
+ * regression/AC-DECISIONS.json, the CHECK overlay's ledger of the operator's
+ * per-AC rulings, which is rewritten during normal operation exactly like the
+ * files above. It joins the list here rather than getting a rule of its own, so
+ * the ignore file, the seeder and the autocommit filter keep reading from one
+ * place.
+ *
  * Idempotent. Safe to call on every startup, from tests, and from the CLI:
  *
  *   node bridge/state/seed-runtime-state.js
@@ -102,6 +110,11 @@ const RUNTIME_FILES = [
   { rel: 'bridge/anchors-watcher.jsonl',    restore: true,  seed: () => '' },
   { rel: 'bridge/tt-audit.jsonl',           restore: true,  seed: () => '' },
   { rel: 'bridge/tt-audit-watcher.jsonl',   restore: true,  seed: () => '' },
+  // slice 381: the CHECK overlay's per-AC rulings ("update" / "keep" / cleared).
+  // Rewritten whenever the operator presses one of those buttons, so it dirtied
+  // the tree exactly like the files above and the autocommit swept it (3f4126a).
+  // Restored, not blanked: a ruling is a human decision and no tick recreates it.
+  { rel: 'regression/AC-DECISIONS.json',    restore: true,  seed: () => '{}\n' },
 ];
 
 // Paths the pipeline rewrites continuously and git must never be asked to carry.
