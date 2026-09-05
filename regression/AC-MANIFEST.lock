@@ -1,7 +1,7 @@
 {
   "generator": "scripts/build-ac-manifest.js",
-  "acCount": 242,
-  "legacyCount": 202,
+  "acCount": 257,
+  "legacyCount": 217,
   "byTag": {
     "slice-042-ac-1": {
       "slice": "042",
@@ -611,6 +611,46 @@
       "status": "active",
       "legacy": true
     },
+    "slice-370-ac-1": {
+      "slice": "370",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-370-ac-2": {
+      "slice": "370",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-370-ac-3": {
+      "slice": "370",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-370-ac-4": {
+      "slice": "370",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-370-ac-5": {
+      "slice": "370",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
     "slice-371-ac-1": {
       "slice": "371",
       "text": "a proposed slice can be dragged by its handle and dropped into a new position within the proposed list",
@@ -874,6 +914,86 @@
       "source": "commit-trailer",
       "status": "active",
       "legacy": false
+    },
+    "slice-380-ac-1": {
+      "slice": "380",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-380-ac-2": {
+      "slice": "380",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-380-ac-3": {
+      "slice": "380",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-380-ac-4": {
+      "slice": "380",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-380-ac-5": {
+      "slice": "380",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-381-ac-1": {
+      "slice": "381",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-381-ac-2": {
+      "slice": "381",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-381-ac-3": {
+      "slice": "381",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-381-ac-4": {
+      "slice": "381",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-381-ac-5": {
+      "slice": "381",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
     },
     "slice-901-ac-1": {
       "slice": "901",
