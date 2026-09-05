@@ -1,0 +1,35 @@
+{
+  "_comment": "Single source of truth for role keys. Keys are role nouns; legacy keys are accepted on read forever and never written again. Display name and title are what people see. Mirror of docs/ROLE-RENAME-PLAN.md section 1; a test keeps the two in step (R1).",
+  "roles": {
+    "lead":         { "legacy": ["obrien", "chiefobrien", "kira"], "name": "Alex",   "title": "Dev Lead" },
+    "builder":      { "legacy": ["rom"],                          "name": "Sam",    "title": "Full-Stack Engineer" },
+    "reviewer":     { "legacy": ["nog"],                          "name": "Jordan", "title": "Reviewer" },
+    "qa":           { "legacy": ["bashir"],                       "name": "Julian", "title": "QA Engineer" },
+    "architect":    { "legacy": ["dax"],                          "name": "Taylor", "title": "Architect" },
+    "devops":       { "legacy": ["worf"],                         "name": "Chris",  "title": "DevOps / Release Engineer" },
+    "pm":           { "legacy": ["sisko"],                        "name": "Morgan", "title": "Product Manager" },
+    "ux":           { "legacy": ["ziyal", "garak"],               "name": "Riley",  "title": "UX Specialist" },
+    "designer":     { "legacy": ["leeta"],                        "name": "Robin",  "title": "Designer" },
+    "orchestrator": { "legacy": ["watcher"],                      "name": "the orchestrator", "title": "system" }
+  },
+  "retired": ["quark", "odo"],
+  "events": {
+    "REVIEWER_DECISION": ["NOG_DECISION"], "REVIEWER_DECISION_ACCEPTED": ["NOG_DECISION_ACCEPTED"], "REVIEWER_DECISION_REJECTED": ["NOG_DECISION_REJECTED"],
+    "REVIEWER_PASS": ["NOG_PASS"], "REVIEWER_INVOKED": ["NOG_INVOKED"], "REVIEWER_ESCALATION": ["NOG_ESCALATION"], "REVIEWER_RETURN": ["NOG_RETURN"], "REVIEWER_TELEMETRY": ["NOG_TELEMETRY"],
+    "BUILDER_STARTED": ["ROM_STARTED"], "BUILDER_SESSION_FRESH": ["ROM_SESSION_FRESH"], "BUILDER_SESSION_RESUMED": ["ROM_SESSION_RESUMED"], "BUILDER_RESUMED": ["ROM_RESUMED"],
+    "BUILDER_WAITING_FOR_REVIEWER": ["ROM_WAITING_FOR_NOG"], "BUILDER_PAUSED": ["ROM_PAUSED"], "BUILDER_ABORTED": ["ROM_ABORTED"], "BUILDER_ESCALATE": ["ROM_ESCALATE"],
+    "QA_INVOKED": ["BASHIR_INVOKED"], "QA_TEST_NAMING_VIOLATION": ["BASHIR_TEST_NAMING_VIOLATION"],
+    "ESCALATED_TO_LEAD": ["ESCALATED_TO_OBRIEN"]
+  },
+  "headings": {
+    "review_round": { "new": "## Review — Round N", "legacy": ["## Nog Review — Round N"] },
+    "builder_escalation": { "new": "## Builder Escalation — Slice Broken", "legacy": ["## Rom Escalation — Slice Broken"] }
+  },
+  "files": {
+    "reviewer_prompt": { "new": "bridge/reviewer-prompt.js", "legacy": "bridge/nog-prompt.js" },
+    "qa_prompt": { "new": "bridge/templates/qa-prompt.md", "legacy": "bridge/templates/bashir-prompt.md" },
+    "qa_non_gate_prompt": { "new": "bridge/templates/qa-non-gate-prompt.md", "legacy": "bridge/templates/bashir-non-gate-prompt.md" },
+    "dashboard": { "new": "dashboard/dashboard.html", "legacy": "dashboard/lcars-dashboard.html" }
+  },
+  "brief_block_heading": { "new": "## What Sam does not do", "legacy": "## What Rom does not do" }
+}
