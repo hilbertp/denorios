@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 522,
+  "guardCount": 527,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -577,6 +577,26 @@
       {
         "tag": "slice-373-ac-4",
         "file": "regression/authoring-staging/j-backlog-row-controls.test.js"
+      },
+      {
+        "tag": "slice-380-ac-1",
+        "file": "regression/observability/j-history-chronological-order.test.js"
+      },
+      {
+        "tag": "slice-380-ac-2",
+        "file": "regression/observability/j-history-chronological-order.test.js"
+      },
+      {
+        "tag": "slice-380-ac-3",
+        "file": "regression/observability/j-history-chronological-order.test.js"
+      },
+      {
+        "tag": "slice-380-ac-4",
+        "file": "regression/observability/j-history-chronological-order.test.js"
+      },
+      {
+        "tag": "slice-380-ac-5",
+        "file": "regression/observability/j-history-chronological-order.test.js"
       },
       {
         "tag": "slice-99777-ac-1",

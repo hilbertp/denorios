@@ -778,6 +778,15 @@
     word-break: break-word;
   }
 
+  /* The ordering key, written out: tabular numerals so a column of them lines up. */
+  .history-expand-ts {
+    font-size: 12px;
+    color: #6b7280;
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
   .history-details-btn {
     background: none;
     border: none;
@@ -4871,6 +4880,13 @@ button:disabled,
   color: var(--ink-muted);
 }
 
+/* Terminal timestamp beside the description — muted ink, same as the row metrics */
+.history-expand-ts {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  color: var(--ink-3);
+}
+
 /* "Details" button — full state set, press feedback, focus ring */
 .history-details-btn {
   font-family: var(--font-sans);
@@ -6649,7 +6665,10 @@ body:not(.lcars-mode) .staged-details-body pre code {
           <span class="col-cost">Cost</span>
         </div>
         <div class="history-list" id="history-list"></div>
-        <div id="history-pagination" class="hidden"></div>
+        <!-- history-pager: the name the panel is looked for by, in a console probe
+             or a browser test. It was only ever #history-pagination, so the search
+             that went looking for the control came back empty (slice 380). -->
+        <div id="history-pagination" class="history-pager hidden"></div>
       </div>
     </div>
 
@@ -7671,7 +7690,11 @@ body:not(.lcars-mode) .staged-details-body pre code {
   let cachedHistoryItems = [];
   let cachedHistoryAllRows = [];
   let historyPage = 1;
-  const HISTORY_PAGE_SIZE = 5;
+  // A page has to be worth turning. Five rows could not hold a single day's work,
+  // so the newest day was already spilling onto page 2 the moment anything else
+  // finished — which is how slice 367's 18:02 failure ended up out of sight
+  // (slice 380). The list scrolls inside the panel; the pager reaches the rest.
+  const HISTORY_PAGE_SIZE = 25;
 
   // Determine terminal outcome for a slice from register events
   function classifyTerminalOutcome(sliceId, events) {
@@ -7766,12 +7789,57 @@ body:not(.lcars-mode) .staged-details-body pre code {
     return filtered;
   }
 
+  // ── History ordering ──────────────────────────────────────────────────────
+  // Newest terminal event first. A slice id is not a proxy for time: ids are handed
+  // out at staging, and slices are approved, retried and restaged out of order — so
+  // ordering by id buried slice 367's 18:02 failure, the second-newest event in the
+  // whole log, at position 8 where nobody would look for it (slice 380).
+  //
+  // The comparator is a TOTAL order, so two renders of the same rows draw the same
+  // list and nothing flickers: terminal timestamp desc → slice id desc → arrival
+  // index asc. The arrival index is the last word, which is also what keeps two rows
+  // that share an id (a restaged slice, logged once per attempt) as two rows: this
+  // function is a permutation of what it is given — it never groups, never dedupes,
+  // never drops, and never touches a row's outcome.
+  //
+  // A row with no usable terminal timestamp cannot claim recency, so it sorts after
+  // every dated row instead of riding a NaN comparison to wherever the engine leaves it.
+  function historyTerminalTime(row) {
+    const raw = row && (row._terminalTs ?? row.completedAt);
+    if (raw == null || raw === '') return null;
+    const t = Date.parse(raw);
+    return Number.isNaN(t) ? null : t;
+  }
+
+  function orderHistoryRowsByRecency(rows) {
+    return (rows || [])
+      .map((row, index) => ({ row, index, ts: historyTerminalTime(row) }))
+      .sort((a, b) => {
+        if (a.ts !== b.ts) {
+          if (a.ts === null) return 1;   // undated rows sink, whatever they are next to
+          if (b.ts === null) return -1;
+          return b.ts - a.ts;            // newest first
+        }
+        const an = parseInt(a.row && a.row.id, 10);
+        const bn = parseInt(b.row && b.row.id, 10);
+        const aNum = !Number.isNaN(an), bNum = !Number.isNaN(bn);
+        if (aNum && bNum && an !== bn) return bn - an;
+        if (aNum !== bNum) return aNum ? -1 : 1;
+        if (!aNum && !bNum) {
+          const as = String((a.row && a.row.id) ?? ''), bs = String((b.row && b.row.id) ?? '');
+          if (as !== bs) return as < bs ? 1 : -1;
+        }
+        return a.index - b.index;        // same time, same id: arrival order decides
+      })
+      .map(entry => entry.row);
+  }
+
   function renderHistoryPanel(recent, events) {
     // Fold legacy apendments: one row per slice
     const folded = foldLegacyApendments(recent, events);
 
     // Classify terminal outcomes and filter to terminal slices only
-    cachedHistoryAllRows = folded
+    const classified = folded
       .filter(c => !/^merge:/i.test(c.title ?? ''))
       .map(c => {
         const terminal = classifyTerminalOutcome(c.id, events);
@@ -7798,11 +7866,10 @@ body:not(.lcars-mode) .staged-details-body pre code {
         c._terminalRound = getTerminalRound(c.id, events);
         return c;
       })
-      .filter(Boolean)
-      // Sorted by slice number, newest first (page 1 = highest #). Sorting by
-      // terminal timestamp let a re-merged / rolled-back older slice float up
-      // out of numeric order, which read as "unsorted"; the slice number is the stable key.
-      .sort((a, b) => parseInt(b.id, 10) - parseInt(a.id, 10));
+      .filter(Boolean);
+
+    // Chronological, newest first — the logbook's order is time, not id.
+    cachedHistoryAllRows = orderHistoryRowsByRecency(classified);
 
     const totalPages = Math.max(1, Math.ceil(cachedHistoryAllRows.length / HISTORY_PAGE_SIZE));
     if (historyPage > totalPages) historyPage = totalPages;
@@ -7816,6 +7883,16 @@ body:not(.lcars-mode) .staged-details-body pre code {
     const s = Math.round(ms / 1000);
     if (s < 60) return `${s}s`;
     return `${Math.floor(s/60)}m`;
+  }
+
+  // The moment a slice reached its terminal state, in the operator's own timezone —
+  // the value the logbook is ordered by, written where he can read it back (slice 380).
+  function fmtTerminalTs(ts) {
+    if (!ts) return 'no terminal timestamp';
+    const d = new Date(ts);
+    if (isNaN(d.getTime())) return 'no terminal timestamp';
+    const p2 = n => String(n).padStart(2, '0');
+    return `${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
   }
 
   function fmtTokens(tokIn, tokOut) {
@@ -7942,8 +8019,10 @@ body:not(.lcars-mode) .staged-details-body pre code {
         ? `<button class="rollback-btn" onclick="openRollbackConfirm('${eid}')" title="Undo this slice by reverting it on dev and re-running the gate. main stays fast-forward-only \u2014 nothing is force-pushed.">\u21ba Roll back</button>`
         : '';
 
-      return `<div class="history-row" data-history-id="${eid}">
-        <div class="history-row-main">
+      const finishedAt = fmtTerminalTs(c._terminalTs);
+
+      return `<div class="history-row" data-history-id="${eid}" data-terminal-ts="${escHtml(c._terminalTs ?? '')}">
+        <div class="history-row-main" title="S${eid} \u00b7 finished ${escHtml(finishedAt)}">
           <span class="col-chevron history-chevron" id="history-chevron-${eid}" onclick="toggleHistoryExpand('${eid}')">${chevron}</span>
           <span class="col-id history-row-id">S${eid}</span>
           <span class="col-title history-row-title">${escHtml(c.title || '')}</span>
@@ -7955,6 +8034,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
         </div>
         <div class="history-expand ${isExpanded ? 'open' : ''}" id="history-expand-${eid}">
           <span class="history-expand-desc" ${isFail ? 'style="color:#dc2626"' : ''}>${escHtml(expandDesc)}</span>
+          <span class="history-expand-ts" title="When this slice reached its terminal state \u2014 the logbook is ordered by this">${escHtml(finishedAt)}</span>
           <button class="history-details-btn" onclick="openHistoryDetail('${eid}')">Details \u203a</button>
           ${returnBtn}
           ${rollbackBtn}
@@ -7964,19 +8044,21 @@ body:not(.lcars-mode) .staged-details-body pre code {
 
     listEl.innerHTML = rowsHtml;
 
-    if (totalPages > 1) {
-      const newerDisabled = historyPage <= 1;
-      const olderDisabled = historyPage >= totalPages;
-      pageEl.classList.remove('hidden');
-      pageEl.innerHTML = `
-        <button class="history-pg-btn" onclick="historyGoPage(${historyPage - 1})" ${newerDisabled ? 'disabled' : ''}>\u2190 newer</button>
-        <span class="history-pg-info">page ${historyPage} of ${totalPages} \u00b7 ${total} entries</span>
-        <button class="history-pg-btn" onclick="historyGoPage(${historyPage + 1})" ${olderDisabled ? 'disabled' : ''}>older \u2192</button>
-      `;
-    } else {
-      pageEl.classList.add('hidden');
-      pageEl.innerHTML = '';
-    }
+    // The count bar is drawn whenever there is anything to count, single page or not:
+    // a view showing 25 of 200 and a view showing all 25 look identical otherwise, and
+    // the operator has no way to tell a truncated logbook from the whole one (slice 380).
+    // The buttons come with it, disabled at the ends, so "there is nothing older" is
+    // something the panel says rather than something the operator has to infer.
+    const first = start + 1;
+    const last = start + rows.length;
+    const newerDisabled = historyPage <= 1;
+    const olderDisabled = historyPage >= totalPages;
+    pageEl.classList.remove('hidden');
+    pageEl.innerHTML = `
+      <button class="history-pg-btn" onclick="historyGoPage(${historyPage - 1})" ${newerDisabled ? 'disabled' : ''}>\u2190 newer</button>
+      <span class="history-pg-info">showing ${first}\u2013${last} of ${total} entries${totalPages > 1 ? ` \u00b7 page ${historyPage} of ${totalPages}` : ''}</span>
+      <button class="history-pg-btn" onclick="historyGoPage(${historyPage + 1})" ${olderDisabled ? 'disabled' : ''}>older \u2192</button>
+    `;
   }
 
   function historyGoPage(page) {
