@@ -1,7 +1,7 @@
 # ADR — Proof Lanes: machines run suites, agents do not; two lanes of rigour
 
 **Status:** Proposed. Decided by Taylor (Architect; legacy key `dax`) on 2026-09-07 at Philipp's
-request; Philipp approves the slices and applies the contract patches. Amends the run-count table
+request; briefs revised after adversarial review on 2026-09-10; Philipp approves the slices and applies the contract patches. Amends the run-count table
 of Chris's ruling of 2026-09-03 (`.claude/roles/worf/RULING-TEST-OWNERSHIP-2026-09-03.md` §4).
 **Builds on:** `ADR-GITHUB-CI-MERGE-MODEL.md` (main moves only on a green gate),
 `ADR-TEST-UPDATE-GATE.md`, `ADR-AC-RECONCILE.md`. Changes nothing about what protects main.
@@ -131,11 +131,15 @@ Replaces §4's table in the 2026-09-03 ruling. Rom's "once, before he hands in" 
 
 ## 7. Order and interaction with staged work
 
-Recommended order: 386 (metrics), 387 (locks and hashes), 388 (no suite; red dev routes), 389
-(lanes), 390 (gate learns the lane), 391 (fresh-copy guard). 386 and 387 remove fixed cost from
-every slice at once and depend on nothing; 390 depends on 389. All six go before the test-ownership
-plumbing slices 363, 377, 378 and before the rename slices R1 to R3, at Philipp's word that this is
-the next change.
+Order: 386 (metrics), 387 (locks and hashes), 388 (no suite; red dev routes), 389 (lanes), 390
+(gate learns the lane), 391 (fresh-copy guard). 387, 388 and 389 each build on the template function
+386 creates; 390 reads the trailer 389 writes. **Approval rule: approve one at a time, and approve
+the next only after the previous shows SLICE_SQUASHED_TO_DEV in the register (the History row reads
+"accepted").** The daemon's `depends_on` field is not used, because it clears only on a promotion
+to main, and the pipeline otherwise picks up the next queued slice while the previous one is still
+in review. All six go before the test-ownership plumbing slices 363, 377, 378 and before the rename
+slices R1 to R3, at Philipp's word that this is the next change. 388 must land before 378, which
+rewrites the same failure parser; 378's brief gets one sentence to keep 388's exports working.
 
 The orchestrator loads its code at start. Slices 386 to 389 change `bridge/orchestrator.js`; Chris
 restarts the daemon after they land (`launchctl kickstart -k gui/$(id -u)/dev.denorios.orchestrator`).
@@ -148,7 +152,20 @@ sentence to those briefs before Philipp approves them; it is one line each.
 
 Uncommitted rename work in the main tree touches `bridge/new-slice.js`, `scripts/ac-reconcile.js`,
 `scripts/build-ac-manifest.js` and `scripts/regression-report.js`, four files these slices also
-touch. Commit or stash it before approving 388 to 390, or expect a small drift conflict at landing.
+touch, plus an untracked test file `regression/orchestrator/j-role-map.test.js`. Commit or stash
+it before approving 387 to 390: the drift merge will conflict on the four files, and once 387 is
+live its lock regeneration refuses to land any slice while an untracked test file sits under
+`regression/` (by design: a stray test must never be baked into the lock). Two more facts the
+reviews surfaced for Chris: the autocommit that protects uncommitted work before the squash checkout
+currently fails on a type-change status line (`T bridge/nog-prompt.js`, the symlink from the rename
+WIP), and the failure branch in 387 therefore uses `git reset --keep`, never `--hard`.
+
+Verification: the six briefs were adversarially reviewed against dev HEAD before staging (two
+lenses per brief plus a cross-slice critic); the findings were applied on 2026-09-07 and
+2026-09-10 and are recorded in the briefs themselves. Where a brief names an exported function
+(`buildDoneTemplate`, `fillDoneMetrics`, `buildHashLines`, `routeDevSuiteRun`, `resolveLane`,
+`laneEventFields`, `applyLaneArgs`), that is the seam Sam's safety-net test drives; nothing in these
+slices is testable only by grepping source text.
 
 ## 8. Measurement
 

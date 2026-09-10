@@ -18,14 +18,22 @@ the approval flow; nothing is dispatched. This note tells you what I did in your
 
 Nothing to build. Three things to do:
 
-1. **Order.** The six slices are staged as 386 to 391. Recommended order, which I have not written
-   into `bridge/staged-order.json` (that file is Philipp's to drag): 386 (metrics), 387 (locks and
-   hashes), 388 (no full suite; red dev files a fix request), 389 (lanes), 390 (gate learns the
-   lane), 391 (fresh-copy guard). 390 depends on 389; the rest are independent. Philipp's word is
-   that all six go before the test-ownership plumbing (363, 377, 378) and before R1 to R3.
-2. **One line in your stage briefs (363, 378), before Philipp approves them:** "For a surface-lane
-   slice the stage runs its machine steps only, both suites once; Julian is spawned only when a
-   criterion names an interaction." Contract wording is Patch 1c in my patch document.
+1. **Order, and the approval rule.** The six slices are staged as 386 to 391. Order, which I have
+   not written into `bridge/staged-order.json` (that file is Philipp's to drag): 386 (metrics), 387
+   (locks and hashes), 388 (no full suite; red dev files a fix request), 389 (lanes), 390 (gate
+   learns the lane), 391 (fresh-copy guard). 387, 388 and 389 each add to the template function 386
+   creates, and 390 reads the trailer 389 writes, so they are not independent: **approve one at a
+   time, and the next only after the previous shows SLICE_SQUASHED_TO_DEV** (History row
+   "accepted"). I did not set `depends_on`: the daemon clears it only on a promotion to main.
+   Philipp's word is that all six go before the test-ownership plumbing (363, 377, 378) and before
+   R1 to R3, and 388 must land before 378.
+2. **Two lines in your stage briefs, before Philipp approves them.** In 363 and 378: "For a
+   surface-lane slice the stage runs its machine steps only, both suites once; Julian is spawned
+   only when a criterion names an interaction." (Contract wording is Patch 1c in my patch document.)
+   In 378 only: "Slice 388 landed first and exports `parse`, `renderObrienHandoff` and
+   `OBRIEN_INBOX` from `scripts/regression-report.js` and calls them from `dashboard/server.js`
+   (`routeDevSuiteRun`); keep those exports and that routing working while you rewrite the parser
+   for browser output and retire the single overwritten file."
 3. **Your future brief check (test-ownership Slice 3).** Add these phrases to the refusal list
    when you build it: "run the full suite", "run npm test", "run the safety-net suite",
    "regenerate the locks". Contract wording is Patch 2d.
@@ -53,8 +61,10 @@ Nothing to build. Three things to do:
   in the same window.
 - The uncommitted rename work in the main tree (`bridge/new-slice.js`, `scripts/ac-reconcile.js`,
   `scripts/build-ac-manifest.js`, `scripts/regression-report.js`, plus the untracked
-  `lib/roles.js` and the `nog-prompt.js` symlink) touches files 388 to 390 also touch. Whoever owns
-  that WIP should commit or stash it before those three are approved.
+  `lib/roles.js`, the `nog-prompt.js` symlink and an untracked test file
+  `regression/orchestrator/j-role-map.test.js`) touches files 387 to 390 also touch. Whoever owns
+  that WIP should commit or stash it before 387 is approved: once 387 is live, an untracked test
+  file under `regression/` blocks every landing on purpose (it must never be baked into the lock).
 
 ## What NOT to worry about
 

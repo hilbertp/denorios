@@ -43,8 +43,19 @@ Three things, all yours:
 - Slice 387 regenerates the two lock files inside the landing commit (commit, regenerate, amend,
   then push). It also ends the lock-file merge conflicts 382 hit twice. Rollback reads
   `squash_sha`; the brief makes the amended sha the one recorded.
-- The rename WIP in the main tree touches four files these slices touch; commit or stash it before
-  388 to 390 are approved.
+- The rename WIP in the main tree touches four files these slices touch, plus an untracked
+  `regression/orchestrator/j-role-map.test.js`; commit or stash it before 387 is approved. Once 387
+  is live, its lock regeneration refuses to land a slice while an untracked test file sits under
+  `regression/` (a stray test must never be baked into the lock), so that file blocks the pipeline
+  until it is committed or removed.
+- Found during review, yours to fix or schedule: `autoCommitDirtyTree` (`bridge/orchestrator.js:1156-1193`),
+  which is meant to protect uncommitted work before the squash checkout, is failing on the
+  type-change status line `T bridge/nog-prompt.js` (register, 2026-09-06 17:25:59Z: `git add -u`
+  with the porcelain prefix left in). Until it is fixed, uncommitted work in the main tree is
+  unprotected at every landing; that is why 387's failure branch uses `git reset --keep`, never
+  `--hard`.
+- Approval rule for the six: one at a time, the next only after the previous shows
+  SLICE_SQUASHED_TO_DEV. `depends_on` is not used; it clears only on a promotion to main.
 
 ## What NOT to worry about
 
