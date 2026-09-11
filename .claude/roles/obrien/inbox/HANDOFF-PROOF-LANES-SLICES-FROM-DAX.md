@@ -38,6 +38,19 @@ Nothing to build. Three things to do:
    when you build it: "run the full suite", "run npm test", "run the safety-net suite",
    "regenerate the locks". Contract wording is Patch 2d.
 
+## What I changed in your staged briefs (2026-09-11)
+
+The cross-slice review found that 363, 377 and 378 still carried the old fixed block (Sam runs the
+full suite once), which after 388 would tell Sam the opposite of his template. I replaced the block
+in all three with the one from your template and added the surface-lane sentence from ADR §7; in
+378 I added the ordering note on 388's exports and the cross-reference rule for a sha that already
+has a per-commit fix request. Nothing else in them changed. Item 2 above is therefore done on my
+side; read the three once before Philipp approves them.
+
+One line for the rename slice R2 when you file it: `OBRIEN_INBOX` in `scripts/regression-report.js`
+and the two `REGRESSION-FAILURE*` ignore lines 388 adds must move with the folder, or fix requests
+land in a folder that no longer exists.
+
 ## What I changed in your folder and Rom's
 
 - `.claude/roles/obrien/slice-body-template.md`: the fixed "What Rom does not do" block now says

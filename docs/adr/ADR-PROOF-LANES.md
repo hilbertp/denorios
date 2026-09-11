@@ -162,15 +162,24 @@ WIP), and the failure branch in 387 therefore uses `git reset --keep`, never `--
 
 Verification: the six briefs were adversarially reviewed against dev HEAD before staging (two
 lenses per brief plus a cross-slice critic); the findings were applied on 2026-09-07 and
-2026-09-10 and are recorded in the briefs themselves. Where a brief names an exported function
-(`buildDoneTemplate`, `fillDoneMetrics`, `buildHashLines`, `routeDevSuiteRun`, `resolveLane`,
-`laneEventFields`, `applyLaneArgs`), that is the seam Sam's safety-net test drives; nothing in these
-slices is testable only by grepping source text.
+2026-09-10 and are recorded in the briefs themselves. Every acceptance criterion names an exported
+seam Sam's safety-net test drives (`sessionTelemetry`, `fillDoneMetrics`, `buildDoneTemplate`,
+`buildHashLines`, `routeDevSuiteRun`, `resolveLane`, `laneEventFields`, `romSpawnArgs`,
+`readSliceMeta`, `laneOfSliceFile`, `missingOrUnwritable`); the call-site wiring that no unit test
+can reach is pinned under each brief's Traps by source checks, the house pattern the existing
+suite already uses. Third review round (2026-09-11) added: 387 also carries the three test-move
+trailers into the landing commit and re-fills the landed report; 388 never routes at module load;
+389 reads the lane from the PARKED brief, never from Sam's report; 390's lane-flip guard treats a
+missing base lane as core; Alex's staged 363, 377 and 378 now carry the new fixed block and the
+surface-lane sentence, and 378 the ordering note on 388's exports.
 
 ## 8. Measurement
 
-Every DONE event now carries `lane`, `effort`, real `tokens_in`, `tokens_out`, `tokens_cache_read`,
-`elapsed_ms` and the CLI's `cost_usd`. After ten surface slices and ten core slices, compare minutes
+Every DONE event now carries `lane`, `effort`, `durationMs`, `tokensIn`, `tokensOut`,
+`tokensCacheRead` and `costUsd` (the CLI's own figure); the snake_case names are the report
+frontmatter, which the pipeline fills and, from 387 on, re-fills inside the landing commit. Julian's
+non-gate reports (`to: bashir`) get the same template wording but are not filled; they are outside
+this measurement. After ten surface slices and ten core slices, compare minutes
 and dollars per lane against the 2026-09-06 baseline (core-shaped rigour on a surface change: 16.3
 min, $5.14). Expected for a slice like 383: about 4 minutes and under $2. No number goes into a
 contract before those twenty runs are read.
