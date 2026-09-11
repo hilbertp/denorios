@@ -7,11 +7,13 @@ status: DONE
 slice_id: "387"
 branch: "slice/387"
 completed: "2026-09-12T09:14:00.000Z"
-tokens_in: 186000
-tokens_out: 11000
-elapsed_ms: 640000
+tokens_in: 50
+tokens_out: 30755
+elapsed_ms: 407317
 estimated_human_hours: 1.5
 compaction_occurred: false
+tokens_cache_read: 1583770
+cost_usd: 2.3322239999999996
 ---
 
 ## Summary
