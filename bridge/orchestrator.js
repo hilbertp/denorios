@@ -2480,6 +2480,39 @@ const activeChildren = new Map(); // Map<sliceId: string, { child: ChildProcess,
 // ---------------------------------------------------------------------------
 
 /**
+ * buildHashLines(sliceContent) → string[]
+ *
+ * The `// @ac-hash:` line for every tagged criterion in a brief, one per criterion.
+ *
+ * Each safety-net test has to carry, beside its tag, the hash of the criterion text it
+ * guards; without it reconcile marks that criterion STALE. The recipe was written down in
+ * no brief and no template, so every builder rediscovered it by reading the gate machinery
+ * — on slice 383 that was eight tool calls into build-ac-manifest.js and the locks before
+ * a line of product code. Computing the lines here hands him the answer instead: he copies
+ * one line per criterion and never opens the deriver.
+ *
+ * Pure. build-ac-manifest and ac-block are required lazily, so a repo without them (a test
+ * fixture) still builds a template rather than throwing at module load.
+ */
+function buildHashLines(sliceContent) {
+  let acs;
+  try {
+    const { parseAcBlock } = require('../lib/ac-block');
+    acs = parseAcBlock(String(sliceContent == null ? '' : sliceContent)).acs || [];
+  } catch (_) { return []; }
+  if (!acs.length) return [];
+
+  let acHashOf;
+  try {
+    ({ acHashOf } = require('../scripts/build-ac-manifest'));
+  } catch (_) { return []; }
+
+  // Four-space indent: the prompt renders it as a code block, so the builder copies the
+  // line verbatim instead of picking it out of a paragraph.
+  return acs.map(ac => `    // @ac-hash: ${ac.tag} ${acHashOf(ac.text)}`);
+}
+
+/**
  * buildDoneTemplate({ id, worktreeDonePath, sliceBranch, sliceContent })
  *
  * The DONE report template glued to the end of every brief Rom receives.
@@ -2488,11 +2521,18 @@ const activeChildren = new Map(); // Map<sliceId: string, { child: ChildProcess,
  *
  * It no longer demands real, non-zero metrics: the orchestrator fills the three
  * machine metrics from the session, so asking Rom for numbers he cannot observe
- * only ever produced invented ones. sliceContent is a parameter because slices
- * 387 to 389 derive the hash lines and the lane from the brief itself; this
- * slice does not read it.
+ * only ever produced invented ones. sliceContent is read for the hash lines
+ * (slice 387); slice 389 reads it again for the lane.
  */
 function buildDoneTemplate({ id, worktreeDonePath, sliceBranch, sliceContent }) {
+  const hashLines = buildHashLines(sliceContent);
+  // A brief with no tagged criteria gets no heading — an empty section reads as a
+  // missing list. The three sentences below are unconditional: they are the rule, not
+  // the data, and they are what keeps him out of the lock files whether or not this
+  // brief has criteria.
+  const hashSection = hashLines.length
+    ? ['', '## Your hash lines', '', ...hashLines]
+    : [];
   return [
     '',
     '## DONE report template',
@@ -2521,6 +2561,9 @@ function buildDoneTemplate({ id, worktreeDonePath, sliceBranch, sliceContent }) 
     '',
     'Leave tokens_in, tokens_out and elapsed_ms at 0; the orchestrator fills them from the session. estimated_human_hours is optional: your honest guess of how long a skilled human would take, or 0. compaction_occurred is true only if your context was compacted mid-session.',
     '- completed: must be full ISO 8601 UTC datetime (e.g. "2026-04-12T01:22:40.000Z"), never date-only',
+    ...hashSection,
+    '',
+    'Put the matching line beside the tag in each safety-net test you write. Do not run build-coverage-map or build-ac-manifest and do not edit regression/*.lock; the pipeline regenerates them when the slice lands. Stage your report with `git add -f bridge/queue/' + id + '-DONE.md`.',
   ].join('\n');
 }
 
@@ -7740,6 +7783,237 @@ function abortGate() {
 // Squash slice → dev (slice 266)
 // ---------------------------------------------------------------------------
 
+// The two DERIVED files the integrity gates (j-coverage-map-integrity,
+// j-ac-manifest-integrity) require to equal a fresh regeneration at every commit.
+// Nobody hand-edits them; the pipeline owns them (slice 387).
+const LOCK_FILES = ['regression/COVERAGE.lock', 'regression/AC-MANIFEST.lock'];
+
+/**
+ * isLockDeriverInput(p)
+ *
+ * Does this working-tree path feed one of the two lock derivers? The derivers walk the
+ * test files on disk, so an uncommitted test file in the live tree would be baked into a
+ * lock that is supposed to describe the committed suite. Runtime JSON that merely LIVES
+ * under regression/ (regression/AC-CHECK.json and friends) is not an input and must not
+ * block a landing — the crew's live tree nearly always has some.
+ */
+function isLockDeriverInput(p) {
+  const rel = String(p).split(path.sep).join('/');
+  return /^regression\/.*\.test\.js$/.test(rel)
+    || /^e2e\/.*\.spec\.js$/.test(rel)
+    || LOCK_FILES.includes(rel);
+}
+
+/**
+ * newestDoneEvent(sliceId, regFile)
+ *
+ * The most recent DONE register entry for a slice, or null. Newest wins because a slice
+ * that came back for a second round has a DONE per round, and the landed report should
+ * carry the session that actually produced the landed code.
+ */
+function newestDoneEvent(sliceId, regFile) {
+  let newest = null;
+  for (const line of _getRegLines(regFile || REGISTER_FILE)) {
+    try {
+      const e = JSON.parse(line);
+      if (!e || e.event !== 'DONE' || String(e.slice_id) !== String(sliceId)) continue;
+      // >= on a forward scan: on equal timestamps the later line wins, which is append order.
+      if (!newest || String(e.ts || '') >= String(newest.ts || '')) newest = e;
+    } catch (_) {}
+  }
+  return newest;
+}
+
+/**
+ * refillLandedDoneReport(sliceId)
+ *
+ * Rewrite the metric fields of the DONE report inside the landing tree from the register.
+ *
+ * The squash replays the builder's tree onto dev, and his committed copy of the report
+ * carries the zeros the template told him to leave. The real numbers were measured by the
+ * watcher when his session ended and written to the register; the copy in bridge/queue/
+ * that fillDoneMetrics already filled is gitignored and was just overwritten by his
+ * committed one. So fill it again here, where the file is about to become permanent.
+ *
+ * Never fatal: the locks are the integrity-critical half of the amend, and a report that
+ * still reads zero is worth less than a landing that fails.
+ */
+function refillLandedDoneReport(sliceId) {
+  const rel = `bridge/queue/${sliceId}-DONE.md`;
+  const abs = path.join(PROJECT_DIR, 'bridge', 'queue', `${sliceId}-DONE.md`);
+
+  const ev = newestDoneEvent(sliceId);
+  if (!ev) {
+    log('warn', 'squash-to-dev', { sliceId, msg: `no DONE register event for this slice — ${rel} lands with the metrics as committed` });
+    return;
+  }
+  let content;
+  try {
+    content = fs.readFileSync(abs, 'utf-8');
+  } catch (_) {
+    log('warn', 'squash-to-dev', { sliceId, msg: `no ${rel} in the landing tree — metrics not re-filled` });
+    return;
+  }
+
+  // The register event spells the elapsed time durationMs; fillDoneMetrics wants elapsedMs.
+  const filled = fillDoneMetrics(content, {
+    tokensIn: ev.tokensIn,
+    tokensOut: ev.tokensOut,
+    tokensCacheRead: ev.tokensCacheRead,
+    costUsd: ev.costUsd,
+    elapsedMs: ev.durationMs,
+  });
+  try {
+    fs.writeFileSync(abs, filled);
+    // -f: bridge/queue/*.md is gitignored (.gitignore:20), so a plain add is a silent no-op
+    // and the report would land with the zeros still in it.
+    execSync(`git add -f -- ${shQuote(rel)}`, { cwd: PROJECT_DIR, stdio: 'pipe' });
+  } catch (err) {
+    log('warn', 'squash-to-dev', { sliceId, msg: `could not stage the re-filled ${rel}`, error: err.message });
+  }
+}
+
+/**
+ * regenerateLocksAtLanding(sliceId, sliceBranch, preSquashSha)
+ *
+ * Fold a fresh regeneration of the two lock files — and the landed report's real metrics —
+ * into the squash commit. Returns { success: true } or { success: false, error }.
+ *
+ * Order is the whole point: build-ac-manifest reads the `AC:` trailers from HEAD, and
+ * those trailers exist only once the squash commit exists. Regenerating before the commit
+ * would resolve every criterion this slice introduces to its slice-file fallback instead
+ * of its trailer. So: commit, regenerate, amend. The amend happens strictly before the
+ * push, inside the caller's DS9_WATCHER_MERGE env and its open Layer-2 lock, so no public
+ * history is rewritten and the pre-commit hook lets it through.
+ *
+ * On any failure the landing is abandoned whole — locks restored, dev's tip rewound to
+ * preSquashSha, an ERROR file written, nothing pushed — so the recovery run squashes again
+ * from a clean tip rather than pushing a commit whose locks are known to be wrong.
+ */
+function regenerateLocksAtLanding(sliceId, sliceBranch, preSquashSha) {
+  const quotedLocks = LOCK_FILES.map(shQuote).join(' ');
+
+  const fail = (detail) => {
+    log('error', 'squash-to-dev', { sliceId, msg: 'lock regeneration failed — rewinding dev and abandoning the landing', detail });
+
+    // Put the regenerated locks back the way the commit has them, so the reset has
+    // nothing of its own to refuse.
+    try { execSync(`git checkout HEAD -- ${quotedLocks}`, { cwd: PROJECT_DIR, stdio: 'pipe' }); } catch (_) {}
+
+    // --keep, never --hard: this is the LIVE main tree and it carries the crew's
+    // uncommitted work. --keep reverts only the paths the squash changed and ABORTS
+    // rather than overwriting a file that was modified locally. The autocommit that is
+    // supposed to protect that work before the checkout is itself unreliable right now
+    // (it dies on a type-change status line), which is exactly why --hard is unusable here.
+    try {
+      execSync(`git reset --keep ${preSquashSha}`, { cwd: PROJECT_DIR, stdio: 'pipe' });
+    } catch (resetErr) {
+      // Even an aborted reset gets the ERROR file: the operator must hear about a dev tip
+      // sitting on a squash commit whose locks are wrong, and nothing was pushed either way.
+      log('error', 'squash-to-dev', { sliceId, msg: 'git reset --keep aborted — dev local tip is still on the squash commit', error: resetErr.message });
+    }
+
+    recoverRuntimeStateAfterGit(`squash-${sliceBranch}`, sliceId);
+
+    registerEvent(sliceId, 'ERROR', {
+      slice_id: String(sliceId),
+      reason: 'lock_regen_failed',
+      detail,
+    });
+
+    const completed = new Date().toISOString();
+    const errorContent = [
+      '---',
+      `id: "${sliceId}"`,
+      `title: "Slice ${sliceId} — lock_regen_failed"`,
+      'from: orchestrator',
+      'to: chiefobrien',
+      'status: ERROR',
+      `slice_id: "${sliceId}"`,
+      `completed: "${completed}"`,
+      'reason: "lock_regen_failed"',
+      '---',
+      '',
+      '## Lock regeneration failed at landing',
+      '',
+      `The squash commit for \`${sliceBranch}\` was made, but regenerating`,
+      '`regression/COVERAGE.lock` and `regression/AC-MANIFEST.lock` into it failed.',
+      `Nothing was pushed and dev's local tip was rewound to \`${preSquashSha}\`, so a`,
+      'recovery run can squash this slice again.',
+      '',
+      '## Detail',
+      '',
+      '```',
+      detail || '(no detail captured)',
+      '```',
+    ].join('\n');
+    const errorPath = path.join(QUEUE_DIR, `${sliceId}-ERROR.md`);
+    try { fs.writeFileSync(errorPath, errorContent); } catch (_) {}
+    try { archiveSiblingStateFiles(sliceId, 'ERROR'); } catch (_) {}
+
+    return { success: false, error: `lock_regen_failed: ${detail}` };
+  };
+
+  // 1. No deriver input may be dirty. The derivers read the working tree, so a stray
+  //    uncommitted test file here would be written into a lock describing the committed
+  //    suite — and the integrity gate would then fail on CI, where it does not exist.
+  //    -uall because plain porcelain collapses an untracked DIRECTORY to one `?? dir/`
+  //    line: the .test.js files inside it would pass this guard and still be read.
+  let dirty = [];
+  try {
+    const raw = execSync('git status --porcelain -uall', { cwd: PROJECT_DIR, encoding: 'utf-8' });
+    for (const line of raw.split('\n')) {
+      if (!line.trim()) continue;
+      for (const p of porcelainPaths(line)) {
+        if (isLockDeriverInput(p) && !dirty.includes(p)) dirty.push(p);
+      }
+    }
+  } catch (statusErr) {
+    return fail(`git status failed: ${statusErr.message}`);
+  }
+  if (dirty.length) {
+    return fail(`uncommitted lock-deriver inputs in the working tree: ${dirty.join(', ')}`);
+  }
+
+  // 2. Regenerate. Both derivers are pure over the tree plus (for the manifest) the
+  //    trailers reachable from HEAD — which is now the squash commit.
+  for (const script of ['scripts/build-coverage-map.js', 'scripts/build-ac-manifest.js']) {
+    try {
+      execSync(`node ${script}`, { cwd: PROJECT_DIR, stdio: 'pipe' });
+    } catch (runErr) {
+      const stderr = String((runErr && runErr.stderr) || '').trim().slice(0, 500);
+      return fail(`${script} exited non-zero: ${stderr || runErr.message}`);
+    }
+  }
+
+  // 3. Stage the locks if either moved. The branch's own copies came across with the
+  //    squash; this is what overwrites them.
+  let locksMoved = false;
+  try {
+    locksMoved = execSync(`git status --porcelain -- ${quotedLocks}`, { cwd: PROJECT_DIR, encoding: 'utf-8' }).trim().length > 0;
+  } catch (_) {}
+  if (locksMoved) {
+    try {
+      execSync(`git add -- ${quotedLocks}`, { cwd: PROJECT_DIR, stdio: 'pipe' });
+    } catch (addErr) {
+      return fail(`git add of the lock files failed: ${addErr.message}`);
+    }
+  }
+
+  // 4. The landed report's real numbers, from the same amend.
+  refillLandedDoneReport(sliceId);
+
+  // 5. One commit, not two: the slice lands as a single commit with correct locks.
+  try {
+    execSync('git commit --amend --no-edit', { cwd: PROJECT_DIR, stdio: 'pipe' });
+  } catch (amendErr) {
+    return fail(`git commit --amend failed: ${amendErr.message}`);
+  }
+
+  log('info', 'squash-to-dev', { sliceId, msg: 'lock files regenerated into the landing commit', locksMoved });
+  return { success: true };
+}
+
 /**
  * squashSliceToDev(sliceId, sliceTitle, sliceBranch)
  *
@@ -7783,6 +8057,7 @@ function squashSliceToDev(sliceId, sliceTitle, sliceBranch) {
   }
 
   // Step 1b: Resolve drift — merge dev into slice branch
+  let lockDriftResolved = false;
   try {
     execSync('git merge --no-ff dev', { cwd: PROJECT_DIR, stdio: 'pipe' });
   } catch (mergeErr) {
@@ -7793,64 +8068,88 @@ function squashSliceToDev(sliceId, sliceTitle, sliceBranch) {
       conflictingFiles = raw ? raw.split('\n').filter(Boolean) : [];
     } catch (_) {}
 
-    // Abort: restores working tree to pre-merge state
-    try { execSync('git merge --abort', { cwd: PROJECT_DIR, stdio: 'pipe' }); } catch (_) {}
+    // A drift conflict on nothing but the two lock files is not work for a human. They are
+    // DERIVED, both sides are equally stale, and the landing amend below regenerates them
+    // from the merged tree regardless — so whichever copy survives here is thrown away in a
+    // few lines. Two slices in a row (382, 2026-09-06) stranded on exactly this. Take dev's
+    // copies and finish the merge; any OTHER conflicting path still stops the landing.
+    if (conflictingFiles.length > 0 && conflictingFiles.every(f => LOCK_FILES.includes(f))) {
+      try {
+        for (const f of conflictingFiles) {
+          // --theirs = dev's side: we are ON the slice branch merging dev IN.
+          execSync(`git checkout --theirs -- ${shQuote(f)}`, { cwd: PROJECT_DIR, stdio: 'pipe' });
+          execSync(`git add -- ${shQuote(f)}`, { cwd: PROJECT_DIR, stdio: 'pipe' });
+        }
+        execSync('git commit --no-edit', { cwd: PROJECT_DIR, stdio: 'pipe' });
+        lockDriftResolved = true;
+        log('info', 'squash-to-dev', { sliceId, msg: "drift conflict on lock files only — took dev's copies and completed the merge", files: conflictingFiles });
+      } catch (resolveErr) {
+        // Fall through to the ordinary conflict path: better a stranded slice than a
+        // half-finished merge in the live tree.
+        log('warn', 'squash-to-dev', { sliceId, msg: 'lock-only drift conflict could not be auto-resolved', error: resolveErr.message });
+      }
+    }
 
-    // FUSE-safe return to dev
-    try { fuseSafeCheckoutBranch(sliceId, 'dev'); } catch (_) {}
+    if (!lockDriftResolved) {
+      // Abort: restores working tree to pre-merge state
+      try { execSync('git merge --abort', { cwd: PROJECT_DIR, stdio: 'pipe' }); } catch (_) {}
 
-    const conflictPaths = conflictingFiles.length > 0 ? conflictingFiles.join(',') : 'unknown';
+      // FUSE-safe return to dev
+      try { fuseSafeCheckoutBranch(sliceId, 'dev'); } catch (_) {}
 
-    // No unmerged paths = the merge never started (locked files, dirty tree,
-    // unlinkable paths) — surface git's own words so the operator sees the
-    // real failure instead of a phantom "conflict" with an empty file list.
-    const gitStderr = String((mergeErr && mergeErr.stderr) || (mergeErr && mergeErr.message) || '').trim().slice(0, 500);
+      const conflictPaths = conflictingFiles.length > 0 ? conflictingFiles.join(',') : 'unknown';
 
-    // Emit a loud register event — slice must never be silently stranded
-    registerEvent(sliceId, 'ERROR', {
-      slice_id: String(sliceId),
-      reason: 'merge_conflict',
-      conflicting_files: conflictingFiles,
-      git_error: gitStderr,
-    });
+      // No unmerged paths = the merge never started (locked files, dirty tree,
+      // unlinkable paths) — surface git's own words so the operator sees the
+      // real failure instead of a phantom "conflict" with an empty file list.
+      const gitStderr = String((mergeErr && mergeErr.stderr) || (mergeErr && mergeErr.message) || '').trim().slice(0, 500);
 
-    // Write a visible ERROR file so the slice is not left accepted-but-unmerged
-    const completed = new Date().toISOString();
-    const conflictedList = conflictingFiles.length > 0
-      ? conflictingFiles.map(f => `- \`${f}\``).join('\n')
-      : '- (could not determine conflicting files)';
-    const errorContent = [
-      '---',
-      `id: "${sliceId}"`,
-      `title: "Slice ${sliceId} — merge_conflict"`,
-      'from: orchestrator',
-      'to: chiefobrien',
-      'status: ERROR',
-      `slice_id: "${sliceId}"`,
-      `completed: "${completed}"`,
-      'reason: "merge_conflict"',
-      '---',
-      '',
-      '## Merge conflict during drift-resolve',
-      '',
-      `The drift-resolve step (\`git merge --no-ff dev\` into \`${sliceBranch}\`) failed.`,
-      'The merge was aborted. This slice requires manual intervention.',
-      '',
-      '## Conflicting files',
-      '',
-      conflictedList,
-      '',
-      '## Git error',
-      '',
-      '```',
-      gitStderr || '(no stderr captured)',
-      '```',
-    ].join('\n');
-    const errorPath = path.join(QUEUE_DIR, `${sliceId}-ERROR.md`);
-    try { fs.writeFileSync(errorPath, errorContent); } catch (_) {}
-    try { archiveSiblingStateFiles(sliceId, 'ERROR'); } catch (_) {}
+      // Emit a loud register event — slice must never be silently stranded
+      registerEvent(sliceId, 'ERROR', {
+        slice_id: String(sliceId),
+        reason: 'merge_conflict',
+        conflicting_files: conflictingFiles,
+        git_error: gitStderr,
+      });
 
-    return { success: false, error: `merge_conflict:${conflictPaths}`, conflicting_files: conflictingFiles };
+      // Write a visible ERROR file so the slice is not left accepted-but-unmerged
+      const completed = new Date().toISOString();
+      const conflictedList = conflictingFiles.length > 0
+        ? conflictingFiles.map(f => `- \`${f}\``).join('\n')
+        : '- (could not determine conflicting files)';
+      const errorContent = [
+        '---',
+        `id: "${sliceId}"`,
+        `title: "Slice ${sliceId} — merge_conflict"`,
+        'from: orchestrator',
+        'to: chiefobrien',
+        'status: ERROR',
+        `slice_id: "${sliceId}"`,
+        `completed: "${completed}"`,
+        'reason: "merge_conflict"',
+        '---',
+        '',
+        '## Merge conflict during drift-resolve',
+        '',
+        `The drift-resolve step (\`git merge --no-ff dev\` into \`${sliceBranch}\`) failed.`,
+        'The merge was aborted. This slice requires manual intervention.',
+        '',
+        '## Conflicting files',
+        '',
+        conflictedList,
+        '',
+        '## Git error',
+        '',
+        '```',
+        gitStderr || '(no stderr captured)',
+        '```',
+      ].join('\n');
+      const errorPath = path.join(QUEUE_DIR, `${sliceId}-ERROR.md`);
+      try { fs.writeFileSync(errorPath, errorContent); } catch (_) {}
+      try { archiveSiblingStateFiles(sliceId, 'ERROR'); } catch (_) {}
+
+      return { success: false, error: `merge_conflict:${conflictPaths}`, conflicting_files: conflictingFiles };
+    }
   }
 
   // Step 2: FUSE-safe checkout to dev
@@ -7858,6 +8157,16 @@ function squashSliceToDev(sliceId, sliceTitle, sliceBranch) {
     fuseSafeCheckoutBranch(sliceId, 'dev');
   } catch (checkoutErr) {
     return { success: false, error: `dev_checkout_failed: ${checkoutErr.message}` };
+  }
+
+  // dev's tip as it stands BEFORE the squash. If the lock regeneration below fails, this
+  // is exactly where the local tip is put back, so a recovery run squashes again from a
+  // clean starting point instead of inheriting a commit with known-wrong locks.
+  let preSquashSha;
+  try {
+    preSquashSha = execSync('git rev-parse HEAD', { cwd: PROJECT_DIR, encoding: 'utf-8' }).trim();
+  } catch (parseErr) {
+    return { success: false, error: `rev_parse_failed: ${parseErr.message}` };
   }
 
   // Step 2b: Squash merge the slice onto dev
@@ -7874,6 +8183,7 @@ function squashSliceToDev(sliceId, sliceTitle, sliceBranch) {
   // the fresh squash message would otherwise drop them and the gate would scan an EMPTY AC
   // set (a false green — the long-standing last-mile gap). No trailers → behaves as before.
   let acTrailers = '';
+  let moveTrailers = '';
   try {
     // --reverse = OLDEST-first. git log defaults to newest-first, so last-writer-wins below
     // would keep the OLDEST text if a tag is amended across commits. Oldest-first makes the
@@ -7885,9 +8195,42 @@ function squashSliceToDev(sliceId, sliceTitle, sliceBranch) {
     let m;
     while ((m = re.exec(bodies)) !== null) byTag.set(m[1].toLowerCase(), m[2].trim());
     for (const [tag, text] of byTag) acTrailers += `AC: ${tag}: ${text}\n`;
+
+    // `AC:` was never the only trailer that matters. The Test-Update Gate reads
+    // origin/main..origin/dev, a range in which the branch's own commits do not exist, so
+    // every gate trailer left behind here is a declaration the builder made and the gate
+    // never hears — his declared test moves arrive looking like undeclared ones. Carry the
+    // three test-move trailers across, each once, after the AC lines. A second regex over
+    // the SAME bodies string: the literal `git log dev..${sliceBranch} --reverse` above is
+    // pinned by j-ac-amend-order, and a second log call would be a second thing to keep
+    // in step with it.
+    const moveRe = /^(Tests-Not-Needed|Test-Loosen-OK|Coverage-Removed):\s*(.+?)\s*$/gim;
+    const seenMove = new Set();
+    let mv;
+    while ((mv = moveRe.exec(bodies)) !== null) {
+      const line = `${mv[1]}: ${mv[2].trim()}`;
+      const key = line.toLowerCase(); // the gate's own parser is case-insensitive
+      if (seenMove.has(key)) continue;
+      seenMove.add(key);
+      moveTrailers += `${line}\n`;
+    }
+
+    // AC-Change-OK and Spec-Owner are PHILIPP'S pair, not a builder's: together they clear
+    // an AC-MUTATED finding. Carrying one up from a branch commit would let the builder
+    // authorise his own acceptance-criterion edit with a signature he typed himself — the
+    // evasion the human gate exists to stop. Dropped, and said out loud.
+    const humanRe = /^(AC-Change-OK|Spec-Owner):\s*(.+?)\s*$/gim;
+    let hm;
+    while ((hm = humanRe.exec(bodies)) !== null) {
+      log('warn', 'squash-to-dev', {
+        sliceId,
+        msg: 'human-only trailer on an agent commit; add it on dev at landing if intended',
+        trailer: `${hm[1]}: ${hm[2].trim()}`,
+      });
+    }
   } catch (_) { /* no branch log → no trailers, squash proceeds unchanged */ }
 
-  const commitMsg = `S${sliceId}: ${sliceTitle}\n\nSlice-Id: ${sliceId}\nSlice-Branch: ${sliceBranch}\n${acTrailers}`;
+  const commitMsg = `S${sliceId}: ${sliceTitle}\n\nSlice-Id: ${sliceId}\nSlice-Branch: ${sliceBranch}\n${acTrailers}${moveTrailers}`;
   const commitMsgFile = path.join(PROJECT_DIR, '.squash-commit-msg');
   try {
     fs.writeFileSync(commitMsgFile, commitMsg);
@@ -7907,6 +8250,19 @@ function squashSliceToDev(sliceId, sliceTitle, sliceBranch) {
   // are appended to and the loss becomes permanent.
   recoverRuntimeStateAfterGit(`squash-${sliceBranch}`, sliceId);
 
+  // The pipeline owns the lock files (slice 387). The builder's branch carried whatever
+  // copies he happened to have; the squash just applied them to dev, and this overwrites
+  // them with a fresh regeneration folded into the same commit. It runs AFTER the commit
+  // because build-ac-manifest reads the `AC:` trailers from HEAD — and before the push,
+  // so the amend never rewrites public history. A repo with no scripts/ directory (the
+  // squash fixtures) skips it, the same rule hasLayer2 uses above.
+  if (fs.existsSync(path.join(PROJECT_DIR, 'scripts', 'build-coverage-map.js'))) {
+    const regen = regenerateLocksAtLanding(sliceId, sliceBranch, preSquashSha);
+    if (!regen.success) return regen;
+  }
+
+  // Read AFTER the amend: this sha is what gets pushed, recorded in branch-state and
+  // emitted as squash_sha — which is the SHA the rollback button reverts.
   let devSha;
   try {
     devSha = execSync('git rev-parse HEAD', { cwd: PROJECT_DIR, encoding: 'utf-8' }).trim();
@@ -8266,4 +8622,4 @@ function mergeDevToMain() {
 // Exports — for use by helper scripts (e.g. bridge/next-id.js)
 // ---------------------------------------------------------------------------
 
-module.exports = { sessionTelemetry, fillDoneMetrics, validateDoneMetrics, extractRomTelemetry, buildDoneTemplate, checkDispatchProvenance, parkUnprovenancedSlice, hasPreCutoverHistory, fileIsPreCutover, provenanceRootId, parseFrontmatter, handleNogReturn, startGate, abortGate, buildBashirPrompt, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, recordArchivedQueueRename, validateIntakeMeta, ensureIntegrationIsFresh, ensureMainIsFresh: ensureIntegrationIsFresh, fastForwardIntegrationRef, branchNamesFrom, INTEGRATION_BRANCH, TRUNK_BRANCH, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, provisionWorkspaceDeps, _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted, hasTerminalLandedEvent, countUnreadableVerdicts, unreadableBackoffMs, retryBackoffElapsed, MAX_UNREADABLE_ATTEMPTS, UNREADABLE_BACKOFF_MS, porcelainPaths, isVolatileRuntimePath, recoverRuntimeStateAfterGit, stageablePathsFrom, shQuote, _testResetRefusalEmitted: () => { _refusalEmitted.clear(); }, _testGetRefusalEmitted: () => _refusalEmitted };
+module.exports = { sessionTelemetry, fillDoneMetrics, validateDoneMetrics, extractRomTelemetry, buildDoneTemplate, buildHashLines, regenerateLocksAtLanding, newestDoneEvent, isLockDeriverInput, LOCK_FILES, checkDispatchProvenance, parkUnprovenancedSlice, hasPreCutoverHistory, fileIsPreCutover, provenanceRootId, parseFrontmatter, handleNogReturn, startGate, abortGate, buildBashirPrompt, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, recordArchivedQueueRename, validateIntakeMeta, ensureIntegrationIsFresh, ensureMainIsFresh: ensureIntegrationIsFresh, fastForwardIntegrationRef, branchNamesFrom, INTEGRATION_BRANCH, TRUNK_BRANCH, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, provisionWorkspaceDeps, _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted, hasTerminalLandedEvent, countUnreadableVerdicts, unreadableBackoffMs, retryBackoffElapsed, MAX_UNREADABLE_ATTEMPTS, UNREADABLE_BACKOFF_MS, porcelainPaths, isVolatileRuntimePath, recoverRuntimeStateAfterGit, stageablePathsFrom, shQuote, _testResetRefusalEmitted: () => { _refusalEmitted.clear(); }, _testGetRefusalEmitted: () => _refusalEmitted };
