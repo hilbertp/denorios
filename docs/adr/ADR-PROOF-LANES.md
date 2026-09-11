@@ -1,7 +1,7 @@
 # ADR — Proof Lanes: machines run suites, agents do not; two lanes of rigour
 
 **Status:** Proposed. Decided by Taylor (Architect; legacy key `dax`) on 2026-09-07 at Philipp's
-request; briefs revised after adversarial review on 2026-09-10; Philipp approves the slices and applies the contract patches. Amends the run-count table
+request; briefs revised after adversarial review on 2026-09-10 and 2026-09-11; Philipp approves the slices and applies the contract patches. Amends the run-count table
 of Chris's ruling of 2026-09-03 (`.claude/roles/worf/RULING-TEST-OWNERSHIP-2026-09-03.md` §4).
 **Builds on:** `ADR-GITHUB-CI-MERGE-MODEL.md` (main moves only on a green gate),
 `ADR-TEST-UPDATE-GATE.md`, `ADR-AC-RECONCILE.md`. Changes nothing about what protects main.
@@ -120,11 +120,11 @@ Replaces §4's table in the 2026-09-03 ruling. Rom's "once, before he hands in" 
 
 | Surface | Change | Vehicle |
 |---|---|---|
-| `bridge/orchestrator.js` | Fill metrics; retire `incomplete_metrics`; regenerate locks at squash; hash lines and lane in the template; lane in events and the squash trailer; effort by lane | Slices 386, 387, 388, 389 |
+| `bridge/orchestrator.js` | Fill metrics; retire `incomplete_metrics`; regenerate locks and re-fill the landed report at squash; carry every gate trailer (not only `AC:`) into the landing commit; hash lines and lane in the template; lane in events and the squash trailer; effort by lane | Slices 386, 387, 388, 389 |
 | `dashboard/server.js`, `scripts/regression-report.js`, the DevOps Station pill | Red dev files a fix request; register `DEV_SUITE_RED` / `DEV_SUITE_GREEN` | Slice 388 |
 | `bridge/new-slice.js`, `bridge/nog-prompt.js`, `bridge/bridge.config.json` | `--lane`; Jordan's lane check; `laneArgs` | Slice 389 |
 | `scripts/build-ac-manifest.js`, `lib/ac-range-scan.js`, `lib/ac-reconcile.js`, `lib/check-test-updates.js`, `lib/tests-needed.js`, `scripts/ac-reconcile.js`, the CHECK overlay | Lane in the manifest; `SURFACE` status; surface-only files exempt from guard policing | Slice 390 |
-| `regression/dispatch-execution/j-untracked-runtime-state.test.js` | Passes in a fresh copy | Slice 391 |
+| `regression/dispatch-execution/j-untracked-runtime-state.test.js`, `regression/helpers/runtime-files-survive.js` | The slice-372 guard checks a fixture it controls, so it passes in a fresh copy and stops depending on another test seeding the tree | Slice 391 |
 | `docs/contracts/*` (locked, Philipp applies) | Actors, states, brief format (`lane`), report format, custody | `.claude/roles/dax/drafts/contracts-2026-09-07/CONTRACT-PATCHES-PROOF-LANES.md` |
 | `.claude/roles/rom/ROLE.md`, `.claude/roles/obrien/slice-body-template.md` | Run rules, lanes, locks, metrics; the fixed block | Edited by Taylor on dev, 2026-09-07 |
 | `.claude/CLAUDE.md` (Philipp applies) | The Tests sentence | In the patch document |
