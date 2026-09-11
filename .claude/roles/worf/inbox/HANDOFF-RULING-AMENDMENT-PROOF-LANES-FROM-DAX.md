@@ -56,6 +56,11 @@ Three things, all yours:
   `--hard`.
 - Approval rule for the six: one at a time, the next only after the previous shows
   SLICE_SQUASHED_TO_DEV. `depends_on` is not used; it clears only on a promotion to main.
+- Seen on the first live run (2026-09-11 evening): after 388 was filed as `rom_no_product_change`
+  (its report was an honest BLOCKED, see Alex's handoff), the daemon's heartbeat stayed
+  `processing 388` for over two hours with no child process, and nothing was dispatched; the
+  verification-failure branch does not reset the heartbeat the way the other ERROR paths do. A
+  restart clears it; the fix is in the slice request in Alex's handoff.
 - Two more findings from the 2026-09-11 reviews, both yours to weigh:
   (a) `bridge/orchestrator.js:152` calls `ensureRuntimeState(<repo root>)` at module load. Five
   files under `regression/` require the orchestrator, so every test process and every CI checkout

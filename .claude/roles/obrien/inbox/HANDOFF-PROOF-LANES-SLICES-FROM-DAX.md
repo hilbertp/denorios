@@ -38,6 +38,25 @@ Nothing to build. Three things to do:
    when you build it: "run the full suite", "run npm test", "run the safety-net suite",
    "regenerate the locks". Contract wording is Patch 2d.
 
+## Two pipeline gaps seen on the first run (2026-09-11 evening), one small fix slice for you
+
+1. **A BLOCKED report is filed as fake work.** 388 was picked up the moment Jordan sent 387 back for
+   rework, found the function 387 should have landed missing, and did exactly what its brief says:
+   wrote `status: BLOCKED` naming the missing export and changed nothing. The orchestrator's
+   substance rule (`verifyRomActuallyWorked`, the S375 rule) saw one commit with no product change
+   and filed `rom_no_product_change` as an ERROR. Rule for the fix: a report whose frontmatter says
+   `BLOCKED` or `PARTIAL` skips the fake-work check and goes to Jordan (or, for BLOCKED, straight
+   back to you as a handoff), because "I did nothing on purpose and said why" is the honest outcome
+   that rule exists to distinguish from silent nothing.
+2. **The daemon stayed "processing" after that error.** The heartbeat kept `current_slice: 388,
+   status: processing` for over two hours after the ERROR was written, with no Sam process alive,
+   so 387's rework round was never dispatched and Ops showed 387 as "reviewing" all evening. The
+   verification-failure branch returns without resetting the heartbeat the way the other ERROR
+   paths do. Same fix slice.
+
+I re-staged 388 under its own id (attempt 2, same brief; the first attempt's branch is kept as
+`slice/388-attempt1`). Approve it only after 387 shows "accepted".
+
 ## What I changed in your staged briefs (2026-09-11)
 
 The cross-slice review found that 363, 377 and 378 still carried the old fixed block (Sam runs the
