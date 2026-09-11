@@ -56,6 +56,18 @@ Three things, all yours:
   `--hard`.
 - Approval rule for the six: one at a time, the next only after the previous shows
   SLICE_SQUASHED_TO_DEV. `depends_on` is not used; it clears only on a promotion to main.
+- Two more findings from the 2026-09-11 reviews, both yours to weigh:
+  (a) `bridge/orchestrator.js:152` calls `ensureRuntimeState(<repo root>)` at module load. Five
+  files under `regression/` require the orchestrator, so every test process and every CI checkout
+  that loads it writes the runtime files into the tree as a side effect; that is what made the
+  slice-372 guard flaky and what Slice 391 works around. A module-load side effect in the daemon's
+  main file is worth its own small slice (move the call into the start path).
+  (b) The squash copies only `AC:` lines from Sam's branch commits into the landing commit
+  (`:7784-7790`). Every other gate trailer he writes (`Test-Loosen-OK`, `Tests-Not-Needed`,
+  `Coverage-Removed`, `AC-Change-OK`, `Spec-Owner`) is dropped before the gate reads
+  origin/main..origin/dev, so a declared test move never reaches the Test-Update Gate. Slice 387
+  now carries that fix (its ac-7); until it lands, any such trailer has to be added at landing by
+  whoever lands the slice.
 
 ## What NOT to worry about
 
