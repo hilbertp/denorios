@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 578,
+  "guardCount": 588,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -387,6 +387,31 @@
         "tag": "slice-381-ac-5",
         "file": "regression/dispatch-execution/j-archive-rename-recorded.test.js",
         "guardAcHash": "sha256:042403c9c5d6477b98df8e42269b27fd58ed7d312fb4de3f144167ff46067951"
+      },
+      {
+        "tag": "slice-386-ac-1",
+        "file": "regression/orchestrator/j-report-metrics-filled.test.js",
+        "guardAcHash": "sha256:3e49dbb599fd53ad8fe6c0a65d3eee996d06bfe4e4fd50666f57f7b6ff146b99"
+      },
+      {
+        "tag": "slice-386-ac-2",
+        "file": "regression/orchestrator/j-report-metrics-filled.test.js",
+        "guardAcHash": "sha256:3e29c1c6167443566e49192be10b9f34c4b071d5fe91044d3472692c9b59462c"
+      },
+      {
+        "tag": "slice-386-ac-3",
+        "file": "regression/orchestrator/j-report-metrics-filled.test.js",
+        "guardAcHash": "sha256:01f559c2963ad8497e24b0dd4e80b665fca9b760b894aa16aa919bde521003ff"
+      },
+      {
+        "tag": "slice-386-ac-4",
+        "file": "regression/orchestrator/j-report-metrics-filled.test.js",
+        "guardAcHash": "sha256:16e327177202b1202e67654bbf8a739d91ea1ed8492f1abbceab2336edf86c06"
+      },
+      {
+        "tag": "slice-386-ac-5",
+        "file": "regression/orchestrator/j-report-metrics-filled.test.js",
+        "guardAcHash": "sha256:2082cf7e2fefcbaa51544ee52b6b3677914d4139db749a8dbcb776cd9f695aa4"
       },
       {
         "tag": "slice-99777-ac-1",
@@ -1160,6 +1185,31 @@
         "tag": "slice-372-ac-6",
         "file": "regression/dispatch-execution/j-untracked-runtime-state.test.js",
         "guardAcHash": "sha256:042403c9c5d6477b98df8e42269b27fd58ed7d312fb4de3f144167ff46067951"
+      },
+      {
+        "tag": "slice-386-ac-1",
+        "file": "regression/orchestrator/j-report-metrics-filled.test.js",
+        "guardAcHash": "sha256:3e49dbb599fd53ad8fe6c0a65d3eee996d06bfe4e4fd50666f57f7b6ff146b99"
+      },
+      {
+        "tag": "slice-386-ac-2",
+        "file": "regression/orchestrator/j-report-metrics-filled.test.js",
+        "guardAcHash": "sha256:3e29c1c6167443566e49192be10b9f34c4b071d5fe91044d3472692c9b59462c"
+      },
+      {
+        "tag": "slice-386-ac-3",
+        "file": "regression/orchestrator/j-report-metrics-filled.test.js",
+        "guardAcHash": "sha256:01f559c2963ad8497e24b0dd4e80b665fca9b760b894aa16aa919bde521003ff"
+      },
+      {
+        "tag": "slice-386-ac-4",
+        "file": "regression/orchestrator/j-report-metrics-filled.test.js",
+        "guardAcHash": "sha256:16e327177202b1202e67654bbf8a739d91ea1ed8492f1abbceab2336edf86c06"
+      },
+      {
+        "tag": "slice-386-ac-5",
+        "file": "regression/orchestrator/j-report-metrics-filled.test.js",
+        "guardAcHash": "sha256:2082cf7e2fefcbaa51544ee52b6b3677914d4139db749a8dbcb776cd9f695aa4"
       },
       {
         "tag": "slice-901-ac-1",
@@ -2488,6 +2538,33 @@
         "tag": "slice-350-ac-1",
         "file": "regression/observability/j-s-numbering-retirement.test.js",
         "guardAcHash": "sha256:f1aedeee46ff306b61d631f636ff511524e8b437262aba9e8f6ea72fdf96f0d1"
+      }
+    ],
+    "regression/orchestrator/j-report-metrics-filled.test.js": [
+      {
+        "tag": "slice-386-ac-1",
+        "file": "regression/orchestrator/j-report-metrics-filled.test.js",
+        "guardAcHash": "sha256:3e49dbb599fd53ad8fe6c0a65d3eee996d06bfe4e4fd50666f57f7b6ff146b99"
+      },
+      {
+        "tag": "slice-386-ac-2",
+        "file": "regression/orchestrator/j-report-metrics-filled.test.js",
+        "guardAcHash": "sha256:3e29c1c6167443566e49192be10b9f34c4b071d5fe91044d3472692c9b59462c"
+      },
+      {
+        "tag": "slice-386-ac-3",
+        "file": "regression/orchestrator/j-report-metrics-filled.test.js",
+        "guardAcHash": "sha256:01f559c2963ad8497e24b0dd4e80b665fca9b760b894aa16aa919bde521003ff"
+      },
+      {
+        "tag": "slice-386-ac-4",
+        "file": "regression/orchestrator/j-report-metrics-filled.test.js",
+        "guardAcHash": "sha256:16e327177202b1202e67654bbf8a739d91ea1ed8492f1abbceab2336edf86c06"
+      },
+      {
+        "tag": "slice-386-ac-5",
+        "file": "regression/orchestrator/j-report-metrics-filled.test.js",
+        "guardAcHash": "sha256:2082cf7e2fefcbaa51544ee52b6b3677914d4139db749a8dbcb776cd9f695aa4"
       }
     ],
     "regression/orchestrator/j-rom-work-substance.test.js": [

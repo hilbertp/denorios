@@ -1,7 +1,7 @@
 {
   "generator": "scripts/build-ac-manifest.js",
-  "acCount": 283,
-  "legacyCount": 229,
+  "acCount": 288,
+  "legacyCount": 234,
   "byTag": {
     "slice-042-ac-1": {
       "slice": "042",
@@ -1202,6 +1202,46 @@
       "source": "commit-trailer",
       "status": "active",
       "legacy": false
+    },
+    "slice-386-ac-1": {
+      "slice": "386",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-386-ac-2": {
+      "slice": "386",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-386-ac-3": {
+      "slice": "386",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-386-ac-4": {
+      "slice": "386",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
+    },
+    "slice-386-ac-5": {
+      "slice": "386",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true
     },
     "slice-901-ac-1": {
       "slice": "901",

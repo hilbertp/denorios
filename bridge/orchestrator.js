@@ -443,35 +443,58 @@ function computeCost(tokensIn, tokensOut) {
 }
 
 /**
+ * sessionTelemetry(stdout, durationMs)
+ *
+ * The session's real numbers, read once from the CLI's own `result` event and
+ * the measured wall clock (slice 386). Rom cannot observe his own token counts,
+ * so before this the report carried whatever he guessed and three different
+ * cost figures existed for one run. Every consumer — the report, the register,
+ * the timesheet, the rounds telemetry — is fed from this one object.
+ *
+ * costUsd is the CLI's own total_cost_usd when the output carries it, because
+ * that is the only figure that prices cache reads; computeCost (list price, no
+ * cache) is the fallback for output that does not. A value the output does not
+ * carry is null, never a zero that would read as a measurement.
+ *
+ * Returns { tokensIn, tokensOut, tokensCacheRead, elapsedMs, costUsd }.
+ */
+function sessionTelemetry(stdout, durationMs) {
+  const result = extractResultObject(stdout) || {};
+  const usage = result.usage || {};
+  const { tokensIn, tokensOut } = extractTokenUsage(stdout);
+  return {
+    tokensIn,
+    tokensOut,
+    tokensCacheRead: typeof usage.cache_read_input_tokens === 'number' ? usage.cache_read_input_tokens : null,
+    elapsedMs: typeof durationMs === 'number' && isFinite(durationMs) ? durationMs : null,
+    costUsd: typeof result.total_cost_usd === 'number' ? result.total_cost_usd : computeCost(tokensIn, tokensOut),
+  };
+}
+
+// The three metrics the watcher measures. estimated_human_hours is Rom's own
+// optional guess and compaction_occurred may be absent; neither is machine data,
+// so neither can make a report invalid (slice 386).
+const MACHINE_METRICS = ['tokens_in', 'tokens_out', 'elapsed_ms'];
+
+// parseFrontmatter hands back the string 'null' for a literal null, and an
+// absent key as undefined. Both mean "the session did not carry this number".
+function metricIsNull(value) {
+  return value == null || value === '' || value === 'null';
+}
+
+/**
  * validateDoneMetrics(meta)
  *
- * Validates that the DONE report frontmatter contains all five required
- * metrics fields with correct types. Returns { ok, invalid }.
+ * A warning-only check on the metric fields AFTER fillDoneMetrics has written
+ * the session's numbers (slice 386). Zero is a value, not a failure; so is an
+ * absent estimated_human_hours or compaction_occurred. It reports not-ok only
+ * when a machine metric is still null, which means the session output was
+ * unparseable — a watcher problem, never Rom's. No caller may file an ERROR on
+ * it. Returns { ok, invalid }.
  */
 function validateDoneMetrics(meta) {
-  if (!meta) return { ok: false, invalid: ['tokens_in', 'tokens_out', 'elapsed_ms', 'estimated_human_hours', 'compaction_occurred'] };
-
-  const invalid = [];
-
-  // tokens_in: non-negative integer
-  const ti = parseInt(meta.tokens_in, 10);
-  if (meta.tokens_in == null || isNaN(ti) || ti < 0) invalid.push('tokens_in');
-
-  // tokens_out: non-negative integer
-  const to = parseInt(meta.tokens_out, 10);
-  if (meta.tokens_out == null || isNaN(to) || to < 0) invalid.push('tokens_out');
-
-  // elapsed_ms: positive integer
-  const el = parseInt(meta.elapsed_ms, 10);
-  if (meta.elapsed_ms == null || isNaN(el) || el <= 0) invalid.push('elapsed_ms');
-
-  // estimated_human_hours: positive number
-  const eh = parseFloat(meta.estimated_human_hours);
-  if (meta.estimated_human_hours == null || isNaN(eh) || eh <= 0) invalid.push('estimated_human_hours');
-
-  // compaction_occurred: boolean
-  if (meta.compaction_occurred !== 'true' && meta.compaction_occurred !== 'false') invalid.push('compaction_occurred');
-
+  if (!meta) return { ok: false, invalid: [...MACHINE_METRICS] };
+  const invalid = MACHINE_METRICS.filter(key => metricIsNull(meta[key]) || isNaN(parseInt(meta[key], 10)));
   return { ok: invalid.length === 0, invalid };
 }
 
@@ -825,7 +848,10 @@ function parseFrontmatter(content) {
 }
 
 // Sets or replaces key-value pairs in YAML frontmatter. Returns updated text.
-function updateFrontmatter(text, updates) {
+// Values are quoted unless opts.quote === false, which writes them bare — what
+// numbers, booleans and a literal null need (slice 386).
+function updateFrontmatter(text, updates, opts) {
+  const quote = !opts || opts.quote !== false;
   const lines = text.split('\n');
   let start = -1, end = -1;
   for (let i = 0; i < lines.length; i++) {
@@ -840,11 +866,49 @@ function updateFrontmatter(text, updates) {
       const c = l.indexOf(':');
       return c !== -1 && l.slice(0, c).trim() === key;
     });
-    const newLine = `${key}: "${val}"`;
+    const newLine = quote ? `${key}: "${val}"` : `${key}: ${val}`;
     if (idx !== -1) fmLines[idx] = newLine;
     else fmLines.push(newLine);
   }
   return [...lines.slice(0, start + 1), ...fmLines, ...lines.slice(end)].join('\n');
+}
+
+/**
+ * fillDoneMetrics(doneContent, telemetry)
+ *
+ * Writes the session's real numbers into a DONE report's frontmatter and
+ * returns the new text (slice 386). The contract has always said the watcher
+ * fills these fields and the implementor does not hand-author them; this is
+ * the code catching up with it.
+ *
+ * A field-level edit, not a re-serialisation: every other key keeps its place
+ * and its spelling, the new keys are appended, and the body is untouched.
+ * tokens_in, tokens_out, tokens_cache_read, elapsed_ms and cost_usd are the
+ * watcher's to own. estimated_human_hours and compaction_occurred are Rom's
+ * judgment and are left exactly as he wrote them; only when he omitted one is a
+ * default written, so the field exists for readers. A number the session did
+ * not carry is written as the literal null, never as a zero that would read as
+ * a measurement.
+ */
+function fillDoneMetrics(doneContent, telemetry) {
+  const content = String(doneContent == null ? '' : doneContent);
+  const meta = parseFrontmatter(content);
+  if (!meta) return content; // no frontmatter to fill — hand the report back as it is
+
+  const t = telemetry || {};
+  const bare = (v) => (v == null || (typeof v === 'number' && !isFinite(v)) ? 'null' : String(v));
+
+  const updates = {
+    tokens_in: bare(t.tokensIn),
+    tokens_out: bare(t.tokensOut),
+    tokens_cache_read: bare(t.tokensCacheRead),
+    elapsed_ms: bare(t.elapsedMs),
+    cost_usd: bare(t.costUsd),
+  };
+  if (meta.estimated_human_hours == null) updates.estimated_human_hours = 'null';
+  if (meta.compaction_occurred == null) updates.compaction_occurred = 'false';
+
+  return updateFrontmatter(content, updates, { quote: false });
 }
 
 /**
@@ -1014,17 +1078,27 @@ function appendRoundEntry(sliceFilePath, roundEntry) {
 /**
  * extractRomTelemetry(doneReportContent)
  *
- * Pulls durationMs, tokensIn, tokensOut, costUsd from a Rom DONE report's frontmatter.
+ * Pulls durationMs, tokensIn, tokensOut, tokensCacheRead and costUsd from a Rom
+ * DONE report's frontmatter — the numbers fillDoneMetrics put there. Feeds the
+ * rounds telemetry, so what it returns must match what the register carries.
+ *
+ * cost_usd is the session's own figure and wins whenever the key is there.
+ * computeCost is list price with no cache discount; it survives only as the
+ * fallback for pre-386 reports, which have no cost_usd key at all.
  */
 function extractRomTelemetry(doneReportContent) {
   const meta = parseFrontmatter(doneReportContent) || {};
   const tokensIn = parseInt(meta.tokens_in, 10) || 0;
   const tokensOut = parseInt(meta.tokens_out, 10) || 0;
+  const costUsd = metricIsNull(meta.cost_usd)
+    ? (computeCost(tokensIn, tokensOut) || 0)
+    : (parseFloat(meta.cost_usd) || 0);
   return {
     durationMs: parseInt(meta.elapsed_ms, 10) || 0,
     tokensIn,
     tokensOut,
-    costUsd: computeCost(tokensIn, tokensOut) || 0,
+    tokensCacheRead: parseInt(meta.tokens_cache_read, 10) || 0,
+    costUsd,
     commissioned_at: meta.created || meta.commissioned_at || '',
     done_at: meta.completed || '',
   };
@@ -2406,6 +2480,51 @@ const activeChildren = new Map(); // Map<sliceId: string, { child: ChildProcess,
 // ---------------------------------------------------------------------------
 
 /**
+ * buildDoneTemplate({ id, worktreeDonePath, sliceBranch, sliceContent })
+ *
+ * The DONE report template glued to the end of every brief Rom receives.
+ * Pure and exported so its words can be tested — inline in invokeRom, nothing
+ * could check what the prompt actually demanded (slice 386).
+ *
+ * It no longer demands real, non-zero metrics: the orchestrator fills the three
+ * machine metrics from the session, so asking Rom for numbers he cannot observe
+ * only ever produced invented ones. sliceContent is a parameter because slices
+ * 387 to 389 derive the hash lines and the lane from the brief itself; this
+ * slice does not read it.
+ */
+function buildDoneTemplate({ id, worktreeDonePath, sliceBranch, sliceContent }) {
+  return [
+    '',
+    '## DONE report template',
+    '',
+    'Write your report to: ' + worktreeDonePath,
+    '',
+    'Use this exact frontmatter structure (the orchestrator fills the metric fields):',
+    '',
+    '```',
+    '---',
+    'id: "' + id + '"',
+    'title: "(slice title)"',
+    'from: rom',
+    'to: nog',
+    'status: DONE',
+    'slice_id: "' + id + '"',
+    'branch: "' + sliceBranch + '"',
+    'completed: "' + new Date().toISOString() + '"',
+    'tokens_in: 0',
+    'tokens_out: 0',
+    'elapsed_ms: 0',
+    'estimated_human_hours: 0.0',
+    'compaction_occurred: false',
+    '---',
+    '```',
+    '',
+    'Leave tokens_in, tokens_out and elapsed_ms at 0; the orchestrator fills them from the session. estimated_human_hours is optional: your honest guess of how long a skilled human would take, or 0. compaction_occurred is true only if your context was compacted mid-session.',
+    '- completed: must be full ISO 8601 UTC datetime (e.g. "2026-04-12T01:22:40.000Z"), never date-only',
+  ].join('\n');
+}
+
+/**
  * invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effectiveTimeoutMs)
  *
  * Pipes slice content + report path instruction to `claude -p`.
@@ -2481,42 +2600,7 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
   fs.mkdirSync(worktreeQueueDir, { recursive: true });
   const worktreeDonePath = path.join(worktreeQueueDir, `${id}-DONE.md`);
 
-  const doneTemplate = [
-    '',
-    '## DONE report template',
-    '',
-    'Write your report to: ' + worktreeDonePath,
-    '',
-    'Use this exact frontmatter structure (fill in real values):',
-    '',
-    '```',
-    '---',
-    'id: "' + id + '"',
-    'title: "(slice title)"',
-    'from: rom',
-    'to: nog',
-    'status: DONE',
-    'slice_id: "' + id + '"',
-    'branch: "' + sliceBranch + '"',
-    'completed: "' + new Date().toISOString() + '"',
-    'tokens_in: 0',
-    'tokens_out: 0',
-    'elapsed_ms: 0',
-    'estimated_human_hours: 0.0',
-    'compaction_occurred: false',
-    '---',
-    '```',
-    '',
-    'REQUIRED: All five metrics fields (tokens_in, tokens_out, elapsed_ms, estimated_human_hours, compaction_occurred) must have real, non-zero values. Missing or zero metrics will cause ERROR with reason "incomplete_metrics".',
-    '- tokens_in: integer, total input tokens consumed this session',
-    '- tokens_out: integer, total output tokens generated this session',
-    '- elapsed_ms: integer, wall-clock milliseconds from pickup to DONE',
-    '- estimated_human_hours: float, your judgment of how long a skilled human developer would take',
-    '- compaction_occurred: boolean, true if your context window compacted mid-session',
-    '- completed: must be full ISO 8601 UTC datetime (e.g. "2026-04-12T01:22:40.000Z"), never date-only',
-  ].join('\n');
-
-  const prompt = sliceContent + doneTemplate;
+  const prompt = sliceContent + buildDoneTemplate({ id, worktreeDonePath, sliceBranch, sliceContent });
 
   const pickupTime = Date.now();
 
@@ -2605,10 +2689,12 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
 
       const durationMs = Date.now() - pickupTime;
 
-      // Extract token usage from JSON output (Task 2).
-      // Falls back gracefully to nulls if output is not parseable JSON.
-      const { tokensIn, tokensOut } = extractTokenUsage(stdout || '');
-      const costUsd = computeCost(tokensIn, tokensOut);
+      // The session's real numbers, read once (slice 386). Everything below —
+      // the report, the register event, the timesheet row, the terminal block
+      // and the rounds telemetry — is fed from this one object, so one run can
+      // no longer produce three different cost figures.
+      const telemetry = sessionTelemetry(stdout || '', durationMs);
+      const { tokensIn, tokensOut, costUsd } = telemetry;
 
       // ── POST-INVOCATION BRANCH VERIFICATION (worktree) ──────────────────
       // With worktrees, verify the branch state inside the worktree, not
@@ -2643,34 +2729,68 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
       }
       // ────────────────────────────────────────────────────────────────────
 
+      // ── Fill the report's metrics from the session (slice 386) ──────────
+      // The contract has always said the watcher fills these. Rewrite the queue
+      // copy in place here, before any reader — validation, verification, the
+      // timesheet, Nog's rounds telemetry — sees it. Rom's own committed copy on
+      // his branch is left alone; rewriting his commit is not this slice's job.
+      try {
+        if (fs.existsSync(donePath)) {
+          const asWritten = fs.readFileSync(donePath, 'utf-8');
+          const filled = fillDoneMetrics(asWritten, telemetry);
+          if (filled !== asWritten) fs.writeFileSync(donePath, filled);
+          log('info', 'complete', {
+            id,
+            msg: 'Filled the DONE report metrics from the session',
+            tokensIn: telemetry.tokensIn,
+            tokensOut: telemetry.tokensOut,
+            tokensCacheRead: telemetry.tokensCacheRead,
+            elapsedMs: telemetry.elapsedMs,
+            costUsd: telemetry.costUsd,
+          });
+        }
+      } catch (fillErr) {
+        log('warn', 'complete', { id, msg: 'Failed to fill DONE report metrics — leaving the report as Rom wrote it', error: fillErr.message });
+      }
+      // ────────────────────────────────────────────────────────────────────
+
       if (!err) {
         // Success path: check Rom wrote his DONE file.
         if (fs.existsSync(donePath)) {
-          // --- Metrics validation gate (Bet 3) ---
-          let doneMeta = null;
+          // --- Metrics read-back (Bet 3, no longer a gate — slice 386) ---
+          // Defaults to {} because the metrics check no longer returns early:
+          // an unreadable report now walks on to verification and the timesheet,
+          // and neither may throw on it.
+          let doneMeta = {};
           try {
-            doneMeta = parseFrontmatter(fs.readFileSync(donePath, 'utf-8'));
+            doneMeta = parseFrontmatter(fs.readFileSync(donePath, 'utf-8')) || {};
           } catch (_) {}
 
+          // A report is never failed for its metrics (slice 386). The numbers are
+          // the watcher's to supply and it has just supplied them; not-ok here
+          // means the session output was unparseable, which is a watcher problem
+          // worth a line in the log and nothing more.
           const metricsValid = validateDoneMetrics(doneMeta);
           if (!metricsValid.ok) {
             log('warn', 'complete', {
               id,
-              msg: "Rom DONE file has incomplete metrics — writing ERROR (incomplete_metrics)",
-              reason: 'incomplete_metrics',
+              msg: 'Session metrics unavailable after filling the DONE report — continuing to verification',
               invalid: metricsValid.invalid,
               durationMs,
             });
-            writeErrorFile(errorPath, id, 'incomplete_metrics', null, stdout, '', { missingFields: metricsValid.invalid, durationMs });
-            log('info', 'state', { id, from: 'IN_PROGRESS', to: 'ERROR', reason: 'incomplete_metrics' });
+          }
+
+          // --- Rom verification gate (slice 212) ---
+          const verify = verifyRomActuallyWorked(id, sliceBranch, durationMs, tokensOut);
+          if (!verify.ok) {
+            writeErrorFile(errorPath, id, verify.reason, null, stdout, stderr, { detail: verify.detail, durationMs });
             registerEvent(id, 'ERROR', {
-              reason: 'incomplete_metrics',
-              phase: 'rom_invocation',
-              command: [config.claudeCommand, ...config.claudeArgs].join(' '),
-              exit_code: null,
-              stderr_tail: truncStderr(stderr),
-              invalid: metricsValid.invalid,
+              reason: verify.reason,
+              phase: 'rom_verification',
+              detail: verify.detail,
               durationMs,
+              actualTokensOut: tokensOut,
+              stderr_tail: truncStderr(stderr),
             });
             appendOperationalEvent({
               event: 'ERROR',
@@ -2678,79 +2798,62 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
               root_id: sliceMeta.root_commission_id || null,
               cycle: null,
               branch: sliceBranch || null,
-              details: `Slice ${id} errored: incomplete_metrics`,
+              details: `Slice ${id} errored: ${verify.reason}`,
             });
-            closeSliceBlock(false, durationMs, tokensIn, tokensOut, costUsd, 'Incomplete metrics in DONE report');
+            log('warn', 'rom', { id, msg: 'Rom wrote DONE but verification failed — treating as error', reason: verify.reason, detail: verify.detail });
+            closeSliceBlock(false, durationMs, tokensIn, tokensOut, costUsd, 'Rom verification failed: ' + verify.reason);
             recordSessionResult(false, tokensIn, tokensOut, costUsd);
-          } else {
-            // --- Rom verification gate (slice 212) ---
-            const verify = verifyRomActuallyWorked(id, sliceBranch, durationMs, tokensOut);
-            if (!verify.ok) {
-              writeErrorFile(errorPath, id, verify.reason, null, stdout, stderr, { detail: verify.detail, durationMs });
-              registerEvent(id, 'ERROR', {
-                reason: verify.reason,
-                phase: 'rom_verification',
-                detail: verify.detail,
-                durationMs,
-                actualTokensOut: tokensOut,
-                stderr_tail: truncStderr(stderr),
-              });
-              appendOperationalEvent({
-                event: 'ERROR',
-                slice_id: id,
-                root_id: sliceMeta.root_commission_id || null,
-                cycle: null,
-                branch: sliceBranch || null,
-                details: `Slice ${id} errored: ${verify.reason}`,
-              });
-              log('warn', 'rom', { id, msg: 'Rom wrote DONE but verification failed — treating as error', reason: verify.reason, detail: verify.detail });
-              closeSliceBlock(false, durationMs, tokensIn, tokensOut, costUsd, 'Rom verification failed: ' + verify.reason);
-              recordSessionResult(false, tokensIn, tokensOut, costUsd);
-              return;
-            }
-
-            // --- Write Point 1: append timesheet row (Bet 3) ---
-            const expectedHours = sliceMeta.expected_human_hours && sliceMeta.expected_human_hours !== 'null'
-              ? parseFloat(sliceMeta.expected_human_hours)
-              : null;
-            const doneTokensIn  = parseInt(doneMeta.tokens_in, 10);
-            const doneTokensOut = parseInt(doneMeta.tokens_out, 10);
-            const timesheetCost = computeCost(doneTokensIn, doneTokensOut);
-
-            // timesheet write point 1 — append orchestrator row at DONE
-            appendTimesheet({
-              ts: new Date(pickupTime).toISOString(),
-              role: 'rom',
-              source: 'orchestrator',
-              commission_id: String(id),
-              title: (sliceMeta.title || title || '').replace(/^["']|["']$/g, ''),
-              phase: null,
-              human_hours: parseFloat(doneMeta.estimated_human_hours),
-              human_role: null,
-              actual_minutes: null,
-              notes: null,
-              deliverable: null,
-              slice: null,
-              tokens_in: doneTokensIn,
-              tokens_out: doneTokensOut,
-              cost_usd: timesheetCost,
-              elapsed_ms: parseInt(doneMeta.elapsed_ms, 10),
-              compaction_occurred: doneMeta.compaction_occurred === 'true',
-              runtime: 'legacy',
-              expected_human_hours: isNaN(expectedHours) ? null : expectedHours,
-              result: null,
-              cycle: null,
-              ts_pickup: new Date(pickupTime).toISOString(),
-              ts_done: new Date().toISOString(),
-              ts_result: null,
-            });
-
-            log('info', 'complete', { id, msg: "Rom finished — DONE file present", durationMs, tokensIn, tokensOut });
-            log('info', 'state', { id, from: 'IN_PROGRESS', to: 'DONE' });
-            registerEvent(id, 'DONE', { durationMs, tokensIn, tokensOut, costUsd });
-            closeSliceBlock(true, durationMs, tokensIn, tokensOut, costUsd, null);
-            recordSessionResult(true, tokensIn, tokensOut, costUsd);
+            return;
           }
+
+          // --- Write Point 1: append timesheet row (Bet 3) ---
+          const expectedHours = sliceMeta.expected_human_hours && sliceMeta.expected_human_hours !== 'null'
+            ? parseFloat(sliceMeta.expected_human_hours)
+            : null;
+          // Rom's two judgment fields are still his; the metrics are the
+          // session's. He may now leave estimated_human_hours out entirely.
+          const claimedHours = parseFloat(doneMeta.estimated_human_hours);
+
+          // timesheet write point 1 — append orchestrator row at DONE
+          appendTimesheet({
+            ts: new Date(pickupTime).toISOString(),
+            role: 'rom',
+            source: 'orchestrator',
+            commission_id: String(id),
+            title: (sliceMeta.title || title || '').replace(/^["']|["']$/g, ''),
+            phase: null,
+            human_hours: isNaN(claimedHours) ? null : claimedHours,
+            human_role: null,
+            actual_minutes: null,
+            notes: null,
+            deliverable: null,
+            slice: null,
+            tokens_in: telemetry.tokensIn,
+            tokens_out: telemetry.tokensOut,
+            tokens_cache_read: telemetry.tokensCacheRead,
+            cost_usd: telemetry.costUsd,
+            elapsed_ms: telemetry.elapsedMs,
+            compaction_occurred: doneMeta.compaction_occurred === 'true',
+            runtime: 'legacy',
+            expected_human_hours: isNaN(expectedHours) ? null : expectedHours,
+            result: null,
+            cycle: null,
+            ts_pickup: new Date(pickupTime).toISOString(),
+            ts_done: new Date().toISOString(),
+            ts_result: null,
+          });
+
+          log('info', 'complete', { id, msg: "Rom finished — DONE file present", durationMs, tokensIn, tokensOut });
+          log('info', 'state', { id, from: 'IN_PROGRESS', to: 'DONE' });
+          registerEvent(id, 'DONE', {
+            durationMs: telemetry.elapsedMs,
+            tokensIn: telemetry.tokensIn,
+            tokensOut: telemetry.tokensOut,
+            tokensCacheRead: telemetry.tokensCacheRead,
+            costUsd: telemetry.costUsd,
+          });
+          closeSliceBlock(true, durationMs, tokensIn, tokensOut, costUsd, null);
+          recordSessionResult(true, tokensIn, tokensOut, costUsd);
         } else {
           // Rom exited 0 but wrote no DONE file — classify and rescue/wipe.
           const noReportClass = classifyNoReportExit(id, worktreePath, sliceBranch);
@@ -6932,12 +7035,7 @@ function invokeBashirNonGate(sliceContent, donePath, inProgressPath, errorPath, 
     '---',
     '```',
     '',
-    'REQUIRED: All five metrics fields (tokens_in, tokens_out, elapsed_ms, estimated_human_hours, compaction_occurred) must have real, non-zero values. Missing or zero metrics will cause ERROR with reason "incomplete_metrics".',
-    '- tokens_in: integer, total input tokens consumed this session',
-    '- tokens_out: integer, total output tokens generated this session',
-    '- elapsed_ms: integer, wall-clock milliseconds from pickup to DONE',
-    '- estimated_human_hours: float, your judgment of how long a skilled human developer would take',
-    '- compaction_occurred: boolean, true if your context window compacted mid-session',
+    'Leave tokens_in, tokens_out and elapsed_ms at 0; the orchestrator fills them from the session. estimated_human_hours is optional: your honest guess of how long a skilled human would take, or 0. compaction_occurred is true only if your context was compacted mid-session.',
     '- completed: must be full ISO 8601 UTC datetime (e.g. "2026-04-12T01:22:40.000Z"), never date-only',
   ].join('\n');
 
@@ -8168,4 +8266,4 @@ function mergeDevToMain() {
 // Exports — for use by helper scripts (e.g. bridge/next-id.js)
 // ---------------------------------------------------------------------------
 
-module.exports = { checkDispatchProvenance, parkUnprovenancedSlice, hasPreCutoverHistory, fileIsPreCutover, provenanceRootId, parseFrontmatter, handleNogReturn, startGate, abortGate, buildBashirPrompt, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, recordArchivedQueueRename, validateIntakeMeta, ensureIntegrationIsFresh, ensureMainIsFresh: ensureIntegrationIsFresh, fastForwardIntegrationRef, branchNamesFrom, INTEGRATION_BRANCH, TRUNK_BRANCH, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, provisionWorkspaceDeps, _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted, hasTerminalLandedEvent, countUnreadableVerdicts, unreadableBackoffMs, retryBackoffElapsed, MAX_UNREADABLE_ATTEMPTS, UNREADABLE_BACKOFF_MS, porcelainPaths, isVolatileRuntimePath, recoverRuntimeStateAfterGit, stageablePathsFrom, shQuote, _testResetRefusalEmitted: () => { _refusalEmitted.clear(); }, _testGetRefusalEmitted: () => _refusalEmitted };
+module.exports = { sessionTelemetry, fillDoneMetrics, validateDoneMetrics, extractRomTelemetry, buildDoneTemplate, checkDispatchProvenance, parkUnprovenancedSlice, hasPreCutoverHistory, fileIsPreCutover, provenanceRootId, parseFrontmatter, handleNogReturn, startGate, abortGate, buildBashirPrompt, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, recordArchivedQueueRename, validateIntakeMeta, ensureIntegrationIsFresh, ensureMainIsFresh: ensureIntegrationIsFresh, fastForwardIntegrationRef, branchNamesFrom, INTEGRATION_BRANCH, TRUNK_BRANCH, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, provisionWorkspaceDeps, _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted, hasTerminalLandedEvent, countUnreadableVerdicts, unreadableBackoffMs, retryBackoffElapsed, MAX_UNREADABLE_ATTEMPTS, UNREADABLE_BACKOFF_MS, porcelainPaths, isVolatileRuntimePath, recoverRuntimeStateAfterGit, stageablePathsFrom, shQuote, _testResetRefusalEmitted: () => { _refusalEmitted.clear(); }, _testGetRefusalEmitted: () => _refusalEmitted };
