@@ -1036,7 +1036,11 @@ function getCheckTestUpdates() {
     // last-writer-wins, so without --reverse an AMENDED AC would resolve to its OLDEST text —
     // and if that old text already had a guard, the amendment false-greens (untested new text
     // sails through). Oldest-first makes last-writer land on the newest declaration.
-    gitLog: (range) => execFileSync('git', ['log', range, '--reverse', '--format=%B'],
+    // …and `%B%x00`, not `%B`: each criterion's LANE is read from the `Lane:` trailer of the
+    // commit that declared it (slice 390), and only a separator says where one commit's body
+    // ends. Concatenated, a surface slice's `Lane:` line would sit in the same record as the
+    // next slice's `AC:` lines and relabel criteria that owe a test.
+    gitLog: (range) => execFileSync('git', ['log', range, '--reverse', '--format=%B%x00'],
       { cwd: REPO_ROOT, encoding: 'utf8', timeout: 5000 }),
   });
   const coverage  = readJson(path.join(REPO_ROOT, 'regression', 'COVERAGE.lock'), { bySource: {} });

@@ -7,6 +7,9 @@
 // last drain into his inbox as a worklist, and classifies coverage. Julian triages — decides
 // which ACs deliberately change behaviour (→ a test update) — then DRAINS:
 //
+// A SURFACE criterion (slice 390) has no guard and owes none — it counts, it drains as-is,
+// and it never reaches the work set or Julian's RECONCILE-NEEDED handoff.
+//
 //   node scripts/ac-reconcile.js            # advisory: classify + write the drain worklist (exit 0)
 //   node scripts/ac-reconcile.js --strict   # enforcing (§11.1): exit 1 on MISSING/STALE
 //   node scripts/ac-reconcile.js --drain    # Julian: mark all current ACs triaged; clear the feed
@@ -55,6 +58,9 @@ function newAcsWorklist(news, ts) {
     '- Deliberately **changes existing behaviour**? → update/add the guard test and re-embed its',
     '  `// @ac-hash: <tag> <hash>` — that is the test update; the gate audits it.',
     '- **New behaviour, no guard** (coverage MISSING)? → write the test.',
+    '- **Surface lane** (coverage SURFACE)? → no test is expected of you. The criterion is about',
+    '  what the screen shows or says: Jordan\u2019s review is its evidence and the browser suite covers',
+    '  the screen at the gate. It drains as-is.',
     '- **Does not change the suite**? → no test change; it drains as-is.',
     '',
     '**Never edit an AC to go green.** If a test cannot pass without contradicting its AC → HALT and escalate to Philipp.',
@@ -106,7 +112,8 @@ function main() {
   else rm(NEW_ACS);
 
   console.log(`AC-reconcile: ${r.verdict} — covered ${r.counts.COVERED}, stale ${r.counts.STALE}, `
-    + `missing ${r.counts.MISSING}, legacy ${r.counts.LEGACY_UNHASHED} · ${news.length} new AC(s) to drain`);
+    + `missing ${r.counts.MISSING}, surface ${r.counts.SURFACE}, legacy ${r.counts.LEGACY_UNHASHED} `
+    + `· ${news.length} new AC(s) to drain`);
   process.exit(strict && r.verdict !== 'GREEN' ? 1 : 0);
 }
 

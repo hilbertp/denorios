@@ -13,6 +13,10 @@
 //    O'Brien) say WHICH criteria that slice put live, and are the text FALLBACK for criteria
 //    that carry no trailer yet. Read out of the git INDEX, not off disk (the tree is a
 //    last resort that announces itself) — see below.
+//  • Each entry's `lane` (slice 390) says what counts as its proof: `core` needs a guard test,
+//    `surface` is evidenced by Jordan's review and the browser suite. Same precedence as the
+//    text — the `Lane:` trailer of the commit that declared the criterion wins, the slice
+//    file's frontmatter `lane:` is the fallback, and anything unclassified is `core`.
 //  • Tags that have a guard in COVERAGE.lock but no slice file to declare them stay legacy:true
 //    (grandfathered; never hash-ratcheted until a human backfills them from brief intent,
 //    Nog-reviewed — docs/contracts/ac-custody.md). This is the live-tag-set keying the ADR
@@ -41,7 +45,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { parseAcBlock } = require('../lib/ac-block');
+const { parseAcBlock, laneOfSliceFile } = require('../lib/ac-block');
 
 // ADR §3: conservative normalization — trim + collapse runs of spaces/tabs ONLY.
 // No case-fold, no markdown-strip, no stemming. A one-token flip MUST change the hash.
@@ -152,18 +156,32 @@ const TRAILER_RANGE = 'HEAD';
 // makes "last" the NEWEST declaration, so an AMENDED criterion resolves to its current text.
 // git's default (newest-first) inverts it and an amendment resolves to the text it superseded
 // — the j-ac-amend-order bug, in a file that is committed and ratcheted against.
+// `%B%x00` (not `%B`): the scanner reads each criterion's LANE from the `Lane:` trailer of
+// the commit that declared it, and only a separator tells it where one commit's body ends.
+// Concatenated, a surface slice's `Lane:` line sits in the same record as the next slice's
+// `AC:` lines — one declaration relabelling another slice's criteria.
 function defaultGitLog(repoRoot) {
   const { execFileSync } = require('child_process');
-  return (range) => execFileSync('git', ['log', range, '--reverse', '--format=%B'],
+  return (range) => execFileSync('git', ['log', range, '--reverse', '--format=%B%x00'],
     { cwd: repoRoot, encoding: 'utf8', timeout: 30000, maxBuffer: 64 * 1024 * 1024 });
 }
 
-// { tag: { text, acHash } } for every `AC:` trailer in history, newest declaration winning.
+// { tag: { text, acHash, lane } } for every `AC:` trailer in history, newest declaration winning.
+// `lane` is null for a criterion whose declaring commit named no lane.
+//
+// parseAcTrailers, not scanRangeManifest, ON PURPOSE. The scan resolves an undeclared lane to
+// `core` because a commit log is all it has; the deriver has a second source — the tracked
+// slice file's frontmatter, read in pass 1 — and can only prefer it over the default if it can
+// see that history said nothing. Reading through the scan is what made that fallback dead code.
+// The failure behaviour is the scan's: a log that throws contributes no trailers at all.
 function trailerTexts(repoRoot, gitLog) {
   // Required lazily: lib/ac-range-scan reads acHashOf out of THIS module, so a top-level
   // require would destructure a half-initialised module.exports and get undefined.
-  const { scanRangeManifest } = require('../lib/ac-range-scan');
-  return scanRangeManifest({ gitLog: gitLog || defaultGitLog(repoRoot), range: TRAILER_RANGE }).byTag;
+  const { parseAcTrailers } = require('../lib/ac-range-scan');
+  const log = gitLog || defaultGitLog(repoRoot);
+  let body = '';
+  try { body = log(TRAILER_RANGE) || ''; } catch (_) { return {}; }
+  return parseAcTrailers(body).byTag;
 }
 
 function buildAcManifest(repoRoot, { gitLog } = {}) {
@@ -185,6 +203,7 @@ function buildAcManifest(repoRoot, { gitLog } = {}) {
         source: file.rel,
         status: 'active',
         legacy: false,
+        lane: laneOfSliceFile(file.content),
       };
     }
   }
@@ -201,6 +220,7 @@ function buildAcManifest(repoRoot, { gitLog } = {}) {
       source: 'legacy-backfill',
       status: 'active',
       legacy: true,
+      lane: 'core',
     };
   }
 
@@ -225,6 +245,12 @@ function buildAcManifest(repoRoot, { gitLog } = {}) {
       source: 'commit-trailer',
       status: 'active',
       legacy: false,
+      // The trailer owns the TEXT unconditionally — history is the immutable record of what
+      // was declared. It owns the LANE only when it declares one. A landing squash that
+      // carries `AC:` lines and no `Lane:` line (every slice landing until the daemon restarts
+      // on 389's squash) says nothing about the lane, and what pass 1 read out of the slice
+      // file's frontmatter — or the `core` a legacy backfill was given — still stands.
+      lane: t.lane || cur.lane,
     };
   }
 
