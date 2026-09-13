@@ -19,12 +19,21 @@
  *   them at startup so a fresh clone (where git recreates none of them) still
  *   works.
  *
+ *   (slice 391) The survival check used to be made against REPO_ROOT, where the
+ *   four files exist only because five other test files require the orchestrator
+ *   and its module load seeds whatever tree runs the suite. That made this guard
+ *   deterministically red in a fresh copy of the code and a race in a full run —
+ *   slice 383's run lost it. It now builds its own repository and unlands the
+ *   files there, which is where `git rm --cached` can actually be observed.
+ *
  * Guards:
  *   slice-372-ac-1 — the files are untracked and ignored, and an ignored file can
  *                    never reach the autocommit (it stages tracked changes only)
  *   slice-372-ac-2 — the files survive on disk, are writable, and the seeder
  *                    rebuilds any that a fresh clone lacks
  *   slice-372-ac-6 — the existing autocommit history is intact, not rewritten
+ *   slice-391-ac-1 — that survival check passes in a fresh copy of the code
+ *   slice-391-ac-2 — and names the file, and fails, when one does not survive
  */
 
 //
@@ -39,6 +48,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
 const { makeTmpDir, removeTmpDir } = require('../helpers/tmp-dir');
+const { missingOrUnwritable } = require('../helpers/runtime-files-survive');
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const ORCHESTRATOR_SRC = path.resolve(__dirname, '..', '..', 'bridge', 'orchestrator.js');
@@ -56,8 +66,61 @@ const VOLATILE_PATHS = [
   'bridge/trash/nog-active.json.done',
 ];
 
+// The four files slice 372 untracked and the pipeline cannot run without.
+const SURVIVING_PATHS = [
+  'bridge/heartbeat.json',
+  'bridge/state/branch-state.json',
+  'bridge/queue-order.json',
+  'bridge/timesheet.jsonl',
+];
+
+// Bodies recognisable enough that a truncation would be visible, not just an absence.
+const LIVE_STATE = {
+  'bridge/heartbeat.json': '{"ts":"2026-09-04T10:00:00.000Z","status":"nog_review"}\n',
+  'bridge/state/branch-state.json': '{"schema_version":1,"gate":{"status":"IDLE"}}\n',
+  'bridge/queue-order.json': '["391"]\n',
+  'bridge/timesheet.jsonl': '{"slice":"372","tokens":41200}\n',
+};
+
 function git(args) {
   return execFileSync('git', args, { cwd: REPO_ROOT, encoding: 'utf8' }).trim();
+}
+
+function gitIn(cwd, args) {
+  return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
+}
+
+function write(root, rel, body) {
+  const abs = path.join(root, rel);
+  fs.mkdirSync(path.dirname(abs), { recursive: true });
+  fs.writeFileSync(abs, body);
+}
+
+/**
+ * A miniature of the repository at the moment slice 372 untracked the runtime
+ * state: the four files committed, then removed from the INDEX only, exactly as
+ * scripts/land-untracked-runtime-state.sh does it. Built the way makeLandingRepo
+ * does in j-runtime-state-survives-landing.test.js, and for the same reason —
+ * the claim under test is about what `git rm --cached` leaves on disk, so the
+ * test needs a disk it owns. Returns the fixture root, always outside REPO_ROOT.
+ */
+function makeUntrackedRuntimeRepo(label) {
+  const tmp = makeTmpDir(label);
+  gitIn(tmp, ['init', '-q', '-b', 'dev']);
+  gitIn(tmp, ['config', 'user.email', 'gate@denorios.test']);
+  gitIn(tmp, ['config', 'user.name', 'Regression Gate']);
+
+  write(tmp, 'bridge/orchestrator.js', '// source\n');
+  for (const rel of SURVIVING_PATHS) write(tmp, rel, LIVE_STATE[rel]);
+  gitIn(tmp, ['add', '-A']);
+  gitIn(tmp, ['commit', '-qm', 'base — runtime state tracked']);
+
+  // Slice 372's change, verbatim: the index forgets, the disk does not.
+  gitIn(tmp, ['rm', '-q', '--cached', '--', ...SURVIVING_PATHS]);
+  write(tmp, '.gitignore', SURVIVING_PATHS.join('\n') + '\n');
+  gitIn(tmp, ['add', '.gitignore']);
+  gitIn(tmp, ['commit', '-qm', 'S372: untrack the volatile runtime state']);
+  return tmp;
 }
 
 // ---------------------------------------------------------------------------
@@ -141,14 +204,45 @@ test('slice-372-ac-1 a slice run leaves no runtime file staged for autocommit', 
 // slice-372-ac-2 — still on disk, still writable, rebuilt on a fresh clone
 // ---------------------------------------------------------------------------
 
-test('slice-372-ac-2 untracking did not delete the files from disk', () => {
-  for (const rel of ['bridge/heartbeat.json', 'bridge/state/branch-state.json',
-    'bridge/queue-order.json', 'bridge/timesheet.jsonl']) {
-    const abs = path.join(REPO_ROOT, rel);
-    assert.ok(fs.existsSync(abs), `${rel} must still exist — the running system reads and writes it continuously`);
-    // W_OK: the orchestrator rewrites these on every tick.
-    assert.doesNotThrow(() => fs.accessSync(abs, fs.constants.R_OK | fs.constants.W_OK),
-      `${rel} must remain readable and writable`);
+// @ac-hash: slice-391-ac-1 sha256:13f1ea1203d4e5ccd809dbc398cded6a4d295d00db3352b950e68f036de75bb0
+test('slice-372-ac-2 untracking did not delete the files from disk (slice-391-ac-1)', () => {
+  // Against a tree this test untracked itself, not against the one running the
+  // suite: there these files are an artefact of some other test file requiring
+  // the orchestrator, so REPO_ROOT proved nothing and was red in a fresh copy.
+  // R_OK | W_OK, because the orchestrator rereads and rewrites them every tick.
+  const tmp = makeUntrackedRuntimeRepo('j-untracked-survives');
+  try {
+    assert.deepEqual(missingOrUnwritable(tmp, SURVIVING_PATHS), [], 'git rm --cached is index-only: every runtime file must survive the untracking, readable and writable');
+  } finally {
+    removeTmpDir(tmp);
+  }
+});
+
+// @ac-hash: slice-391-ac-2 sha256:68e7ab63970fce4a81c5c30dce79fc4532b1aef6efe0dd3c57cbb81a8d71cac9
+test('slice-391-ac-2 a runtime file lost to the untracking is named, and the guard fails on it', () => {
+  const tmp = makeUntrackedRuntimeRepo('j-untracked-lost');
+  try {
+    // What a `git rm` without --cached would have done to one of the four.
+    fs.unlinkSync(path.join(tmp, 'bridge/timesheet.jsonl'));
+
+    assert.deepEqual(missingOrUnwritable(tmp, SURVIVING_PATHS), ['bridge/timesheet.jsonl'],
+      'the lost ledger must be named — "something is missing" sends nobody to the right file');
+    assert.throws(() => assert.deepEqual(missingOrUnwritable(tmp, SURVIVING_PATHS), []),
+      assert.AssertionError,
+      'and the guard above must go red on it, or it is decoration');
+  } finally {
+    removeTmpDir(tmp);
+  }
+});
+
+// Trap 2 of slice 391: the guard may never again assert about the tree it runs in.
+test('slice-391-ac-1 the fixture is built outside the repository running the suite', () => {
+  const tmp = makeUntrackedRuntimeRepo('j-untracked-outside');
+  try {
+    assert.ok(!tmp.startsWith(REPO_ROOT),
+      'a fixture inside the checkout would be seeded by whatever else the suite loads — which is the bug this slice fixes');
+  } finally {
+    removeTmpDir(tmp);
   }
 });
 

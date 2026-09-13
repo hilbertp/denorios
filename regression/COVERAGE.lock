@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 620,
+  "guardCount": 624,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -499,6 +499,16 @@
         "tag": "slice-389-ac-5",
         "file": "regression/authoring-staging/j-lanes.test.js",
         "guardAcHash": "sha256:5e3fa6984fca07d0f98b18b51456fb9451a584eaec59f38dfd2c7b725a2195d4"
+      },
+      {
+        "tag": "slice-391-ac-1",
+        "file": "regression/dispatch-execution/j-untracked-runtime-state.test.js",
+        "guardAcHash": "sha256:13f1ea1203d4e5ccd809dbc398cded6a4d295d00db3352b950e68f036de75bb0"
+      },
+      {
+        "tag": "slice-391-ac-2",
+        "file": "regression/dispatch-execution/j-untracked-runtime-state.test.js",
+        "guardAcHash": "sha256:68e7ab63970fce4a81c5c30dce79fc4532b1aef6efe0dd3c57cbb81a8d71cac9"
       },
       {
         "tag": "slice-99777-ac-1",
@@ -1347,6 +1357,16 @@
         "tag": "slice-388-ac-5",
         "file": "regression/observability/j-red-dev-files-fix-request.test.js",
         "guardAcHash": "sha256:49542b434b4aa376a09f984d7a4566d1ac33624fb26b071b8aad712f46b92941"
+      },
+      {
+        "tag": "slice-391-ac-1",
+        "file": "regression/dispatch-execution/j-untracked-runtime-state.test.js",
+        "guardAcHash": "sha256:13f1ea1203d4e5ccd809dbc398cded6a4d295d00db3352b950e68f036de75bb0"
+      },
+      {
+        "tag": "slice-391-ac-2",
+        "file": "regression/dispatch-execution/j-untracked-runtime-state.test.js",
+        "guardAcHash": "sha256:68e7ab63970fce4a81c5c30dce79fc4532b1aef6efe0dd3c57cbb81a8d71cac9"
       },
       {
         "tag": "slice-901-ac-1",
@@ -2588,6 +2608,16 @@
         "tag": "slice-372-ac-6",
         "file": "regression/dispatch-execution/j-untracked-runtime-state.test.js",
         "guardAcHash": "sha256:042403c9c5d6477b98df8e42269b27fd58ed7d312fb4de3f144167ff46067951"
+      },
+      {
+        "tag": "slice-391-ac-1",
+        "file": "regression/dispatch-execution/j-untracked-runtime-state.test.js",
+        "guardAcHash": "sha256:13f1ea1203d4e5ccd809dbc398cded6a4d295d00db3352b950e68f036de75bb0"
+      },
+      {
+        "tag": "slice-391-ac-2",
+        "file": "regression/dispatch-execution/j-untracked-runtime-state.test.js",
+        "guardAcHash": "sha256:68e7ab63970fce4a81c5c30dce79fc4532b1aef6efe0dd3c57cbb81a8d71cac9"
       }
     ],
     "regression/gate-merge/j-ac-manifest-trailer-source.test.js": [
