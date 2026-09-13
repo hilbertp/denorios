@@ -3,7 +3,7 @@ id: "390"
 title: "The coverage gate learns the lane"
 from: rom
 to: nog
-status: DONE
+status: ACCEPTED
 slice_id: "390"
 branch: "slice/390"
 completed: "2026-09-13T21:05:00.000Z"
