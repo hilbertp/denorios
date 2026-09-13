@@ -428,8 +428,8 @@ test('J-report-metrics-filled — trap 3: total_cost_usd wins everywhere, comput
 test('J-report-metrics-filled — trap 4: invokeRom builds its prompt with buildDoneTemplate, and the fill runs before any reader', () => {
   assert.match(SRC, /const prompt = sliceContent \+ buildDoneTemplate\(\{[^}]*\}\);/,
     'invokeRom must build its prompt with the exported function, or nothing tests the words it sends');
-  assert.match(SRC, /function buildDoneTemplate\(\{ id, worktreeDonePath, sliceBranch, sliceContent \}\)/,
-    'the four-key signature is what slices 387 to 389 extend');
+  assert.match(SRC, /function buildDoneTemplate\(\{ id, worktreeDonePath, sliceBranch, sliceContent, lane \}\)/,
+    'the signature slices 387 to 389 extend — sliceContent for the hash lines, lane for the report headings');
 
   // The fill happens after the worktree copy and before anything reads the file.
   const copyIdx = SRC.indexOf("msg: 'Copied DONE file from worktree to PROJECT_DIR'");

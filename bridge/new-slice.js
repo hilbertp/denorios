@@ -46,10 +46,14 @@ const REGISTER_FILE = process.env.DS9_REGISTER_FILE || path.resolve(__dirname, '
 const TRASH_DIR     = process.env.DS9_TRASH_DIR     || path.resolve(__dirname, 'trash');
 
 // ---------------------------------------------------------------------------
-// Required fields — must match orchestrator.js REQUIRED_FIELDS exactly
+// Required fields — the writer's list, deliberately one field longer than the
+// orchestrator's. `lane` is required on WRITE so no brief leaves here without a
+// declared rigour (slice 389); the orchestrator defaults it to core on READ, so
+// every queue file staged before lanes existed still dispatches. The two lists
+// no longer match, and must not be made to.
 // ---------------------------------------------------------------------------
 
-const REQUIRED_FIELDS = ['id', 'title', 'from', 'to', 'priority', 'created'];
+const REQUIRED_FIELDS = ['id', 'title', 'from', 'to', 'priority', 'lane', 'created'];
 
 // ---------------------------------------------------------------------------
 // Arg parsing — minimal, no external deps
@@ -74,6 +78,7 @@ function parseArgs(argv) {
 
 const VALID_PRIORITIES = ['normal', 'high', 'critical'];
 const VALID_TO         = ['rom', 'leeta', 'bashir'];
+const VALID_LANES      = ['surface', 'core'];
 
 function validate(fields) {
   const errors = [];
@@ -85,6 +90,8 @@ function validate(fields) {
     errors.push(`--priority must be one of: ${VALID_PRIORITIES.join(', ')} (got: ${fields.priority})`);
   if (!VALID_TO.includes(fields.to))
     errors.push(`--to must be one of: ${VALID_TO.join(', ')} (got: ${fields.to})`);
+  if (!VALID_LANES.includes(fields.lane))
+    errors.push(`--lane must be one of: ${VALID_LANES.join(', ')} (got: ${fields.lane})`);
   return errors;
 }
 
@@ -225,6 +232,7 @@ function buildFrontmatter(fields) {
   lines.push(`from: obrien`);
   lines.push(`to: ${fields.to}`);
   lines.push(`priority: ${fields.priority}`);
+  lines.push(`lane: ${fields.lane}`);
   lines.push(`created: "${fields.created}"`);
   if (fields.depends_on) lines.push(`depends_on: "${fields.depends_on}"`);
   if (fields.amendment) lines.push(`amendment: "${fields.amendment}"`);
@@ -245,6 +253,13 @@ function main() {
   const to         = args.to       || 'rom';
   const priority   = args.priority || 'normal';
   const timeoutMin = args.timeout  ? parseInt(args.timeout, 10) : 20;
+
+  // A brief with no declared lane is core (ADR-PROOF-LANES §2). The default is the
+  // safe one — full rigour — but it is announced, because the point of the lane is
+  // that Alex chose it, and a silent default is a choice nobody made.
+  const laneGiven = Object.prototype.hasOwnProperty.call(args, 'lane');
+  const lane      = laneGiven ? String(args.lane).trim().toLowerCase() : 'core';
+  if (!laneGiven) console.warn('no --lane given; defaulting to core (full rigour)');
 
   // Collect body: --body-file or stdin
   let body = '';
@@ -267,6 +282,7 @@ function main() {
     goal:       args.goal       || '',
     to,
     priority,
+    lane,
     depends_on: args['depends-on'] || null,
     amendment:  args.amendment    || null,
     timeout_min: isNaN(timeoutMin) ? 20 : timeoutMin,
@@ -278,7 +294,7 @@ function main() {
   if (errors.length > 0) {
     console.error('ERROR: Slice not created — validation failed:\n');
     errors.forEach(e => console.error(`  • ${e}`));
-    console.error('\nUsage: node bridge/new-slice.js --title "..." --goal "..." [--to rom|leeta|bashir] [--priority normal|high|critical] [--depends-on "095,096"] [--amendment "slice/095-fix"] [--timeout 20] [--body-file body.md] [--restage <id>]');
+    console.error('\nUsage: node bridge/new-slice.js --title "..." --goal "..." [--to rom|leeta|bashir] [--priority normal|high|critical] [--lane surface|core] [--depends-on "095,096"] [--amendment "slice/095-fix"] [--timeout 20] [--body-file body.md] [--restage <id>]');
     process.exit(1);
   }
 

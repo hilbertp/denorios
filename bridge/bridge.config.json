@@ -18,6 +18,12 @@
     "--effort",
     "max"
   ],
+  "laneArgs": {
+    "surface": [
+      "--effort",
+      "high"
+    ]
+  },
   "projectDir": "..",
   "maxRetries": 0,
   "coworkSessionKey": "",

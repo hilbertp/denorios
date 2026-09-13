@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 610,
+  "guardCount": 620,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -188,6 +188,33 @@
       {
         "tag": "slice-354-ac-7",
         "file": "regression/provenance/j-approval-provenance-dispatch.test.js"
+      }
+    ],
+    "bridge/new-slice.js": [
+      {
+        "tag": "slice-389-ac-1",
+        "file": "regression/authoring-staging/j-lanes.test.js",
+        "guardAcHash": "sha256:be8b8cccc8d30ec230afc9180b374379bbd2104e78ee98eeccf9dccb3b2fc9a4"
+      },
+      {
+        "tag": "slice-389-ac-2",
+        "file": "regression/authoring-staging/j-lanes.test.js",
+        "guardAcHash": "sha256:1dc3a072fbaa3a6df9748ce2b3e385369b9535f5a26466f05b9e92648ad258de"
+      },
+      {
+        "tag": "slice-389-ac-3",
+        "file": "regression/authoring-staging/j-lanes.test.js",
+        "guardAcHash": "sha256:27ed7222af09db8d3d1bcd7ae9b4c7e7c8656e1512a2c559540cba1b55420285"
+      },
+      {
+        "tag": "slice-389-ac-4",
+        "file": "regression/authoring-staging/j-lanes.test.js",
+        "guardAcHash": "sha256:9e65d4679d37a4b532d848f2ba4a9713240f9966e1306a43d87360a10df4e06d"
+      },
+      {
+        "tag": "slice-389-ac-5",
+        "file": "regression/authoring-staging/j-lanes.test.js",
+        "guardAcHash": "sha256:5e3fa6984fca07d0f98b18b51456fb9451a584eaec59f38dfd2c7b725a2195d4"
       }
     ],
     "bridge/orchestrator.js": [
@@ -447,6 +474,31 @@
         "tag": "slice-387-ac-7",
         "file": "regression/dispatch-execution/j-locks-regenerated-at-landing.test.js",
         "guardAcHash": "sha256:6d91ae759f650405d152d60e1a04a5cbce5a59722c81dceff5c70993abcbd733"
+      },
+      {
+        "tag": "slice-389-ac-1",
+        "file": "regression/authoring-staging/j-lanes.test.js",
+        "guardAcHash": "sha256:be8b8cccc8d30ec230afc9180b374379bbd2104e78ee98eeccf9dccb3b2fc9a4"
+      },
+      {
+        "tag": "slice-389-ac-2",
+        "file": "regression/authoring-staging/j-lanes.test.js",
+        "guardAcHash": "sha256:1dc3a072fbaa3a6df9748ce2b3e385369b9535f5a26466f05b9e92648ad258de"
+      },
+      {
+        "tag": "slice-389-ac-3",
+        "file": "regression/authoring-staging/j-lanes.test.js",
+        "guardAcHash": "sha256:27ed7222af09db8d3d1bcd7ae9b4c7e7c8656e1512a2c559540cba1b55420285"
+      },
+      {
+        "tag": "slice-389-ac-4",
+        "file": "regression/authoring-staging/j-lanes.test.js",
+        "guardAcHash": "sha256:9e65d4679d37a4b532d848f2ba4a9713240f9966e1306a43d87360a10df4e06d"
+      },
+      {
+        "tag": "slice-389-ac-5",
+        "file": "regression/authoring-staging/j-lanes.test.js",
+        "guardAcHash": "sha256:5e3fa6984fca07d0f98b18b51456fb9451a584eaec59f38dfd2c7b725a2195d4"
       },
       {
         "tag": "slice-99777-ac-1",
@@ -2284,6 +2336,33 @@
         "tag": "slice-365-ac-3",
         "file": "regression/gate-merge/j-unrun-test-dir.test.js",
         "guardAcHash": "sha256:40a9dbadf30897d7501a560471d821a4e47cde70a7c6c7a63e1e7d4eadd5ab5f"
+      }
+    ],
+    "regression/authoring-staging/j-lanes.test.js": [
+      {
+        "tag": "slice-389-ac-1",
+        "file": "regression/authoring-staging/j-lanes.test.js",
+        "guardAcHash": "sha256:be8b8cccc8d30ec230afc9180b374379bbd2104e78ee98eeccf9dccb3b2fc9a4"
+      },
+      {
+        "tag": "slice-389-ac-2",
+        "file": "regression/authoring-staging/j-lanes.test.js",
+        "guardAcHash": "sha256:1dc3a072fbaa3a6df9748ce2b3e385369b9535f5a26466f05b9e92648ad258de"
+      },
+      {
+        "tag": "slice-389-ac-3",
+        "file": "regression/authoring-staging/j-lanes.test.js",
+        "guardAcHash": "sha256:27ed7222af09db8d3d1bcd7ae9b4c7e7c8656e1512a2c559540cba1b55420285"
+      },
+      {
+        "tag": "slice-389-ac-4",
+        "file": "regression/authoring-staging/j-lanes.test.js",
+        "guardAcHash": "sha256:9e65d4679d37a4b532d848f2ba4a9713240f9966e1306a43d87360a10df4e06d"
+      },
+      {
+        "tag": "slice-389-ac-5",
+        "file": "regression/authoring-staging/j-lanes.test.js",
+        "guardAcHash": "sha256:5e3fa6984fca07d0f98b18b51456fb9451a584eaec59f38dfd2c7b725a2195d4"
       }
     ],
     "regression/authoring-staging/j-reorder-proposed-backlog.test.js": [

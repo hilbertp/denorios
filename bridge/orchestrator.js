@@ -770,6 +770,106 @@ function appendOperationalEvent(_event) {
   // canonical event stream for operator-visible escalation and error state.
 }
 
+// ---------------------------------------------------------------------------
+// Proof lanes (slice 389, ADR-PROOF-LANES §2)
+// ---------------------------------------------------------------------------
+//
+// A brief declares one of two lanes and everything downstream follows it: the
+// report template Sam receives, the review Jordan performs, the effort the model
+// spends, and the trailer the gate reads off the landing commit.
+//
+//   core    — changes what the system does. Full rigour, as ruled on 2026-09-03.
+//   surface — changes what the screen shows or says. Light rigour.
+//
+// The declaration is written on the way IN (new-slice.js requires --lane); every
+// read defaults to core, because a slice with no lane is one nobody classified,
+// and the whole queue staged before this landed is exactly that.
+
+/**
+ * resolveLane(meta) → 'core' | 'surface'
+ *
+ * The lane of a parsed frontmatter block. Missing → core, silently: that is the
+ * whole back catalogue. Present but not one of the two → core, loudly: someone
+ * typed something and meant it, and quietly downgrading their intent to the
+ * default is how a typo becomes a policy.
+ */
+function resolveLane(meta) {
+  const raw = meta && meta.lane != null ? String(meta.lane).trim().toLowerCase() : '';
+  if (raw === 'surface' || raw === 'core') return raw;
+  if (raw) log('warn', 'lane', { msg: `unknown lane "${raw}" — treating as core (full rigour)`, lane: raw });
+  return 'core';
+}
+
+/**
+ * laneEventFields(meta, args) → { lane, effort? }
+ *
+ * The lane fields a register event carries. `effort` is the setting actually in
+ * the spawned argument list, not the one the config asks for — ADR §8 measures
+ * minutes and dollars per lane, and a number read from config would report what
+ * we intended rather than what we ran. No args, or no --effort in them, and the
+ * field is omitted rather than guessed.
+ *
+ * Pure.
+ */
+function laneEventFields(meta, args) {
+  const fields = { lane: resolveLane(meta) };
+  if (Array.isArray(args)) {
+    const i = args.indexOf('--effort');
+    if (i !== -1 && i + 1 < args.length) fields.effort = args[i + 1];
+  }
+  return fields;
+}
+
+/**
+ * applyLaneArgs(args, lane, laneArgs) → args
+ *
+ * Substitutes the lane's `--effort` pair into a spawn argument list. Returns the
+ * INPUT ARRAY UNCHANGED for the core lane, for absent laneArgs, and for a lane
+ * with no entry — the common path costs nothing and reads as a no-op.
+ *
+ * Never mutates. Jordan's spawn passes `config.claudeArgs` by reference, so an
+ * in-place splice here would set the reviewer's effort from the builder's lane.
+ *
+ * Pure.
+ */
+function applyLaneArgs(args, lane, laneArgs) {
+  const base = Array.isArray(args) ? args : [];
+  if (lane === 'core') return args;
+  const pair = laneArgs && laneArgs[lane];
+  if (!Array.isArray(pair)) return args;
+  const at = pair.indexOf('--effort');
+  if (at === -1 || at + 1 >= pair.length) return args;
+  const laneEffort = pair.slice(at, at + 2);
+
+  const out = base.slice();
+  const idx = out.indexOf('--effort');
+  if (idx !== -1 && idx + 1 < out.length) out.splice(idx, 2, ...laneEffort);
+  else out.push(...laneEffort);
+  return out;
+}
+
+/**
+ * romSpawnArgs({ claudeArgs, laneArgs, lane, round, sessionId, nogReason }) → args
+ *
+ * The complete argument list for Sam's `claude -p` — fresh path and --resume path
+ * both. One function, because the resume path used to rebuild its own list by
+ * filtering `-p`, and anything added to the fresh path (the lane's effort, here)
+ * silently missed every rework round.
+ *
+ * Pure. The caller still logs and registers the session decision; this only
+ * re-derives it, from the same shouldForceFreshSession() the caller uses.
+ */
+function romSpawnArgs({ claudeArgs, laneArgs, lane, round, sessionId, nogReason }) {
+  const base = Array.isArray(claudeArgs) ? claudeArgs : [];
+  const resuming = (parseInt(round, 10) || 1) > 1
+    && !!sessionId
+    && !shouldForceFreshSession(nogReason || '');
+  const args = resuming
+    ? ['--resume', sessionId, ...base.filter(a => a !== '-p')]
+    : base.slice();
+  return applyLaneArgs(args, lane, laneArgs);
+}
+
 /**
  * registerCommissioned(id, extra)
  *
@@ -782,6 +882,10 @@ function registerCommissioned(id, extra) {
     { ts: new Date().toISOString(), slice_id: String(id), event: 'COMMISSIONED' },
     extra || {}
   );
+  // The lane is resolved HERE, not at the call site: the pickup loop's call is
+  // pinned byte for byte by j-finished-slice-not-redispatched, and the slice body
+  // it already hands over carries the declaration (slice 389).
+  entry.lane = resolveLane(parseFrontmatter(String((extra && extra.body) || '')));
   const line = JSON.stringify(entry) + '\n';
   try {
     fs.appendFileSync(REGISTER_FILE, line);
@@ -2513,7 +2617,7 @@ function buildHashLines(sliceContent) {
 }
 
 /**
- * buildDoneTemplate({ id, worktreeDonePath, sliceBranch, sliceContent })
+ * buildDoneTemplate({ id, worktreeDonePath, sliceBranch, sliceContent, lane })
  *
  * The DONE report template glued to the end of every brief Rom receives.
  * Pure and exported so its words can be tested — inline in invokeRom, nothing
@@ -2522,10 +2626,56 @@ function buildHashLines(sliceContent) {
  * It no longer demands real, non-zero metrics: the orchestrator fills the three
  * machine metrics from the session, so asking Rom for numbers he cannot observe
  * only ever produced invented ones. sliceContent is read for the hash lines
- * (slice 387); slice 389 reads it again for the lane.
+ * (slice 387).
+ *
+ * The lane decides two things and only two (slice 389): which report headings the
+ * builder is asked for, and which test rule he is held to. Everything else — the
+ * report path, the frontmatter example, the run rules, the hash lines and the
+ * trailer instruction — is the same string in both lanes. An unrecognised or
+ * absent lane is core, so a brief from before lanes existed reads exactly as it
+ * always did.
  */
-function buildDoneTemplate({ id, worktreeDonePath, sliceBranch, sliceContent }) {
+function buildDoneTemplate({ id, worktreeDonePath, sliceBranch, sliceContent, lane }) {
   const hashLines = buildHashLines(sliceContent);
+  const isSurface = resolveLane({ lane }) === 'surface';
+
+  // The report the lane asks for. Core: the seven headings of the 3 September
+  // ruling (docs/contracts/done-report-format.md), in order, plus the break-it
+  // check. Surface: four headings and no break-it check — Jordan reads the diff
+  // and the browser suite covers the screen at the gate, so a test that asserts
+  // "the heading says Coverage" only restates the diff at the price of a session.
+  const reportSection = isSurface
+    ? [
+        '',
+        '## Your report',
+        '',
+        'This slice is surface lane. The report body has exactly four headings, in this order:',
+        '',
+        '- `## Summary`',
+        '- `## What changed`',
+        '- `## Screen hooks`',
+        '- `## Commit`',
+        '',
+        'Add `## Safety-net tests` only if you wrote one.',
+        '',
+        'Write a safety-net test only for a criterion that asserts behaviour (an interaction or a computed value). A criterion about what the screen shows or says needs no test; Jordan checks it in the diff and the browser suite covers the screen at the gate. No break-it check.',
+      ]
+    : [
+        '',
+        '## Your report',
+        '',
+        'This slice is core lane. The report body has these headings, in this order, every one present even when the answer is "None":',
+        '',
+        '- `## Summary`',
+        '- `## What changed`',
+        '- `## Acceptance criteria verification`',
+        '- `## Safety-net tests`',
+        '- `## Screen hooks`',
+        '- `## Tests moved or weakened`',
+        '- `## Commit`',
+        '',
+        'Write one safety-net test per acceptance criterion, plus one for each trap, then stop; before committing, stash your fix, run your new test file, confirm every new test goes red, restore the fix, and list which went red under Safety-net tests.',
+      ];
   // A brief with no tagged criteria gets no heading — an empty section reads as a
   // missing list. The three sentences below are unconditional: they are the rule, not
   // the data, and they are what keeps him out of the lock files whether or not this
@@ -2561,6 +2711,7 @@ function buildDoneTemplate({ id, worktreeDonePath, sliceBranch, sliceContent }) 
     '',
     'Leave tokens_in, tokens_out and elapsed_ms at 0; the orchestrator fills them from the session. estimated_human_hours is optional: your honest guess of how long a skilled human would take, or 0. compaction_occurred is true only if your context was compacted mid-session.',
     '- completed: must be full ISO 8601 UTC datetime (e.g. "2026-04-12T01:22:40.000Z"), never date-only',
+    ...reportSection,
     // Four lines, and no brief can override them (slice 388). On slice 383 the full
     // safety-net suite ran six times inside one session — 4.9 of 16.3 minutes, four of
     // those repeats spent hunting skipped-test names for one sentence of the report.
@@ -2599,6 +2750,7 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
   // Apendments:  checkout existing branch → invoke Rom on that branch
   // ──────────────────────────────────────────────────────────────────────────
   const sliceMeta = parseFrontmatter(sliceContent) || {};
+  const romLane = resolveLane(sliceMeta);
   const isApendment = !!(sliceMeta.apendment || sliceMeta.amendment || (sliceMeta.references && sliceMeta.references !== 'null') || (parseInt(sliceMeta.round, 10) > 1));
   const sliceBranch = isApendment
     ? (sliceMeta.apendment || sliceMeta.amendment || sliceMeta.branch || `slice/${sliceMeta.root_commission_id || id}`)
@@ -2656,7 +2808,7 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
   fs.mkdirSync(worktreeQueueDir, { recursive: true });
   const worktreeDonePath = path.join(worktreeQueueDir, `${id}-DONE.md`);
 
-  const prompt = sliceContent + buildDoneTemplate({ id, worktreeDonePath, sliceBranch, sliceContent });
+  const prompt = sliceContent + buildDoneTemplate({ id, worktreeDonePath, sliceBranch, sliceContent, lane: romLane });
 
   const pickupTime = Date.now();
 
@@ -2681,20 +2833,20 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
   // ──────────────────────────────────────────────────────────────────────────
   const romRound = parseInt(sliceMeta.round, 10) || 1;
   const romSessionId = sliceMeta.rom_session_id || null;
-  let clauseArgs = config.claudeArgs;
   let sessionResumed = false;
 
-  if (romRound > 1 && romSessionId) {
-    // Extract the Nog rejection reason from the latest "### Nog review summary" section.
-    const nogSummaryMatch = sliceContent.match(/### Nog review summary\s*\n+([\s\S]*?)(?=\n###|\n## |$)/);
-    const nogReason = nogSummaryMatch ? nogSummaryMatch[1].trim() : '';
+  // Extract the Nog rejection reason from the latest "### Nog review summary" section.
+  // Read unconditionally now: romSpawnArgs re-derives the resume decision from it, so
+  // it has to exist on every path, not only inside the round > 1 branch.
+  const nogSummaryMatch = sliceContent.match(/### Nog review summary\s*\n+([\s\S]*?)(?=\n###|\n## |$)/);
+  const nogReason = nogSummaryMatch ? nogSummaryMatch[1].trim() : '';
 
+  if (romRound > 1 && romSessionId) {
     if (shouldForceFreshSession(nogReason)) {
       const freshReason = nogReason.length > 500 ? 'long_feedback' : 'trigger_keyword';
       log('info', 'session', { id, msg: `Rework round ${romRound} — forcing fresh session`, reason: freshReason });
       registerEvent(id, 'ROM_SESSION_FRESH', { session_id: romSessionId, round: romRound, reason_for_fresh: freshReason });
     } else {
-      clauseArgs = ['--resume', romSessionId, ...config.claudeArgs.filter(a => a !== '-p')];
       sessionResumed = true;
       log('info', 'session', { id, msg: `Rework round ${romRound} — resuming session ${romSessionId}` });
       registerEvent(id, 'ROM_SESSION_RESUMED', { session_id: romSessionId, round: romRound, reason_for_fresh: null });
@@ -2704,6 +2856,18 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
     registerEvent(id, 'ROM_SESSION_FRESH', { session_id: null, round: romRound, reason_for_fresh: 'no_session_id' });
   }
 
+  // One call, both paths (slice 389). The resume list used to be assembled inline in
+  // the branch above, which is why the lane's effort would have reached round 1 and
+  // silently missed every rework round.
+  const clauseArgs = romSpawnArgs({
+    claudeArgs: config.claudeArgs,
+    laneArgs: config.laneArgs,
+    lane: romLane,
+    round: romRound,
+    sessionId: romSessionId,
+    nogReason,
+  });
+
   log('info', 'invoke', {
     id,
     msg: 'Invoking claude -p',
@@ -2712,6 +2876,7 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
     cwd: worktreePath,
     inactivityTimeoutMs: effectiveInactivityMs,
     sessionResumed,
+    lane: romLane,
   });
 
   // Progress tick: every 60s while Rom is running — stdout only, not bridge.log.
@@ -2907,6 +3072,7 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
             tokensOut: telemetry.tokensOut,
             tokensCacheRead: telemetry.tokensCacheRead,
             costUsd: telemetry.costUsd,
+            ...laneEventFields(sliceMeta, clauseArgs),
           });
           closeSliceBlock(true, durationMs, tokensIn, tokensOut, costUsd, null);
           recordSessionResult(true, tokensIn, tokensOut, costUsd);
@@ -3708,7 +3874,10 @@ function mergeBranch(id, branchName, title) {
 // ---------------------------------------------------------------------------
 
 /**
- * acceptAndMerge(id, currentFilePath, branchName, title)
+ * acceptAndMerge(id, currentFilePath, branchName, title, opts)
+ *
+ * opts.lane — the brief's declared lane, passed straight to squashSliceToDev so
+ * the landing commit carries a `Lane:` trailer. Absent → core (slice 389).
  *
  * Ensures {id}-ACCEPTED.md exists in the queue directory, then either squashes
  * the slice onto dev (via squashSliceToDev) or defers if the gate is running.
@@ -3781,7 +3950,7 @@ function acceptAndMerge(id, currentFilePath, branchName, title, opts) {
     }
 
     // No gate — squash to dev
-    const result = squashSliceToDev(String(id), title, branchName);
+    const result = squashSliceToDev(String(id), title, branchName, (opts && opts.lane) || 'core');
     if (result.success) {
       return { success: true, sha: result.dev_sha, error: null };
     } else {
@@ -4037,6 +4206,11 @@ function handleAccepted(id, reason, cycle, branchName, evaluatingPath, durationM
     if (commMeta) title = commMeta.title || null;
   } catch (_) {}
 
+  // The lane comes through readSliceMeta rather than a second parse of the file
+  // above, so there is exactly one place that knows the lane lives on the brief
+  // and not on the report (slice 389).
+  const lane = readSliceMeta(id).lane;
+
   // Canonical: NOG_DECISION (verdict) → rename → merge → MERGED
   registerEvent(id, 'NOG_DECISION', { verdict: 'ACCEPTED', reason, cycle, round: cycle });
   log('info', 'evaluator', { id, verdict: 'ACCEPTED', cycle, durationMs });
@@ -4054,7 +4228,7 @@ function handleAccepted(id, reason, cycle, branchName, evaluatingPath, durationM
   }
 
   // Route through acceptAndMerge — handles EVALUATING→ACCEPTED rename + merge.
-  const result = acceptAndMerge(id, evaluatingPath, branchName, title);
+  const result = acceptAndMerge(id, evaluatingPath, branchName, title, { lane });
 
   if (result.deferred) {
     // Slice deferred during gate — stays in ACCEPTED state, will be drained post-gate
@@ -4295,6 +4469,7 @@ function invokeNog(id) {
     gitDiff,
     scopeDiff,
     slicePath: resolvedParkedPath,
+    lane: resolveLane(parseFrontmatter(sliceContent)),
   });
 
   log('info', 'nog', { id, round, branchName, msg: 'Invoking Nog code review' });
@@ -6111,7 +6286,7 @@ function crashRecovery() {
     }
 
     // Re-attempt squash via acceptAndMerge (ACCEPTED file already exists — idempotent rename).
-    const result = acceptAndMerge(id, acceptedPath, branchName, title);
+    const result = acceptAndMerge(id, acceptedPath, branchName, title, { lane: readSliceMeta(id).lane });
     if (result.deferred) {
       log('info', 'startup_recovery', { id, msg: `Recovery deferred for ${branchName} — gate is running`, branch: branchName });
       actions.push({ id, type: 'recovery_deferred', branch: branchName });
@@ -8028,13 +8203,20 @@ function regenerateLocksAtLanding(sliceId, sliceBranch, preSquashSha) {
 }
 
 /**
- * squashSliceToDev(sliceId, sliceTitle, sliceBranch)
+ * squashSliceToDev(sliceId, sliceTitle, sliceBranch, lane)
  *
  * Squash-merges a slice branch onto dev with ADR §2 trailers.
  * Returns { success: bool, dev_sha?: string, error?: string }.
  * Never throws — conflict or failure returns a value.
+ *
+ * `lane` is the brief's declaration, handed in by the caller and defaulting to
+ * core. It is NOT harvested from the branch log the way the AC trailers below
+ * are: the builder writes those commits, and a lane he could restate is a rigour
+ * setting he could lower on himself. It travels onto dev as one `Lane:` trailer
+ * so the gate reads it out of history and never off a working file (slice 389).
  */
-function squashSliceToDev(sliceId, sliceTitle, sliceBranch) {
+function squashSliceToDev(sliceId, sliceTitle, sliceBranch, lane = 'core') {
+  const resolvedLane = resolveLane({ lane });
   // Layer-2 lock (scripts/lock-main.sh) keeps dashboard/, docs/contracts/ and
   // bridge/*.js read-only in the main working tree. This path rewrites those
   // files (checkout overwrite + drift merge + squash), so open the lock first
@@ -8243,7 +8425,7 @@ function squashSliceToDev(sliceId, sliceTitle, sliceBranch) {
     }
   } catch (_) { /* no branch log → no trailers, squash proceeds unchanged */ }
 
-  const commitMsg = `S${sliceId}: ${sliceTitle}\n\nSlice-Id: ${sliceId}\nSlice-Branch: ${sliceBranch}\n${acTrailers}${moveTrailers}`;
+  const commitMsg = `S${sliceId}: ${sliceTitle}\n\nSlice-Id: ${sliceId}\nSlice-Branch: ${sliceBranch}\nLane: ${resolvedLane}\n${acTrailers}${moveTrailers}`;
   const commitMsgFile = path.join(PROJECT_DIR, '.squash-commit-msg');
   try {
     fs.writeFileSync(commitMsgFile, commitMsg);
@@ -8315,6 +8497,7 @@ function squashSliceToDev(sliceId, sliceTitle, sliceBranch) {
     slice_id: String(sliceId),
     dev_tip_sha: devSha,
     squash_sha: devSha,
+    lane: resolvedLane,
   });
 
   // Recompute RR after squash (slice 270)
@@ -8337,14 +8520,25 @@ function squashSliceToDev(sliceId, sliceTitle, sliceBranch) {
 /**
  * readSliceMeta(sliceId)
  *
- * Reads slice metadata (title, branch) from queue files. Checks ACCEPTED,
+ * Reads slice metadata (title, branch, lane) from queue files. Checks ACCEPTED,
  * PARKED, DONE, and IN_PROGRESS files in priority order.
- * Returns { title, branch } or null if nothing readable.
+ * Returns { title, branch, lane }.
+ *
+ * Title and branch are first-wins across all four files. The LANE is read from
+ * `-PARKED.md` and nowhere else: that file is the brief, and the brief is where
+ * Alex declares the lane. `-ACCEPTED.md` is Sam's DONE report renamed and carries
+ * no lane at all — reading the lane first-wins like the others would have found
+ * nothing on the file that is checked first and made every squash say core.
+ *
+ * The loop no longer breaks once title and branch are known, for the same reason:
+ * the early exit fired on `-ACCEPTED.md` and `-PARKED.md` was never opened. Four
+ * small reads; first-wins means the extra ones cannot change the answer.
  */
 function readSliceMeta(sliceId) {
   const suffixes = ['-ACCEPTED.md', '-PARKED.md', '-DONE.md', '-IN_PROGRESS.md'];
   let title = null;
   let branch = null;
+  let lane = null;
 
   for (const suffix of suffixes) {
     const filePath = path.join(QUEUE_DIR, `${sliceId}${suffix}`);
@@ -8354,7 +8548,7 @@ function readSliceMeta(sliceId) {
       if (meta) {
         if (!title && meta.title) title = meta.title;
         if (!branch && meta.branch) branch = meta.branch;
-        if (title && branch) break;
+        if (suffix === '-PARKED.md' && meta.lane) lane = meta.lane;
       }
     } catch (_) { /* file not found — try next */ }
   }
@@ -8362,7 +8556,7 @@ function readSliceMeta(sliceId) {
   // Fallback branch from convention
   if (!branch) branch = `slice/${sliceId}`;
 
-  return { title: title || `slice ${sliceId}`, branch };
+  return { title: title || `slice ${sliceId}`, branch, lane: resolveLane({ lane }) };
 }
 
 // ---------------------------------------------------------------------------
@@ -8402,7 +8596,7 @@ function drainDeferredAfterGate() {
   let drained = 0;
   for (const entry of sorted) {
     const meta = readSliceMeta(entry.slice_id);
-    const result = squashSliceToDev(entry.slice_id, meta.title, meta.branch);
+    const result = squashSliceToDev(entry.slice_id, meta.title, meta.branch, meta.lane);
     if (!result.success) {
       log('warn', 'drain', {
         msg: `drainDeferredAfterGate: squash failed for slice ${entry.slice_id}`,
@@ -8635,4 +8829,4 @@ function mergeDevToMain() {
 // Exports — for use by helper scripts (e.g. bridge/next-id.js)
 // ---------------------------------------------------------------------------
 
-module.exports = { sessionTelemetry, fillDoneMetrics, validateDoneMetrics, extractRomTelemetry, buildDoneTemplate, buildHashLines, regenerateLocksAtLanding, newestDoneEvent, isLockDeriverInput, LOCK_FILES, checkDispatchProvenance, parkUnprovenancedSlice, hasPreCutoverHistory, fileIsPreCutover, provenanceRootId, parseFrontmatter, handleNogReturn, startGate, abortGate, buildBashirPrompt, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, recordArchivedQueueRename, validateIntakeMeta, ensureIntegrationIsFresh, ensureMainIsFresh: ensureIntegrationIsFresh, fastForwardIntegrationRef, branchNamesFrom, INTEGRATION_BRANCH, TRUNK_BRANCH, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, provisionWorkspaceDeps, _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted, hasTerminalLandedEvent, countUnreadableVerdicts, unreadableBackoffMs, retryBackoffElapsed, MAX_UNREADABLE_ATTEMPTS, UNREADABLE_BACKOFF_MS, porcelainPaths, isVolatileRuntimePath, recoverRuntimeStateAfterGit, stageablePathsFrom, shQuote, _testResetRefusalEmitted: () => { _refusalEmitted.clear(); }, _testGetRefusalEmitted: () => _refusalEmitted };
+module.exports = { resolveLane, laneEventFields, applyLaneArgs, romSpawnArgs, registerCommissioned, sessionTelemetry, fillDoneMetrics, validateDoneMetrics, extractRomTelemetry, buildDoneTemplate, buildHashLines, regenerateLocksAtLanding, newestDoneEvent, isLockDeriverInput, LOCK_FILES, checkDispatchProvenance, parkUnprovenancedSlice, hasPreCutoverHistory, fileIsPreCutover, provenanceRootId, parseFrontmatter, handleNogReturn, startGate, abortGate, buildBashirPrompt, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, recordArchivedQueueRename, validateIntakeMeta, ensureIntegrationIsFresh, ensureMainIsFresh: ensureIntegrationIsFresh, fastForwardIntegrationRef, branchNamesFrom, INTEGRATION_BRANCH, TRUNK_BRANCH, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, provisionWorkspaceDeps, _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted, hasTerminalLandedEvent, countUnreadableVerdicts, unreadableBackoffMs, retryBackoffElapsed, MAX_UNREADABLE_ATTEMPTS, UNREADABLE_BACKOFF_MS, porcelainPaths, isVolatileRuntimePath, recoverRuntimeStateAfterGit, stageablePathsFrom, shQuote, _testResetRefusalEmitted: () => { _refusalEmitted.clear(); }, _testGetRefusalEmitted: () => _refusalEmitted };

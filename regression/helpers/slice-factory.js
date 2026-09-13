@@ -1,6 +1,6 @@
 'use strict';
 
-const REQUIRED_FIELDS  = ['id', 'title', 'goal', 'from', 'to', 'priority', 'created', 'status'];
+const REQUIRED_FIELDS  = ['id', 'title', 'goal', 'from', 'to', 'priority', 'lane', 'created', 'status'];
 const VALID_PRIORITIES = ['normal', 'high', 'critical'];
 const VALID_TO         = ['rom', 'leeta', 'bashir'];
 
@@ -12,6 +12,7 @@ function buildSliceFrontmatter(overrides = {}) {
     from:     'obrien',
     to:       'rom',
     priority: 'normal',
+    lane:     'core',
     created:  '2026-01-01T00:00:00Z',
     status:   'STAGED',
   }, overrides);
