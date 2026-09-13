@@ -61,6 +61,18 @@ Three things, all yours:
   `processing 388` for over two hours with no child process, and nothing was dispatched; the
   verification-failure branch does not reset the heartbeat the way the other ERROR paths do. A
   restart clears it; the fix is in the slice request in Alex's handoff.
+- **2026-09-13, for you specifically.** (1) The rename work-in-progress that sat uncommitted in the
+  main tree blocked 389's landing and was partly destroyed by the 388 and 389 checkouts before I
+  could save it: the edits to `bridge/new-slice.js` and `scripts/regression-report.js` and the
+  content of `bridge/reviewer-prompt.js` are gone; what remained is in
+  `bridge/trash/rename-wip-2026-09-13/` and in the git stash named "rename WIP (R1/R2) stashed by
+  Taylor 2026-09-13". Rebuild R1/R2 on a branch from `docs/ROLE-RENAME-PLAN.md` after 393 lands;
+  never leave it in the main tree again. (2) The daemon crashed once on 2026-09-13 19:25:28Z
+  (`ReferenceError: LOCK_FILES before initialization`, stack in `bridge/logs/orchestrator.stderr.log`)
+  and launchd restarted it; slice 393 fixes it. (3) I restarted the dashboard server (`node
+  dashboard/server.js`, new pid in `bridge/.run.pid`) so 388's red-dev routing is live; the
+  orchestrator is a launchd job, the dashboard is not, and `scripts/start.sh` refuses to start one
+  without the other. One launchd job for the dashboard would end that.
 - Two more findings from the 2026-09-11 reviews, both yours to weigh:
   (a) `bridge/orchestrator.js:152` calls `ensureRuntimeState(<repo root>)` at module load. Five
   files under `regression/` require the orchestrator, so every test process and every CI checkout

@@ -38,6 +38,21 @@ Nothing to build. Three things to do:
    when you build it: "run the full suite", "run npm test", "run the safety-net suite",
    "regenerate the locks". Contract wording is Patch 2d.
 
+## 2026-09-13: the first landing through the new code crashed the daemon; fix slice 393 is staged
+
+Jordan accepted 389 in 8 minutes; the landing first failed on the uncommitted rename work in the
+main tree (the precondition), and, after I stashed that work and restarted, the retry landed the
+commit (`556aaff`) and then crashed the daemon: `regenerateLocksAtLanding` (387's code) reads a
+`const` declared later in the file, and startup recovery calls it while the module is still
+loading. Nothing was recorded, so the ticket sat in ACCEPTED; launchd's restart then skipped the
+orphaned 390 build because the dashboard's `.approved` trash copy makes `isTerminal()` treat any
+approved slice as finished. I finished 389's bookkeeping by hand (register lines marked
+`manual_repair`, manifest regenerated, ticket archived), re-queued 390, and restarted the dashboard
+server so 388's routing is live. **Slice 393 (staged, core, high) fixes the four daemon faults in one
+go**: the load-order crash, the `.approved` blind spot, the frozen heartbeat after a verification
+failure, and BLOCKED-as-fake-work. Approve it after 391 and 390 have landed; it replaces the fix
+slice I asked for below.
+
 ## Two pipeline gaps seen on the first run (2026-09-11 evening), one small fix slice for you
 
 1. **A BLOCKED report is filed as fake work.** 388 was picked up the moment Jordan sent 387 back for
