@@ -73,6 +73,21 @@ Three things, all yours:
   dashboard/server.js`, new pid in `bridge/.run.pid`) so 388's red-dev routing is live; the
   orchestrator is a launchd job, the dashboard is not, and `scripts/start.sh` refuses to start one
   without the other. One launchd job for the dashboard would end that.
+- **2026-09-13 late, slice 390 (finished by hand; all six lane slices are now on dev).** Jordan's
+  round-2 verdict was correct and readable to a human but the daemon filed it `verdict_unreadable`
+  three times: his heredoc ended without the closing `---` fence, and `parseFrontmatter` returns
+  nothing without it. The retry loop then re-invoked Sam and Jordan five times in eight minutes
+  into a rate limit (five-hour window at 99%), crashed, and parked Sam's four commits as
+  `slice/390.dead`. I restored the branch, applied Jordan's one-command fix plus the assertion he
+  suggested, ran the 32 consumer files (275/275), and landed it through `squashSliceToDev` itself
+  (lane trailer, locks, re-filled report all correct on `d37eaec`). Three fixes for 393 or a
+  sibling: (1) `parseFrontmatter` should accept a block whose closing fence is missing at EOF, or
+  the verdict reader should fall back to the `**Verdict:**` line in the slice file's appended
+  review, which was intact both times; (2) the unreadable-retry loop must not re-dispatch under
+  `rate_limit_event.status: rejected`; (3) a landing invoked while a DONE file is present
+  re-triggers review, so `squashSliceToDev` callers should park the DONE first. Also seen: the
+  crew's `--effort max` reviews push the five-hour window to 98% by early evening on a
+  four-slice day; the lane trial (`--effort high` on surface) has yet to run once.
 - Two more findings from the 2026-09-11 reviews, both yours to weigh:
   (a) `bridge/orchestrator.js:152` calls `ensureRuntimeState(<repo root>)` at module load. Five
   files under `regression/` require the orchestrator, so every test process and every CI checkout
