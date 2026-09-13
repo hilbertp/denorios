@@ -139,18 +139,39 @@ function renderReport({ summary, failures }, failed, ts) {
 }
 
 // ── Render the routed handoff to O'Brien ────────────────────────────────────
-function renderObrienHandoff({ summary, failures }, ts) {
+/**
+ * renderObrienHandoff({ summary, failures }, ts, opts)
+ *
+ * opts is optional and, when absent, the output is byte-identical to what the local
+ * gate has always written to `REGRESSION-FAILURE.md` — that file is untouched by
+ * slice 388. With opts the same renderer serves the per-commit requests the dashboard
+ * files for a red dev CI run:
+ *   { persistent, sha, runUrl, note }
+ *   persistent — replaces the "auto-cleared on green" footer: these files name one
+ *                commit each and only Alex removes them.
+ *   sha/runUrl — name the commit and the run, because the reader is no longer standing
+ *                in front of the working tree that produced the failure.
+ *   note       — one line in place of a failure list we could not read (no artifact, or
+ *                a red run whose failing job was not this suite).
+ */
+function renderObrienHandoff({ summary, failures }, ts, opts) {
+  const o = opts || {};
   const lines = [];
   lines.push(`# 🔴 Regression FAILED — ${ts.slice(0, 10)} (from Bashir)`);
   lines.push('');
   lines.push('**From:** Bashir (QA Engineer)  ');
   lines.push('**To:** O\'Brien (Tech Lead)  ');
+  if (o.sha)    lines.push(`**Commit:** \`${String(o.sha).slice(0, 7)}\` on dev  `);
+  if (o.runUrl) lines.push(`**Run:** ${o.runUrl}  `);
   lines.push(`**Result:** ${failures.length} acceptance check(s) failing in \`regression/\`. **Do not promote to main until green.**`);
   lines.push('');
   lines.push('The dev branch regressed. Author fix slices for the failures below, then re-run the gate.');
   lines.push('');
   lines.push('## Failures');
   lines.push('');
+  if (o.note) {
+    lines.push(`- ${o.note}${o.runUrl ? `: ${o.runUrl}` : ''}`);
+  }
   for (const f of failures) {
     lines.push(`- **${f.slice ? `S${f.slice} AC ${f.ac}` : 'naming violation'}** — ${f.name}`);
     if (f.excerpt) {
@@ -162,7 +183,9 @@ function renderObrienHandoff({ summary, failures }, ts) {
   lines.push('## Next step');
   lines.push('For each failing slice id, cut a fix slice (amendment referencing that slice) addressing the assertion, then re-run the gate.');
   lines.push('');
-  lines.push('*Full report: `regression/LAST-RUN.md` · raw output: `bridge/state/regression-stdout.log`. This handoff is auto-cleared when regression goes green again.*');
+  lines.push(o.persistent
+    ? '*Alex removes this file when the fix slice is queued; a later green does not clear it.*'
+    : '*Full report: `regression/LAST-RUN.md` · raw output: `bridge/state/regression-stdout.log`. This handoff is auto-cleared when regression goes green again.*');
   lines.push('');
   return lines.join('\n');
 }
@@ -199,4 +222,9 @@ function main() {
   process.exit(failed ? 1 : 0);
 }
 
-main();
+// The entry point is guarded so the dashboard can require the parser and the renderer
+// (slice 388). Unguarded, `require('scripts/regression-report')` ran the whole suite and
+// then called process.exit inside the requiring process.
+if (require.main === module) main();
+
+module.exports = { parse, renderObrienHandoff, OBRIEN_INBOX };

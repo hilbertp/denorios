@@ -73,7 +73,13 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: regression-report
-          path: regression/LAST-RUN.md
+          # The raw runner output travels with the rendered report: the dashboard
+          # re-parses it to file a fix request naming the failing checks when a push
+          # to dev goes red (slice 388). Two paths, so the entries keep their
+          # repo-relative directories inside the artifact.
+          path: |
+            regression/LAST-RUN.md
+            bridge/state/regression-stdout.log
           if-no-files-found: ignore
 
   # ── Browser e2e (Playwright) — separate, heavier job; parallel to the unit gate. ──

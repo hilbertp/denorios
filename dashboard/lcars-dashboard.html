@@ -11789,6 +11789,11 @@ body:not(.lcars-mode) .staged-details-body pre code {
         pillEl.innerHTML = '<span class="ci-mini-pill warn">GATE ↻ running</span>';
       } else if (prStatus === 'failure') {
         pillEl.innerHTML = '<span class="ci-mini-pill err">GATE ✗ failed</span>';
+      } else if (ci && ci.state === 'failing') {
+        // Above "N ahead" since slice 388: a landed slice is exactly what makes dev ahead
+        // of main, so the ahead branch matched first and hid the red run that the landing
+        // push had just produced — the one state where the red matters most.
+        pillEl.innerHTML = '<span class="ci-mini-pill err">CI ✗ failing</span>';
       } else if (prStatus === 'idle' && ghAhead > 0) {
         const rr = gh.rr || null; // null-guard
         const score = rr && rr.score != null ? rr.score : null;
@@ -11802,8 +11807,6 @@ body:not(.lcars-mode) .staged-details-body pre code {
         pillEl.innerHTML = `<span class="ci-mini-pill ok">CI ✓ green${promoted ? ' · promoted' : ''}</span>`;
       } else if (ci.state === 'running') {
         pillEl.innerHTML = '<span class="ci-mini-pill warn">CI ↻ running</span>';
-      } else if (ci.state === 'failing') {
-        pillEl.innerHTML = '<span class="ci-mini-pill err">CI ✗ failing</span>';
       } else {
         pillEl.innerHTML = '';
       }
@@ -12099,7 +12102,15 @@ body:not(.lcars-mode) .staged-details-body pre code {
         dot = '#d97706';
         txt = `running…${runLbl}`;
       }
-      ciEl.innerHTML = `<span class="gflow-ci-dot" style="background:${dot}"></span>Per-push checks (ci.yml): ${txt}`;
+      // Slice 388: a red per-push run files its own fix request in Alex's inbox. Read it
+      // from ci.fix_request, never from state === 'failing' — a cancelled run reads as
+      // failing and files nothing, and pointing at an inbox file that isn't there is
+      // worse than saying nothing.
+      const fr = ci && ci.fix_request ? ci.fix_request : null;
+      const frTxt = fr
+        ? `<span data-ci-fix-request="${fr.sha7}"> &middot; ${fr.sha7} &middot; fix request in Alex's inbox</span>`
+        : '';
+      ciEl.innerHTML = `<span class="gflow-ci-dot" style="background:${dot}"></span>Per-push checks (ci.yml): ${txt}${frTxt}`;
     }
 
     if (cap) {

@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 595,
+  "guardCount": 610,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -762,6 +762,31 @@
         "guardAcHash": "sha256:3cafcbc471845befc6a9decfa74138632bfbecb023461622a5792d5a539d7a6c"
       },
       {
+        "tag": "slice-388-ac-1",
+        "file": "regression/observability/j-red-dev-files-fix-request.test.js",
+        "guardAcHash": "sha256:20fd87192e8a06128b4abed94bbf758cb9f3079b55e4e4420c9a7f361ecc1532"
+      },
+      {
+        "tag": "slice-388-ac-2",
+        "file": "regression/observability/j-red-dev-files-fix-request.test.js",
+        "guardAcHash": "sha256:ef9fab7649933dbc1eadf4f2c4a66b89187a0a62362d09d30d62e33842dad348"
+      },
+      {
+        "tag": "slice-388-ac-3",
+        "file": "regression/observability/j-red-dev-files-fix-request.test.js",
+        "guardAcHash": "sha256:0e189ca08f74f69f7923a0835469d56b12fa2572dbc9f7883b2fe3970e1b9287"
+      },
+      {
+        "tag": "slice-388-ac-4",
+        "file": "regression/observability/j-red-dev-files-fix-request.test.js",
+        "guardAcHash": "sha256:3c018e7ce2c9fbb8d06fe87eda5704dca725f0e290c4e5eb891b9030bfdb680d"
+      },
+      {
+        "tag": "slice-388-ac-5",
+        "file": "regression/observability/j-red-dev-files-fix-request.test.js",
+        "guardAcHash": "sha256:49542b434b4aa376a09f984d7a4566d1ac33624fb26b071b8aad712f46b92941"
+      },
+      {
         "tag": "slice-99777-ac-1",
         "file": "regression/observability/j-watch-slice-live-log.test.js"
       },
@@ -1245,6 +1270,31 @@
         "tag": "slice-386-ac-5",
         "file": "regression/orchestrator/j-report-metrics-filled.test.js",
         "guardAcHash": "sha256:2082cf7e2fefcbaa51544ee52b6b3677914d4139db749a8dbcb776cd9f695aa4"
+      },
+      {
+        "tag": "slice-388-ac-1",
+        "file": "regression/observability/j-red-dev-files-fix-request.test.js",
+        "guardAcHash": "sha256:20fd87192e8a06128b4abed94bbf758cb9f3079b55e4e4420c9a7f361ecc1532"
+      },
+      {
+        "tag": "slice-388-ac-2",
+        "file": "regression/observability/j-red-dev-files-fix-request.test.js",
+        "guardAcHash": "sha256:ef9fab7649933dbc1eadf4f2c4a66b89187a0a62362d09d30d62e33842dad348"
+      },
+      {
+        "tag": "slice-388-ac-3",
+        "file": "regression/observability/j-red-dev-files-fix-request.test.js",
+        "guardAcHash": "sha256:0e189ca08f74f69f7923a0835469d56b12fa2572dbc9f7883b2fe3970e1b9287"
+      },
+      {
+        "tag": "slice-388-ac-4",
+        "file": "regression/observability/j-red-dev-files-fix-request.test.js",
+        "guardAcHash": "sha256:3c018e7ce2c9fbb8d06fe87eda5704dca725f0e290c4e5eb891b9030bfdb680d"
+      },
+      {
+        "tag": "slice-388-ac-5",
+        "file": "regression/observability/j-red-dev-files-fix-request.test.js",
+        "guardAcHash": "sha256:49542b434b4aa376a09f984d7a4566d1ac33624fb26b071b8aad712f46b92941"
       },
       {
         "tag": "slice-901-ac-1",
@@ -2605,6 +2655,33 @@
         "guardAcHash": "sha256:40a9dbadf30897d7501a560471d821a4e47cde70a7c6c7a63e1e7d4eadd5ab5f"
       }
     ],
+    "regression/observability/j-red-dev-files-fix-request.test.js": [
+      {
+        "tag": "slice-388-ac-1",
+        "file": "regression/observability/j-red-dev-files-fix-request.test.js",
+        "guardAcHash": "sha256:20fd87192e8a06128b4abed94bbf758cb9f3079b55e4e4420c9a7f361ecc1532"
+      },
+      {
+        "tag": "slice-388-ac-2",
+        "file": "regression/observability/j-red-dev-files-fix-request.test.js",
+        "guardAcHash": "sha256:ef9fab7649933dbc1eadf4f2c4a66b89187a0a62362d09d30d62e33842dad348"
+      },
+      {
+        "tag": "slice-388-ac-3",
+        "file": "regression/observability/j-red-dev-files-fix-request.test.js",
+        "guardAcHash": "sha256:0e189ca08f74f69f7923a0835469d56b12fa2572dbc9f7883b2fe3970e1b9287"
+      },
+      {
+        "tag": "slice-388-ac-4",
+        "file": "regression/observability/j-red-dev-files-fix-request.test.js",
+        "guardAcHash": "sha256:3c018e7ce2c9fbb8d06fe87eda5704dca725f0e290c4e5eb891b9030bfdb680d"
+      },
+      {
+        "tag": "slice-388-ac-5",
+        "file": "regression/observability/j-red-dev-files-fix-request.test.js",
+        "guardAcHash": "sha256:49542b434b4aa376a09f984d7a4566d1ac33624fb26b071b8aad712f46b92941"
+      }
+    ],
     "regression/observability/j-s-numbering-retirement.test.js": [
       {
         "tag": "slice-350-ac-1",
@@ -3058,6 +3135,31 @@
         "tag": "slice-350-ac-1",
         "file": "regression/observability/j-s-numbering-retirement.test.js",
         "guardAcHash": "sha256:f1aedeee46ff306b61d631f636ff511524e8b437262aba9e8f6ea72fdf96f0d1"
+      },
+      {
+        "tag": "slice-388-ac-1",
+        "file": "regression/observability/j-red-dev-files-fix-request.test.js",
+        "guardAcHash": "sha256:20fd87192e8a06128b4abed94bbf758cb9f3079b55e4e4420c9a7f361ecc1532"
+      },
+      {
+        "tag": "slice-388-ac-2",
+        "file": "regression/observability/j-red-dev-files-fix-request.test.js",
+        "guardAcHash": "sha256:ef9fab7649933dbc1eadf4f2c4a66b89187a0a62362d09d30d62e33842dad348"
+      },
+      {
+        "tag": "slice-388-ac-3",
+        "file": "regression/observability/j-red-dev-files-fix-request.test.js",
+        "guardAcHash": "sha256:0e189ca08f74f69f7923a0835469d56b12fa2572dbc9f7883b2fe3970e1b9287"
+      },
+      {
+        "tag": "slice-388-ac-4",
+        "file": "regression/observability/j-red-dev-files-fix-request.test.js",
+        "guardAcHash": "sha256:3c018e7ce2c9fbb8d06fe87eda5704dca725f0e290c4e5eb891b9030bfdb680d"
+      },
+      {
+        "tag": "slice-388-ac-5",
+        "file": "regression/observability/j-red-dev-files-fix-request.test.js",
+        "guardAcHash": "sha256:49542b434b4aa376a09f984d7a4566d1ac33624fb26b071b8aad712f46b92941"
       }
     ],
     "scripts/test-drift.js": [

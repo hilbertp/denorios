@@ -129,7 +129,8 @@ const VOLATILE_PREFIXES = ['bridge/trash/'];
 // bridge/state/approval-secret is the HMAC key for approval stamps: minted on
 // first use, never seeded (a fixed seed is not a secret) and never committed.
 const VOLATILE_EXTRA = ['bridge/.usage-snapshot.json', 'bridge/register.jsonl',
-                        'bridge/state/approval-secret', 'bridge/state/approval-cutover.json'];
+                        'bridge/state/approval-secret', 'bridge/state/approval-cutover.json',
+                        'bridge/state/dev-suite.json'];
 
 // bridge/trash/ holds two populations. Nearly all of it is volatile markers the
 // pipeline sweeps aside — `nog-active.json.done`, `slice.md.replaced`,

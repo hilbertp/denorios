@@ -89,6 +89,10 @@ regression/_test_pass_suite/
 # Bashir's generated regression report + the auto-routed O'Brien handoff (regenerated every gate run)
 regression/LAST-RUN.md
 .claude/roles/obrien/inbox/REGRESSION-FAILURE.md
+# The per-commit fix requests a red dev CI run files for itself, and the once-per-sha
+# ledger that keeps one run from filing twice (slice 388). Runtime state, not source.
+bridge/state/dev-suite.json
+.claude/roles/obrien/inbox/REGRESSION-FAILURE-dev-*.md
 
 # Playwright e2e artifacts (generated)
 node_modules

@@ -492,7 +492,7 @@ function _getGitTips() {
 function _getGhCi() {
   const now = Date.now();
   if (_ghCiCache.fetchedAt > 0 && now - _ghCiCache.fetchedAt < GH_TTL_MS) {
-    return _ghCiCache.value;
+    return withDevSuiteFixRequest(_ghCiCache.value, DEV_SUITE_STATE);
   }
   let result = null;
   try {
@@ -508,12 +508,185 @@ function _getGhCi() {
       else if (run.conclusion === 'success') state = 'passing';
       else if (run.conclusion === 'failure' || run.conclusion === 'cancelled') state = 'failing';
       else state = 'unknown';
-      result = { state, run_number: run.number, run_id: run.databaseId ?? null,
+      // status/conclusion ride along raw (slice 388): `state` folds cancelled in with
+      // failure, and a cancelled run is not a regression to file a fix request for.
+      result = { state, status: run.status || null, conclusion: run.conclusion ?? null,
+                 run_number: run.number, run_id: run.databaseId ?? null,
                  url: run.url, head_sha: run.headSha, updated_at: run.updatedAt || null };
     }
   } catch (_) { /* gh not installed or not authenticated — non-fatal */ }
   _ghCiCache = { value: result, fetchedAt: now };
-  return result;
+  // Route off the poll, never inside the request that triggered it: the artifact
+  // download costs seconds. Armed only by the started server (startDevSuiteRouting).
+  if (_devSuiteArmed) setImmediate(() => { try { routeDevSuiteRun({ run: result }); } catch (_) {} });
+  return withDevSuiteFixRequest(result, DEV_SUITE_STATE);
+}
+
+// ── A red dev is its own fix request (slice 388) ─────────────────────────────
+// GitHub has always run the safety-net suite on every push to dev, and nothing acted
+// on the result: the report went into an artifact, the panel went red, and the only
+// route into Alex's inbox was a LOCAL gate press. So the suite kept being re-run by
+// hand — six times in one builder session on slice 383 — to learn what a run that had
+// already happened already knew. Now the server reads that run and files the request.
+//
+// The work is a pure function of one run object plus four injected seams, so the
+// behaviour is testable with a fake run, a fake download and no `gh` at all.
+const DEV_SUITE_STATE = path.join(REPO_ROOT, 'bridge', 'state', 'dev-suite.json');
+
+// Armed by startDevSuiteRouting() from the require.main block only. Four test files
+// require this module and one calls buildBridgeData(); requiring it must never poll,
+// download or write — the register path is not redirectable.
+let _devSuiteArmed = false;
+let _devSuiteTimer = null;
+
+function readDevSuiteState(stateFile) {
+  try {
+    const v = JSON.parse(fs.readFileSync(stateFile || DEV_SUITE_STATE, 'utf8'));
+    return (v && typeof v === 'object') ? v : {};
+  } catch (_) { return {}; }  // absent or unreadable — nothing has been routed yet
+}
+
+/**
+ * withDevSuiteFixRequest(ci, stateFile) → ci
+ *
+ * Overlays `fix_request` on the ci object the panel reads. Overlaid at READ time, not
+ * at cache time: the routing runs on a setImmediate after the poll is already cached,
+ * so a value frozen into the cache would advertise the request only on the next poll.
+ * A null ci (no `gh`) stays null — the panel behaves exactly as it did before.
+ */
+function withDevSuiteFixRequest(ci, stateFile) {
+  if (!ci) return ci;
+  const st = readDevSuiteState(stateFile);
+  return { ...ci, fix_request: st.fix_request || null };
+}
+
+// The artifact used to hold one file at its root. With two paths, upload-artifact keeps
+// each entry's directory relative to their common ancestor, so LAST-RUN.md moved down
+// into regression/. Both layouts are looked for: artifacts from before slice 388 are
+// still on the newest runs for a while.
+function _artifactFile(dir, candidates) {
+  for (const rel of candidates) {
+    const f = path.join(dir, ...rel.split('/'));
+    if (fs.existsSync(f)) return f;
+  }
+  return null;
+}
+
+const STDOUT_LOG_IN_ARTIFACT = ['bridge/state/regression-stdout.log', 'regression-stdout.log'];
+const LAST_RUN_IN_ARTIFACT   = ['regression/LAST-RUN.md', 'LAST-RUN.md'];
+
+/** The raw `node --test` output of one run, or null when the artifact has none. */
+function downloadDevSuiteLog(run) {
+  if (!run || run.run_id == null) return null;
+  let dir = null;
+  try {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dev-suite-'));
+    execFileSync('gh', ['run', 'download', String(run.run_id), '-n', 'regression-report', '-D', dir],
+      { cwd: REPO_ROOT, encoding: 'utf8', timeout: 30000, stdio: ['ignore', 'pipe', 'ignore'] });
+    const f = _artifactFile(dir, STDOUT_LOG_IN_ARTIFACT);
+    return f ? fs.readFileSync(f, 'utf8') : null;
+  } catch (_) {
+    return null;  // gh missing, unauthenticated, artifact expired — the same quiet way
+  } finally {
+    if (dir) { try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {} }
+  }
+}
+
+/**
+ * routeDevSuiteRun({ run, downloadArtifact, stateFile, inboxDir, writeRegisterEvent })
+ *   → { colour, sha7, file } | null
+ *
+ * One attempt per commit, for both colours, however many times the dashboard polls: the
+ * state file records the last routed sha and its verdict, and the sha is recorded whether
+ * or not the download worked, so nothing is ever retried.
+ *
+ * A red run files `REGRESSION-FAILURE-dev-<sha7>.md` in Alex's inbox and appends
+ * DEV_SUITE_RED. A green run on a newer commit appends DEV_SUITE_GREEN and clears the
+ * pointer the panel reads — but never the file: Alex removes that when the fix slice is
+ * queued. Anything else (a cancelled run, a run still going) routes nothing at all.
+ */
+function routeDevSuiteRun(opts) {
+  const o = opts || {};
+  const run       = o.run || null;
+  const stateFile = o.stateFile || DEV_SUITE_STATE;
+  const emit      = o.writeRegisterEvent || writeRegisterEvent;
+  const download  = o.downloadArtifact || downloadDevSuiteLog;
+
+  if (!run || run.status !== 'completed') return null;
+  const conclusion = run.conclusion || null;
+  if (conclusion !== 'failure' && conclusion !== 'success') return null;
+
+  const sha = String(run.head_sha || '');
+  if (!sha) return null;
+  if (readDevSuiteState(stateFile).last_sha === sha) return null;  // already routed
+
+  const sha7  = sha.slice(0, 7);
+  const runId = run.run_id ?? null;
+  const url   = run.url || null;
+
+  if (conclusion === 'success') {
+    _writeDevSuiteState(stateFile, { last_sha: sha, last_state: 'passing', fix_request: null });
+    emit({ event: 'DEV_SUITE_GREEN', sha, run_id: runId, url });
+    return { colour: 'green', sha7, file: null };
+  }
+
+  // Red. The failing names come from re-parsing the run's own raw output; when we cannot
+  // read it the request still goes out, because "open the run" beats no request at all.
+  const { parse, renderObrienHandoff, OBRIEN_INBOX } = require(path.join(REPO_ROOT, 'scripts', 'regression-report'));
+  let log = null;
+  try { log = download(run); } catch (_) { log = null; }
+
+  let parsed = { summary: {}, failures: [] };
+  let note = null;
+  if (!log || !String(log).trim()) {
+    note = 'artifact unavailable; open the run';
+  } else {
+    parsed = parse(String(log));
+    // Red with nothing failing in THIS suite: another job in the run broke (a dispatched
+    // browser job, an install step). Don't hand Alex an empty list and call it a report.
+    if (!parsed.failures.length) note = 'another job in this run failed; open the run';
+  }
+  const failing = parsed.failures.map(f => f.name);
+
+  const file    = `REGRESSION-FAILURE-dev-${sha7}.md`;
+  const inboxDir = o.inboxDir || OBRIEN_INBOX;
+  let filed = null;
+  try {
+    fs.mkdirSync(inboxDir, { recursive: true });
+    fs.writeFileSync(path.join(inboxDir, file),
+      renderObrienHandoff(parsed, new Date().toISOString(), { persistent: true, sha, runUrl: url, note }));
+    filed = { sha7, file };
+  } catch (_) { /* an unwritable inbox must not break the panel; the event still lands */ }
+
+  _writeDevSuiteState(stateFile, { last_sha: sha, last_state: 'failing', fix_request: filed });
+  emit({ event: 'DEV_SUITE_RED', sha, run_id: runId, url, failing });
+  return { colour: 'red', sha7, file: filed ? file : null };
+}
+
+function _writeDevSuiteState(stateFile, state) {
+  try {
+    fs.mkdirSync(path.dirname(stateFile), { recursive: true });
+    fs.writeFileSync(stateFile, JSON.stringify({ ...state, ts: new Date().toISOString() }, null, 2) + '\n');
+  } catch (_) { /* unwritable state file: the once-per-sha guard degrades, nothing breaks */ }
+}
+
+/**
+ * startDevSuiteRouting() → timer | null
+ *
+ * Called from the require.main block and nowhere else. Arms the post-poll routing and an
+ * unref'd heartbeat, so a red run is routed within a minute whether or not an Ops tab is
+ * open — without it, routing would only ever happen while somebody was watching.
+ */
+function startDevSuiteRouting() {
+  if (_devSuiteArmed) return _devSuiteTimer;
+  _devSuiteArmed = true;
+  const tick = () => setImmediate(() => {
+    try { routeDevSuiteRun({ run: _getGhCi() }); } catch (_) {}
+  });
+  _devSuiteTimer = setInterval(tick, GH_TTL_MS);
+  _devSuiteTimer.unref();  // never hold the process open
+  tick();
+  return _devSuiteTimer;
 }
 
 // The regression report that reflects the ACTUAL latest GATE run. Both ci.yml
@@ -584,8 +757,10 @@ function getGitHubRegressionReport() {
       // Artifacts exist only once a run finished uploading; on miss this throws → next candidate.
       execFileSync('gh', ['run', 'download', String(run.run_id), '-n', 'regression-report', '-D', dir],
         { cwd: REPO_ROOT, encoding: 'utf8', timeout: 30000, stdio: ['ignore', 'pipe', 'ignore'] });
-      const f = path.join(dir, 'LAST-RUN.md');
-      if (fs.existsSync(f)) {
+      // Slice 388 added a second path to the artifact, which pushed this entry down into
+      // regression/; both layouts are accepted so runs from either side still report.
+      const f = _artifactFile(dir, LAST_RUN_IN_ARTIFACT);
+      if (f) {
         const markdown = fs.readFileSync(f, 'utf8');
         const first = markdown.split('\n')[0];
         const status = /🔴|—\s*FAIL/.test(first) ? 'fail'
@@ -4172,6 +4347,8 @@ if (require.main === module) {
   server.listen(PORT, HOST, () => {
     console.log(`LCARS dashboard server running at http://${HOST}:${PORT}`);
   });
+  // Only the started server routes a red dev run (slice 388).
+  startDevSuiteRouting();
 }
 
-module.exports = { getPinnedClassification, getTestChanges, getTestsNeeded, mergeLockRefusal, buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, STALE_DONE_DAYS, deriveHistoryOutcome, deriveReviewStatus, authoringStateFor, draftDetailFor, lineDiff, liveGuardsForTag, kickOffAuthoring, createRevertCommit, resolveSquashSha, mapPromotePhases, parseGateFailures, isFreshPromoteCompletion, isReconciling, _promoteTtlMs };
+module.exports = { routeDevSuiteRun, startDevSuiteRouting, withDevSuiteFixRequest, readDevSuiteState, DEV_SUITE_STATE, getPinnedClassification, getTestChanges, getTestsNeeded, mergeLockRefusal, buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, STALE_DONE_DAYS, deriveHistoryOutcome, deriveReviewStatus, authoringStateFor, draftDetailFor, lineDiff, liveGuardsForTag, kickOffAuthoring, createRevertCommit, resolveSquashSha, mapPromotePhases, parseGateFailures, isFreshPromoteCompletion, isReconciling, _promoteTtlMs };

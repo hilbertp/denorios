@@ -2561,6 +2561,19 @@ function buildDoneTemplate({ id, worktreeDonePath, sliceBranch, sliceContent }) 
     '',
     'Leave tokens_in, tokens_out and elapsed_ms at 0; the orchestrator fills them from the session. estimated_human_hours is optional: your honest guess of how long a skilled human would take, or 0. compaction_occurred is true only if your context was compacted mid-session.',
     '- completed: must be full ISO 8601 UTC datetime (e.g. "2026-04-12T01:22:40.000Z"), never date-only',
+    // Four lines, and no brief can override them (slice 388). On slice 383 the full
+    // safety-net suite ran six times inside one session — 4.9 of 16.3 minutes, four of
+    // those repeats spent hunting skipped-test names for one sentence of the report.
+    // Machines run suites; agents do not (ADR-PROOF-LANES). GitHub runs the suite on the
+    // push that lands the slice, and a red run files its own fix request in Alex's inbox,
+    // so nothing is lost by taking the suite off him.
+    '',
+    '## What you run',
+    '',
+    '- Run only the test file you wrote, as often as you like.',
+    '- Never run the full safety-net suite (`npm test`, `node --test regression/**`) and never the browser suite.',
+    '- GitHub runs the safety-net suite when your slice lands on dev; if it goes red, Alex gets a fix request.',
+    '- Do not chase suite numbers for your report; the report has no suite section.',
     ...hashSection,
     '',
     'Put the matching line beside the tag in each safety-net test you write. Do not run build-coverage-map or build-ac-manifest and do not edit regression/*.lock; the pipeline regenerates them when the slice lands. Stage your report with `git add -f bridge/queue/' + id + '-DONE.md`.',
