@@ -1,7 +1,7 @@
 {
   "generator": "scripts/build-ac-manifest.js",
   "acCount": 305,
-  "legacyCount": 251,
+  "legacyCount": 260,
   "byTag": {
     "slice-042-ac-1": {
       "slice": "042",
@@ -533,43 +533,43 @@
     },
     "slice-357-ac-1": {
       "slice": "357",
-      "text": "a newly authored draft carries a coverage annotation in the exact form the coverage map deriver recognises",
-      "acHash": "sha256:7ec02336cea12356cb363c89ac2d0f0c2dedf8272cc2021895f938c4475bfa25",
-      "source": "commit-trailer",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
       "status": "active",
-      "legacy": false
+      "legacy": true
     },
     "slice-357-ac-2": {
       "slice": "357",
-      "text": "a draft is written only with an extension that both the suite runner and the coverage walker pick up",
-      "acHash": "sha256:869bdb9872f7442675f87546ba41d74bff4f1376072cf9b10237a8e05b9a969e",
-      "source": "commit-trailer",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
       "status": "active",
-      "legacy": false
+      "legacy": true
     },
     "slice-357-ac-3": {
       "slice": "357",
-      "text": "every draft declares whether it is a new guard or replaces a named existing guard",
-      "acHash": "sha256:9edee92e268d598690b9d97ef7f6eecfe2b47bc7c47e8b3d142fa4378a616c41",
-      "source": "commit-trailer",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
       "status": "active",
-      "legacy": false
+      "legacy": true
     },
     "slice-357-ac-4": {
       "slice": "357",
-      "text": "a guard test fails if any draft in the drafts directory violates the contract, and passes when the directory is empty",
-      "acHash": "sha256:0089213c6da962578b26e8df343977c73536361f3eeb8477ce34db062d64419e",
-      "source": "commit-trailer",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
       "status": "active",
-      "legacy": false
+      "legacy": true
     },
     "slice-357-ac-5": {
       "slice": "357",
-      "text": "the authoring agent's model and effort come from configuration rather than being hardcoded",
-      "acHash": "sha256:1e6fe4552f48c95b862a3eff68039bf245ad516e4dbf0ae348042c649f80b1e8",
-      "source": "commit-trailer",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
       "status": "active",
-      "legacy": false
+      "legacy": true
     },
     "slice-361-ac-1": {
       "slice": "361",
@@ -1133,35 +1133,35 @@
     },
     "slice-382-ac-1": {
       "slice": "382",
-      "text": "the first operations panel is titled \"QA and Branches\", naming what the panel shows rather than a job function",
-      "acHash": "sha256:85399f6f32a32b58829c58103339e5144eeac4b7dadd9285cb5c6feb7c885fae",
-      "source": "commit-trailer",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
       "status": "active",
-      "legacy": false
+      "legacy": true
     },
     "slice-382-ac-2": {
       "slice": "382",
-      "text": "the accessible labels for the panel and its collapsed state use the same name as the visible title",
-      "acHash": "sha256:43a4e9422dac2f00fe2d6a10b77e1d6b1713af71d5bc39c0c168494744760f5e",
-      "source": "commit-trailer",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
       "status": "active",
-      "legacy": false
+      "legacy": true
     },
     "slice-382-ac-3": {
       "slice": "382",
-      "text": "the owner chip and the lore tag are unchanged, and no class name, element id or data-role attribute is renamed",
-      "acHash": "sha256:f85eadb21aea4b541ea827bcf39de5c9d53fc46068acb63ba93bda18172dd4d7",
-      "source": "commit-trailer",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
       "status": "active",
-      "legacy": false
+      "legacy": true
     },
     "slice-382-ac-4": {
       "slice": "382",
-      "text": "the acceptance criterion that pinned the previous name states the new name, carried by the authorised change declaration",
-      "acHash": "sha256:055a0fc4119fba6811aab051a56322ce993936f63fbb64b95377ee7eed8f4d72",
-      "source": "commit-trailer",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
       "status": "active",
-      "legacy": false
+      "legacy": true
     },
     "slice-383-ac-1": {
       "slice": "383",
