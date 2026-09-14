@@ -73,6 +73,20 @@ Three things, all yours:
   dashboard/server.js`, new pid in `bridge/.run.pid`) so 388's red-dev routing is live; the
   orchestrator is a launchd job, the dashboard is not, and `scripts/start.sh` refuses to start one
   without the other. One launchd job for the dashboard would end that.
+- **2026-09-14 evening, three more for the fix list, in priority order.** (1) The verdict-fence
+  fault has now cost a round three times in two days (390 twice, 358 once, an ACCEPTED verdict
+  lost the third time): `parseFrontmatter` returns nothing when Jordan's heredoc omits the closing
+  `---`. Accept a block whose closing fence is missing at EOF, or fall back to the `**Verdict:**`
+  line in the appended review, which was intact every time. I rank this above the buffer now.
+  (2) `depsAreMet` accepts only a `MERGED` event, but slices that landed before the daemon began
+  emitting MERGED after landings (357, 6 September) carry only SLICE_SQUASHED_TO_DEV, so 359
+  waited on 357 forever; I recorded a `manual_repair` MERGED for 357 to release it. The gate
+  should accept any of the TERMINAL_LANDED_EVENTS, or read git (`git merge-base --is-ancestor`).
+  (3) A landing invoked while a `-DONE.md` sits in the queue re-triggers Jordan (hit twice today);
+  the DONE should be parked before the squash, or the evaluator should skip a slice whose branch is
+  already an ancestor of dev. Good news from the same day: 363 and 358 landed, 358 after a real
+  merge round against 363 (same server file), and 395's fold of the archive rename into the landing
+  commit is live, so there was no nameless bookkeeping node.
 - **2026-09-14 afternoon: two builds killed by the output buffer, hotfix on dev, restart done.**
   Slices 358 (28 min, 30 edits) and 363 (24 min, 688 lines) were both terminated by `execFile`'s
   10 MB `maxBuffer` once they read dashboard screenshots into the session
