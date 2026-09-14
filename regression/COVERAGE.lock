@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 682,
+  "guardCount": 698,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -511,6 +511,26 @@
         "guardAcHash": "sha256:68e7ab63970fce4a81c5c30dce79fc4532b1aef6efe0dd3c57cbb81a8d71cac9"
       },
       {
+        "tag": "slice-392-ac-1",
+        "file": "regression/observability/j-build-timing.test.js",
+        "guardAcHash": "sha256:3f5dd727b3f0c982e825f4871aa2190695533d6809d156e8efa0612c6c0e586e"
+      },
+      {
+        "tag": "slice-392-ac-2",
+        "file": "regression/observability/j-build-timing.test.js",
+        "guardAcHash": "sha256:150607341e56f9be7e2e0b258063160f12ec25c09a80ea5063c416da6b5e00f0"
+      },
+      {
+        "tag": "slice-392-ac-3",
+        "file": "regression/observability/j-build-timing.test.js",
+        "guardAcHash": "sha256:deff2b4a6009ddb52e1c38f8e807c2364f89ce3b67cbc621086cacca024d248a"
+      },
+      {
+        "tag": "slice-392-ac-4",
+        "file": "regression/observability/j-build-timing.test.js",
+        "guardAcHash": "sha256:b65a2435afed2c31dc55424550351017f3d0a9e3b20e5699aad5710c48aee480"
+      },
+      {
         "tag": "slice-393-ac-1",
         "file": "regression/dispatch-execution/j-daemon-survives-recovery.test.js",
         "guardAcHash": "sha256:fce4b2a465a9140d721df2ad76755a2ef2a61c6a69979c907dadc40c3875071b"
@@ -912,6 +932,26 @@
         "tag": "slice-390-ac-5",
         "file": "regression/gate-merge/j-gate-lanes.test.js",
         "guardAcHash": "sha256:7e4d4e7f317ed3e0e3eb0dc1a20625c8a383898250ed3c0801d7fc3b6766cb0c"
+      },
+      {
+        "tag": "slice-392-ac-1",
+        "file": "regression/observability/j-build-timing.test.js",
+        "guardAcHash": "sha256:3f5dd727b3f0c982e825f4871aa2190695533d6809d156e8efa0612c6c0e586e"
+      },
+      {
+        "tag": "slice-392-ac-2",
+        "file": "regression/observability/j-build-timing.test.js",
+        "guardAcHash": "sha256:150607341e56f9be7e2e0b258063160f12ec25c09a80ea5063c416da6b5e00f0"
+      },
+      {
+        "tag": "slice-392-ac-3",
+        "file": "regression/observability/j-build-timing.test.js",
+        "guardAcHash": "sha256:deff2b4a6009ddb52e1c38f8e807c2364f89ce3b67cbc621086cacca024d248a"
+      },
+      {
+        "tag": "slice-392-ac-4",
+        "file": "regression/observability/j-build-timing.test.js",
+        "guardAcHash": "sha256:b65a2435afed2c31dc55424550351017f3d0a9e3b20e5699aad5710c48aee480"
       },
       {
         "tag": "slice-99777-ac-1",
@@ -1457,6 +1497,26 @@
         "tag": "slice-391-ac-2",
         "file": "regression/dispatch-execution/j-untracked-runtime-state.test.js",
         "guardAcHash": "sha256:68e7ab63970fce4a81c5c30dce79fc4532b1aef6efe0dd3c57cbb81a8d71cac9"
+      },
+      {
+        "tag": "slice-392-ac-1",
+        "file": "regression/observability/j-build-timing.test.js",
+        "guardAcHash": "sha256:3f5dd727b3f0c982e825f4871aa2190695533d6809d156e8efa0612c6c0e586e"
+      },
+      {
+        "tag": "slice-392-ac-2",
+        "file": "regression/observability/j-build-timing.test.js",
+        "guardAcHash": "sha256:150607341e56f9be7e2e0b258063160f12ec25c09a80ea5063c416da6b5e00f0"
+      },
+      {
+        "tag": "slice-392-ac-3",
+        "file": "regression/observability/j-build-timing.test.js",
+        "guardAcHash": "sha256:deff2b4a6009ddb52e1c38f8e807c2364f89ce3b67cbc621086cacca024d248a"
+      },
+      {
+        "tag": "slice-392-ac-4",
+        "file": "regression/observability/j-build-timing.test.js",
+        "guardAcHash": "sha256:b65a2435afed2c31dc55424550351017f3d0a9e3b20e5699aad5710c48aee480"
       },
       {
         "tag": "slice-901-ac-1",
@@ -2057,6 +2117,28 @@
       {
         "tag": "slice-99823-ac-6",
         "file": "regression/gate-merge/j-tests-needed-self-lock.test.js"
+      }
+    ],
+    "lib/build-timing.js": [
+      {
+        "tag": "slice-392-ac-1",
+        "file": "regression/observability/j-build-timing.test.js",
+        "guardAcHash": "sha256:3f5dd727b3f0c982e825f4871aa2190695533d6809d156e8efa0612c6c0e586e"
+      },
+      {
+        "tag": "slice-392-ac-2",
+        "file": "regression/observability/j-build-timing.test.js",
+        "guardAcHash": "sha256:150607341e56f9be7e2e0b258063160f12ec25c09a80ea5063c416da6b5e00f0"
+      },
+      {
+        "tag": "slice-392-ac-3",
+        "file": "regression/observability/j-build-timing.test.js",
+        "guardAcHash": "sha256:deff2b4a6009ddb52e1c38f8e807c2364f89ce3b67cbc621086cacca024d248a"
+      },
+      {
+        "tag": "slice-392-ac-4",
+        "file": "regression/observability/j-build-timing.test.js",
+        "guardAcHash": "sha256:b65a2435afed2c31dc55424550351017f3d0a9e3b20e5699aad5710c48aee480"
       }
     ],
     "lib/check-test-updates.js": [
@@ -3075,6 +3157,28 @@
         "tag": "slice-365-ac-3",
         "file": "regression/gate-merge/j-unrun-test-dir.test.js",
         "guardAcHash": "sha256:40a9dbadf30897d7501a560471d821a4e47cde70a7c6c7a63e1e7d4eadd5ab5f"
+      }
+    ],
+    "regression/observability/j-build-timing.test.js": [
+      {
+        "tag": "slice-392-ac-1",
+        "file": "regression/observability/j-build-timing.test.js",
+        "guardAcHash": "sha256:3f5dd727b3f0c982e825f4871aa2190695533d6809d156e8efa0612c6c0e586e"
+      },
+      {
+        "tag": "slice-392-ac-2",
+        "file": "regression/observability/j-build-timing.test.js",
+        "guardAcHash": "sha256:150607341e56f9be7e2e0b258063160f12ec25c09a80ea5063c416da6b5e00f0"
+      },
+      {
+        "tag": "slice-392-ac-3",
+        "file": "regression/observability/j-build-timing.test.js",
+        "guardAcHash": "sha256:deff2b4a6009ddb52e1c38f8e807c2364f89ce3b67cbc621086cacca024d248a"
+      },
+      {
+        "tag": "slice-392-ac-4",
+        "file": "regression/observability/j-build-timing.test.js",
+        "guardAcHash": "sha256:b65a2435afed2c31dc55424550351017f3d0a9e3b20e5699aad5710c48aee480"
       }
     ],
     "regression/observability/j-red-dev-files-fix-request.test.js": [

@@ -2536,6 +2536,15 @@ function buildBridgeData() {
         costUsd:     ev.costUsd     ?? null,
         completedAt: ev.ts          ?? null,
         reason:      ev.reason     ?? null,
+        // Where the run's minutes went (slice 392) — carried through under the
+        // register event's own names so the History row's detail and the
+        // sidecar next to the log read as the same measurement. Null on every
+        // slice that finished before the orchestrator started attributing, and
+        // on any run whose attribution failed; the detail shows nothing new for
+        // those rows.
+        phases:               ev.phases               ?? null,
+        first_product_edit_s: ev.first_product_edit_s ?? null,
+        calls:                ev.calls                ?? null,
       };
       if (ev.event === 'DONE') {
         economics.totalTokensIn  += ev.tokensIn  ?? 0;

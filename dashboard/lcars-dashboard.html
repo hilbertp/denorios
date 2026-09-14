@@ -3185,6 +3185,44 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* Where the minutes went (slice 392) — one row per phase, longest first, with
+     a bar so the shape of a build reads before any of its numbers do. */
+  .phase-split-line {
+    display: grid;
+    grid-template-columns: 96px 1fr 62px 44px 62px;
+    align-items: center;
+    gap: 10px;
+    padding: 3px 0;
+    font-size: 13px;
+    color: #374151;
+  }
+  .phase-split-name { font-weight: 600; }
+  .phase-split-bar {
+    height: 6px;
+    background: var(--bg-subtle);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .phase-split-bar > span {
+    display: block;
+    height: 100%;
+    background: var(--info);
+    border-radius: 3px;
+  }
+  .phase-split-min,
+  .phase-split-share,
+  .phase-split-calls {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+  .phase-split-share, .phase-split-calls { color: #9ca3af; }
+  .phase-split-first-edit {
+    margin-top: 8px;
+    font-size: 13px;
+    color: #374151;
+  }
+  .phase-split-first-edit .phase-split-label { color: #9ca3af; }
+
   .apendment-round-block {
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -8664,6 +8702,61 @@ body:not(.lcars-mode) .staged-details-body pre code {
     historyDetailOpen = true;
   }
 
+  // ── Where the minutes went (slice 392) ───────────────────────────────────
+  //
+  // The DONE register event carries the orchestrator's phase attribution of the
+  // run (model seconds and tool seconds per phase, the call count, and the
+  // second of the first product edit). One line per phase, longest first, so
+  // Philipp can see per slice whether the minutes went into the product change
+  // or into proof and paperwork — ADR-PROOF-LANES §8 wants that read per slice
+  // rather than re-derived by hand from bridge/logs/rom-<id>.log.
+  //
+  // Returns '' for a row with no attribution — every slice that finished before
+  // the pipeline started measuring, and any run whose attribution failed. Those
+  // rows show exactly what they showed before.
+  function phaseSplitHtml(row) {
+    const phases = row && row.phases;
+    if (!phases || typeof phases !== 'object' || Array.isArray(phases)) return '';
+
+    const lines = Object.keys(phases).map(name => {
+      const p = phases[name] || {};
+      return {
+        name,
+        seconds: (Number(p.model_s) || 0) + (Number(p.tool_s) || 0),
+        calls: Number(p.calls) || 0,
+      };
+    }).filter(l => l.seconds > 0 || l.calls > 0);
+    if (lines.length === 0) return '';
+
+    lines.sort((a, b) => b.seconds - a.seconds || a.name.localeCompare(b.name));
+    const total = lines.reduce((s, l) => s + l.seconds, 0);
+    const widest = lines[0].seconds || 1;
+
+    let html = '<div class="slice-rendered-section"><div class="slice-rendered-section-label">Where the minutes went</div>';
+    html += '<div id="phase-split">';
+    for (const l of lines) {
+      const minutes = (l.seconds / 60).toFixed(1);
+      const share = total > 0 ? Math.round((l.seconds / total) * 100) : 0;
+      html += `<div class="phase-split-line" data-phase="${escHtml(l.name)}">
+        <span class="phase-split-name">${escHtml(l.name)}</span>
+        <span class="phase-split-bar"><span style="width:${Math.max(1, Math.round((l.seconds / widest) * 100))}%"></span></span>
+        <span class="phase-split-min">${minutes} min</span>
+        <span class="phase-split-share">${share}%</span>
+        <span class="phase-split-calls">${l.calls} ${l.calls === 1 ? 'call' : 'calls'}</span>
+      </div>`;
+    }
+
+    const firstEdit = Number(row.first_product_edit_s);
+    const firstEditText = isFinite(firstEdit) && row.first_product_edit_s != null
+      ? `minute ${(firstEdit / 60).toFixed(1)}`
+      : 'not recorded';
+    html += `<div class="phase-split-first-edit" id="phase-split-first-edit">
+      <span class="phase-split-label">First product edit:</span> ${escHtml(firstEditText)}</div>`;
+
+    html += '</div></div>';
+    return html;
+  }
+
   async function renderHistoryDetailBody(item) {
     const container = document.getElementById('history-detail-body');
     container.innerHTML = '<div style="color:var(--ink-muted);text-align:center;padding:24px">Loading\u2026</div>';
@@ -8698,6 +8791,9 @@ body:not(.lcars-mode) .staged-details-body pre code {
       <span class="total-item"><span class="total-label">Cost</span> <span class="total-value">${fmtCostWithFallback(costUsd, tokIn, tokOut)}</span></span>
       <span class="total-item"><span class="total-label">Rounds</span> <span class="total-value">${totalRounds}</span></span>
     </div>`;
+
+    // The duration above says how long the build took; this says where it went.
+    html += phaseSplitHtml(item);
 
     // ── Per-round apendment breakdown ──
     html += '<div class="slice-rendered-section"><div class="slice-rendered-section-label">Per-round apendment breakdown</div>';

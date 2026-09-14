@@ -495,6 +495,52 @@ function sessionTelemetry(stdout, durationMs) {
   };
 }
 
+/**
+ * recordBuildTiming(stdout, id, logsDir)
+ *
+ * The other half of the session's numbers (slice 392). sessionTelemetry says
+ * what the run cost; this says where it went — model seconds and tool seconds
+ * per phase, the call count, and the second of the first product edit, read off
+ * the same stream-json the CLI already wrote. The full split is parked in
+ * bridge/logs/rom-<id>.timing.json beside the log it was derived from (the
+ * directory is gitignored, like the log); the three fields the History row
+ * needs come back for the DONE register event.
+ *
+ * Never fails the run. Attribution and the sidecar write fail independently:
+ * an unwritable logs directory must not cost the event its phases, and a
+ * malformed log must not cost the run its DONE. Returns {} when there is
+ * nothing to say, so the caller can spread it unconditionally.
+ *
+ * lib/build-timing is required here and not at module scope, the way
+ * buildHashLines reaches for lib/ac-block: the daemon has to boot in a tree that
+ * has no lib/ at all — the sandbox repo behind slice 393's recovery guard is
+ * exactly that — and a measurement is never worth a process that will not start.
+ * A missing lib/ is then just another attribution failure: a warn, and a DONE
+ * event without phases.
+ */
+function recordBuildTiming(stdout, id, logsDir) {
+  let timing = null;
+  try {
+    const { attributeRun } = require('../lib/build-timing');
+    timing = attributeRun(stdout || '');
+  } catch (err) {
+    log('warn', 'complete', { id, msg: 'Build-timing attribution failed — the DONE event goes without phases', error: err.message });
+    return {};
+  }
+
+  try {
+    fs.writeFileSync(path.join(logsDir, `rom-${id}.timing.json`), JSON.stringify(timing, null, 2));
+  } catch (err) {
+    log('warn', 'complete', { id, msg: 'Could not write the build-timing sidecar — the DONE event still carries the split', error: err.message });
+  }
+
+  return {
+    phases: timing.phases,
+    first_product_edit_s: timing.first_product_edit_s,
+    calls: timing.calls,
+  };
+}
+
 // The three metrics the watcher measures. estimated_human_hours is Rom's own
 // optional guess and compaction_occurred may be absent; neither is machine data,
 // so neither can make a report invalid (slice 386).
@@ -3076,6 +3122,13 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
       const telemetry = sessionTelemetry(stdout || '', durationMs);
       const { tokensIn, tokensOut, costUsd } = telemetry;
 
+      // And where those minutes went (slice 392). One number per build could not
+      // say whether the time was the product change or the proof and paperwork
+      // around it; this attributes every tool call in the run to a phase and
+      // parks the split next to the log. Best-effort by construction — it never
+      // fails the run.
+      const buildTiming = recordBuildTiming(stdout, id, LOGS_DIR);
+
       // ── POST-INVOCATION BRANCH VERIFICATION (worktree) ──────────────────
       // With worktrees, verify the branch state inside the worktree, not
       // PROJECT_DIR (which stays on main permanently).
@@ -3325,6 +3378,11 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
             tokensCacheRead: telemetry.tokensCacheRead,
             costUsd: telemetry.costUsd,
             ...laneEventFields(sliceMeta, clauseArgs),
+            // phases / first_product_edit_s / calls (slice 392). Spread last and
+            // sharing no key with anything above it, so the split is added to
+            // this event and takes nothing away from it. Empty when attribution
+            // failed: the History row then shows what it always showed.
+            ...buildTiming,
           });
           closeSliceBlock(true, durationMs, tokensIn, tokensOut, costUsd, null);
           recordSessionResult(true, tokensIn, tokensOut, costUsd);
@@ -9330,4 +9388,4 @@ function mergeDevToMain() {
 // Exports — for use by helper scripts (e.g. bridge/next-id.js)
 // ---------------------------------------------------------------------------
 
-module.exports = { resolveLane, laneEventFields, applyLaneArgs, romSpawnArgs, registerCommissioned, sessionTelemetry, fillDoneMetrics, validateDoneMetrics, extractRomTelemetry, buildDoneTemplate, buildHashLines, regenerateLocksAtLanding, newestDoneEvent, isLockDeriverInput, LOCK_FILES, checkDispatchProvenance, parkUnprovenancedSlice, hasPreCutoverHistory, fileIsPreCutover, provenanceRootId, parseFrontmatter, handleNogReturn, startGate, abortGate, buildBashirPrompt, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, classifyHonestNonProduct, doneSummarySection, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, recordArchivedQueueRename, validateIntakeMeta, ensureIntegrationIsFresh, ensureMainIsFresh: ensureIntegrationIsFresh, fastForwardIntegrationRef, branchNamesFrom, INTEGRATION_BRANCH, TRUNK_BRANCH, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, provisionWorkspaceDeps, releaseDispatch, _testSetHeartbeatFile: (p) => { HEARTBEAT_FILE = p; }, _testGetDispatchState: () => ({ processing, heartbeat: { ...heartbeatState } }), _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted, hasTerminalLandedEvent, crashRecovery, trashEntryRecordsStaging, STAGING_TRASH_SUFFIXES, countUnreadableVerdicts, unreadableBackoffMs, retryBackoffElapsed, MAX_UNREADABLE_ATTEMPTS, UNREADABLE_BACKOFF_MS, porcelainPaths, isVolatileRuntimePath, isPipelineOwnedPath, recoverRuntimeStateAfterGit, stageablePathsFrom, autoCommitDirtyTree, shQuote, stageQueueArchiveForLanding, revertQueueArchiveStaging, hasArchivedEvent, pipelineCommitSubject: gitFinalizer.pipelineCommitSubject, refillLandedDoneReport, _testResetRefusalEmitted: () => { _refusalEmitted.clear(); }, _testGetRefusalEmitted: () => _refusalEmitted };
+module.exports = { resolveLane, laneEventFields, applyLaneArgs, romSpawnArgs, registerCommissioned, sessionTelemetry, recordBuildTiming, fillDoneMetrics, validateDoneMetrics, extractRomTelemetry, buildDoneTemplate, buildHashLines, regenerateLocksAtLanding, newestDoneEvent, isLockDeriverInput, LOCK_FILES, checkDispatchProvenance, parkUnprovenancedSlice, hasPreCutoverHistory, fileIsPreCutover, provenanceRootId, parseFrontmatter, handleNogReturn, startGate, abortGate, buildBashirPrompt, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, classifyHonestNonProduct, doneSummarySection, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, recordArchivedQueueRename, validateIntakeMeta, ensureIntegrationIsFresh, ensureMainIsFresh: ensureIntegrationIsFresh, fastForwardIntegrationRef, branchNamesFrom, INTEGRATION_BRANCH, TRUNK_BRANCH, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, provisionWorkspaceDeps, releaseDispatch, _testSetHeartbeatFile: (p) => { HEARTBEAT_FILE = p; }, _testGetDispatchState: () => ({ processing, heartbeat: { ...heartbeatState } }), _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted, hasTerminalLandedEvent, crashRecovery, trashEntryRecordsStaging, STAGING_TRASH_SUFFIXES, countUnreadableVerdicts, unreadableBackoffMs, retryBackoffElapsed, MAX_UNREADABLE_ATTEMPTS, UNREADABLE_BACKOFF_MS, porcelainPaths, isVolatileRuntimePath, isPipelineOwnedPath, recoverRuntimeStateAfterGit, stageablePathsFrom, autoCommitDirtyTree, shQuote, stageQueueArchiveForLanding, revertQueueArchiveStaging, hasArchivedEvent, pipelineCommitSubject: gitFinalizer.pipelineCommitSubject, refillLandedDoneReport, _testResetRefusalEmitted: () => { _refusalEmitted.clear(); }, _testGetRefusalEmitted: () => _refusalEmitted };
