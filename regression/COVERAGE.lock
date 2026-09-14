@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 678,
+  "guardCount": 682,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -529,6 +529,26 @@
         "tag": "slice-393-ac-4",
         "file": "regression/dispatch-execution/j-daemon-survives-recovery.test.js",
         "guardAcHash": "sha256:12eb4590fb3bbbadb14765437c3bad9e19cc3e8846c55cd9ac449d0c1d6dd667"
+      },
+      {
+        "tag": "slice-395-ac-1",
+        "file": "regression/dispatch-execution/j-no-nameless-commits.test.js",
+        "guardAcHash": "sha256:7f9342149e3dda34279a1466f44566bc09ca05b3075de77819b329b41d84d4ec"
+      },
+      {
+        "tag": "slice-395-ac-2",
+        "file": "regression/dispatch-execution/j-no-nameless-commits.test.js",
+        "guardAcHash": "sha256:47802057779828a93a5d4911f4f6fd6dce5e043db38edd3d78c608f779a9a4f4"
+      },
+      {
+        "tag": "slice-395-ac-3",
+        "file": "regression/dispatch-execution/j-no-nameless-commits.test.js",
+        "guardAcHash": "sha256:474a7fc9bfd47dbb70227ca6c5907a870f0a351a21640c2ac8ff845762ad6bff"
+      },
+      {
+        "tag": "slice-395-ac-4",
+        "file": "regression/dispatch-execution/j-no-nameless-commits.test.js",
+        "guardAcHash": "sha256:ba711619a1ecb1458369da07f61887d0360046b02a4a631e9a5b642983ca301e"
       },
       {
         "tag": "slice-99777-ac-1",
@@ -2823,6 +2843,28 @@
         "tag": "slice-387-ac-7",
         "file": "regression/dispatch-execution/j-locks-regenerated-at-landing.test.js",
         "guardAcHash": "sha256:6d91ae759f650405d152d60e1a04a5cbce5a59722c81dceff5c70993abcbd733"
+      }
+    ],
+    "regression/dispatch-execution/j-no-nameless-commits.test.js": [
+      {
+        "tag": "slice-395-ac-1",
+        "file": "regression/dispatch-execution/j-no-nameless-commits.test.js",
+        "guardAcHash": "sha256:7f9342149e3dda34279a1466f44566bc09ca05b3075de77819b329b41d84d4ec"
+      },
+      {
+        "tag": "slice-395-ac-2",
+        "file": "regression/dispatch-execution/j-no-nameless-commits.test.js",
+        "guardAcHash": "sha256:47802057779828a93a5d4911f4f6fd6dce5e043db38edd3d78c608f779a9a4f4"
+      },
+      {
+        "tag": "slice-395-ac-3",
+        "file": "regression/dispatch-execution/j-no-nameless-commits.test.js",
+        "guardAcHash": "sha256:474a7fc9bfd47dbb70227ca6c5907a870f0a351a21640c2ac8ff845762ad6bff"
+      },
+      {
+        "tag": "slice-395-ac-4",
+        "file": "regression/dispatch-execution/j-no-nameless-commits.test.js",
+        "guardAcHash": "sha256:ba711619a1ecb1458369da07f61887d0360046b02a4a631e9a5b642983ca301e"
       }
     ],
     "regression/dispatch-execution/j-runtime-state-survives-landing.test.js": [

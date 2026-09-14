@@ -159,6 +159,59 @@ function isVolatileRuntimePath(rel) {
   return VOLATILE_PREFIXES.some(prefix => p.startsWith(prefix));
 }
 
+// ── Slice 395: the whole of what the pipeline owns ────────────────────────────
+// isVolatileRuntimePath names the files that TICK. It was never the full set of
+// paths the pipeline writes: the queue, the staging area, the trash, the state
+// directory and the bridge-root ledgers are all machine paperwork too, and the
+// pipeline moves them by plain filesystem rename. Git reads such a move as a
+// deletion, and the pre-checkout autocommit — whose only job is to save a
+// PERSON's uncommitted source edit from being overwritten by a checkout —
+// committed those deletions under a subject that names no slice. Eight times in
+// thirty days (704975d and siblings).
+//
+// So the autocommit asks this instead. A path the pipeline owns is recorded by
+// the pipeline step that moves it, in the commit that step belongs to; never by
+// a safety net that was protecting somebody else's work.
+const PIPELINE_OWNED_PREFIXES = [
+  'bridge/queue/',
+  'bridge/staged/',
+  'bridge/trash/',
+  'bridge/state/',
+  'bridge/logs/',
+];
+
+// The bridge-root ledgers and snapshots: bridge/*.jsonl and bridge/*.json, named
+// by shape rather than one at a time so a ledger added later is covered the day it
+// appears. Nested paths are the prefixes above, not this.
+const PIPELINE_OWNED_LEDGER_RE = /^bridge\/[^/]+\.(?:json|jsonl)$/;
+
+// Derived overlays outside bridge/: rewritten by the CHECK gate and the drift
+// engine during normal operation, exactly like a ledger.
+const PIPELINE_OWNED_EXTRA = [
+  'regression/AC-DECISIONS.json',
+  'regression/AC-CHECK.json',
+  'regression/TEST-DRIFT.json',
+];
+
+/**
+ * isPipelineOwnedPath(rel)
+ *
+ * True for a repo-relative path the PIPELINE writes, moves or renames — the
+ * superset of isVolatileRuntimePath. The autocommit refuses every one of them,
+ * including the permanent records among them (an archived report under
+ * bridge/trash/ is a record, but it is the pipeline's to commit, in the commit
+ * that moved it). Everything this returns false for is source, which is what the
+ * autocommit exists to protect.
+ */
+function isPipelineOwnedPath(rel) {
+  const p = String(rel || '').replace(/^\.\//, '').replace(/\\/g, '/');
+  if (!p) return false;
+  if (isVolatileRuntimePath(p)) return true;
+  if (PIPELINE_OWNED_EXTRA.includes(p)) return true;
+  if (PIPELINE_OWNED_LEDGER_RE.test(p)) return true;
+  return PIPELINE_OWNED_PREFIXES.some(prefix => p.startsWith(prefix));
+}
+
 /**
  * contentFromHistory(root, rel) → Buffer | null
  *
@@ -242,11 +295,15 @@ module.exports = {
   initialHeartbeat,
   contentFromHistory,
   isVolatileRuntimePath,
+  isPipelineOwnedPath,
   RUNTIME_FILES,
   RUNTIME_DIRS,
   VOLATILE_PREFIXES,
   VOLATILE_EXTRA,
   PERMANENT_TRASH_RE,
+  PIPELINE_OWNED_PREFIXES,
+  PIPELINE_OWNED_LEDGER_RE,
+  PIPELINE_OWNED_EXTRA,
   DEFAULT_REPO_ROOT,
 };
 

@@ -303,6 +303,31 @@ function _bustGitHubCache(scope = 'all') {
   if (scope !== 'refs') _ghPromoteCache = { value: null, fetchedAt: 0 };
 }
 
+// ── One rule for "which slice does this commit belong to?" (slice 395) ───────
+/**
+ * sliceIdOfSubject(subject) → string | null
+ *
+ * The slice a commit subject declares, or null for a commit that declares none.
+ *
+ * Four regexes used to answer this — the branch topology, the promote strip, the
+ * per-check authorship attribution behind History, and the revert blamer — and they
+ * disagreed. Two accepted `chore(queue): record slice 388 ...` and two did not,
+ * which is why the daemon's own archive commits appeared labelled on one panel and
+ * nameless on another. One function, so a labelled commit is labelled everywhere.
+ *
+ * ANCHORED, deliberately. Every commit the pipeline writes now starts with
+ * `S<id>: `; `slice/<id>` and `slice <id>` are kept for history written before that
+ * (and for a human who spells it that way on purpose at the start of a subject).
+ * A slice id mentioned mid-sentence — "QA: give the six slice-389 trap tests their
+ * J-lanes prefix" — is a reference, not a claim of authorship, and attributing a
+ * check to it is how the wrong slice got blamed on the promote screen.
+ */
+function sliceIdOfSubject(subject) {
+  const s = String(subject == null ? '' : subject);
+  const m = s.match(/^S(\d+):/i) || s.match(/^slice[/\s-]+(\d+)/i);
+  return m ? m[1] : null;
+}
+
 // ── Promote completion → cache invalidation (slice 362) ─────────────────────
 // A promote COMPLETING is an event, but until slice 362 nothing observed it:
 // _bustGitHubCache() fired only on dispatch, minutes earlier. So when main
@@ -458,8 +483,7 @@ function _getGitTips() {
         const sha = sp1 !== -1 ? line.slice(0, sp1) : line;
         const ct = sp2 !== -1 ? parseInt(line.slice(sp1 + 1, sp2), 10) * 1000 : NaN;
         const subj = sp2 !== -1 ? line.slice(sp2 + 1) : '';
-        const m = subj.match(/^S(\d+):/i) || subj.match(/^slice[/\s]+(\d+)/i);
-        return { sha: sha.slice(0, 7), full_sha: sha, slice_id: m ? m[1] : null,
+        return { sha: sha.slice(0, 7), full_sha: sha, slice_id: sliceIdOfSubject(subj),
                  _ct: isNaN(ct) ? 0 : ct,
                  subject: subj, age_s: isNaN(ct) ? null : Math.round((now - ct) / 1000) };
       });
@@ -473,11 +497,10 @@ function _getGitTips() {
       const sha = sp1 !== -1 ? mainLog.slice(0, sp1) : mainLog;
       const ct = sp2 !== -1 ? parseInt(mainLog.slice(sp1 + 1, sp2), 10) * 1000 : NaN;
       const subj = sp2 !== -1 ? mainLog.slice(sp2 + 1) : '';
-      const mp = subj.match(/^S(\d+):/i) || subj.match(/^slice[/\s]+(\d+)/i);
       result.promote = { sha: sha ? sha.slice(0, 7) : null, full_sha: sha || null,
                          _ct: isNaN(ct) ? 0 : ct,
                          age_s: isNaN(ct) ? null : Math.round((now - ct) / 1000),
-                         slice_id: mp ? mp[1] : null };
+                         slice_id: sliceIdOfSubject(subj) };
     }
     (result.dev_commits || []).forEach(c => { delete c._ct; });
     if (result.promote) delete result.promote._ct;
@@ -854,9 +877,9 @@ function sliceAuthorsByCheck(base, head, files) {
     const sp = headline.indexOf(' ');
     if (sp === -1) continue;
     const sha = headline.slice(0, sp), subject = headline.slice(sp + 1);
-    const m = subject.match(/^S(\d+)\b/i) || subject.match(/\bslice[/\s-](\d+)/i);
-    if (!m) continue;
-    for (const f of lines) { const p = f.trim(); if (p) (perFile[p] = perFile[p] || []).push({ sha, slice: m[1] }); }
+    const slice = sliceIdOfSubject(subject);
+    if (!slice) continue;
+    for (const f of lines) { const p = f.trim(); if (p) (perFile[p] = perFile[p] || []).push({ sha, slice }); }
   }
 
   const { classifyFileDiff } = require(path.join(__dirname, '..', 'lib', 'assert-direction'));
@@ -1568,8 +1591,7 @@ function _blameConflict(squashSha, conflictFiles) {
     const sp = out.indexOf(' ');
     const sha = sp === -1 ? out : out.slice(0, sp);
     const subject = sp === -1 ? '' : out.slice(sp + 1);
-    const m = subject.match(/^S(\d+):/i) || subject.match(/slice[/\s]+(\d+)/i);
-    return { sha: sha.slice(0, 7), subject, slice_id: m ? m[1] : null };
+    return { sha: sha.slice(0, 7), subject, slice_id: sliceIdOfSubject(subject) };
   } catch (_) {
     return null;
   }
@@ -4355,4 +4377,4 @@ if (require.main === module) {
   startDevSuiteRouting();
 }
 
-module.exports = { routeDevSuiteRun, startDevSuiteRouting, withDevSuiteFixRequest, readDevSuiteState, DEV_SUITE_STATE, getPinnedClassification, getTestChanges, getTestsNeeded, mergeLockRefusal, buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, STALE_DONE_DAYS, deriveHistoryOutcome, deriveReviewStatus, authoringStateFor, draftDetailFor, lineDiff, liveGuardsForTag, kickOffAuthoring, createRevertCommit, resolveSquashSha, mapPromotePhases, parseGateFailures, isFreshPromoteCompletion, isReconciling, _promoteTtlMs };
+module.exports = { sliceIdOfSubject, routeDevSuiteRun, startDevSuiteRouting, withDevSuiteFixRequest, readDevSuiteState, DEV_SUITE_STATE, getPinnedClassification, getTestChanges, getTestsNeeded, mergeLockRefusal, buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, STALE_DONE_DAYS, deriveHistoryOutcome, deriveReviewStatus, authoringStateFor, draftDetailFor, lineDiff, liveGuardsForTag, kickOffAuthoring, createRevertCommit, resolveSquashSha, mapPromotePhases, parseGateFailures, isFreshPromoteCompletion, isReconciling, _promoteTtlMs };

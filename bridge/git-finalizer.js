@@ -627,12 +627,46 @@ function sleepSync(ms) {
 }
 
 // ---------------------------------------------------------------------------
+// Commit subjects — slice 395
+// ---------------------------------------------------------------------------
+
+/**
+ * pipelineCommitSubject(id, text) → string
+ *
+ * The subject line for a commit the PIPELINE writes. Every one of them starts
+ * with `S<id>: ` so the branch topology, History and the promote strip can label
+ * it, which leaves the nameless commits on dev as exactly one population: the
+ * ones a person made.
+ *
+ * Before this, the squash was the only labelled commit the pipeline produced. The
+ * archive bookkeeping said `chore(queue): record slice N ...` (labelled by two of
+ * the dashboard's four subject regexes and not the other two) and the pre-checkout
+ * autocommit said `autocommit: pre-checkout-branch-slice/389 [3 file(s) on dev]`,
+ * which named the slice being checked OUT and told the operator nothing about what
+ * it had just swept in.
+ *
+ * Idempotent for the same id, so a caller that already spelled the prefix — or a
+ * message routed through here twice — is not double-labelled. An absent id
+ * returns the text unchanged rather than inventing a label: a commit with no
+ * slice behind it must not claim one.
+ */
+function pipelineCommitSubject(id, text) {
+  const slice = String(id == null ? '' : id).trim();
+  const body = String(text == null ? '' : text).trim();
+  if (!slice) return body;
+  if (body === '' ) return `S${slice}:`;
+  if (body.startsWith(`S${slice}: `) || body === `S${slice}:`) return body;
+  return `S${slice}: ${body}`;
+}
+
+// ---------------------------------------------------------------------------
 // Exports
 // ---------------------------------------------------------------------------
 
 module.exports = {
   init,
   runGit,
+  pipelineCommitSubject,
   sweepStaleResources,
   createWorktreeWithRetry,
   pruneOrphanLock,

@@ -12,7 +12,7 @@ const { recoverGateMutex, acquireGateMutex, releaseGateMutex, shouldDeferSquash 
 const { writeJsonAtomic } = require('./state/atomic-write');
 const { emit: emitGateTelemetry } = require('./state/gate-telemetry');
 const { computeRR } = require('./rr-compute');
-const { ensureRuntimeState, isVolatileRuntimePath } = require('./state/seed-runtime-state');
+const { ensureRuntimeState, isVolatileRuntimePath, isPipelineOwnedPath } = require('./state/seed-runtime-state');
 // The rules for "can this slice be returned to stage?" are shared with the
 // dashboard, so the button that offers the action and the code that performs it
 // cannot disagree. (Slice 370.)
@@ -1333,57 +1333,72 @@ function shQuote(p) {
  * stageablePathsFrom(statusLines) → string[]
  *
  * The paths from `git status --porcelain` lines that the autocommit may commit:
- * everything except volatile runtime state. Naming the paths explicitly rather
- * than excluding by pathspec keeps one rule — isVolatileRuntimePath — in charge,
- * so an archived slice report under bridge/trash/ (a permanent record) is still
- * committed while the markers beside it are not.
+ * source, and nothing else. Naming the paths explicitly rather than excluding by
+ * pathspec keeps one rule — isPipelineOwnedPath — in charge.
+ *
+ * Slice 395 widened that rule from isVolatileRuntimePath (the files that TICK) to
+ * everything the pipeline writes or moves: the queue, the staging area, the trash,
+ * bridge/state, bridge/logs, the bridge-root ledgers and the derived overlays under
+ * regression/. The narrower rule let the queue through, and the queue is moved by
+ * plain filesystem rename — so eight autocommits in thirty days committed bare
+ * deletions of report files under a subject that named no slice (704975d). A path
+ * the pipeline owns is recorded by the step that moved it, inside the commit that
+ * step belongs to. This function's whole remaining job is a person's uncommitted
+ * source edit, which the checkout that follows would otherwise overwrite.
  */
 function stageablePathsFrom(statusLines) {
   const paths = [];
   for (const line of statusLines) {
     for (const p of porcelainPaths(line)) {
-      if (!isVolatileRuntimePath(p) && !paths.includes(p)) paths.push(p);
+      if (!isPipelineOwnedPath(p) && !paths.includes(p)) paths.push(p);
     }
   }
   return paths;
 }
 
 /**
- * @deprecated No longer called — PROJECT_DIR stays on main permanently with
- * worktree-based execution. Retained as dead code for safety.
+ * autoCommitDirtyTree(reason, sliceId)
  *
- * autoCommitDirtyTree(reason)
+ * If the working tree has uncommitted changes to tracked SOURCE files, commit them
+ * to the current branch before a checkout overwrites them. Returns true if a commit
+ * was made.
  *
- * If the working tree has uncommitted changes to tracked files, commit them
- * to the current branch. Returns true if a commit was made.
+ * Its one job is a person's uncommitted edit. Slice 395 widened the filter from the
+ * ticking runtime files (isVolatileRuntimePath) to everything the pipeline owns
+ * (isPipelineOwnedPath), because the narrower rule let the queue through and the
+ * queue is moved by plain filesystem rename: eight autocommits in thirty days
+ * committed bare deletions of report files under a subject that named no slice
+ * (704975d). What survives the filter is a person's work, so the subject says so,
+ * prefixed with the slice whose checkout triggered the rescue.
+ *
+ * `sliceId` is the slice being checked out; absent, the subject carries no label
+ * rather than an invented one.
  *
  * Uses GIT_INDEX_FILE to avoid index.lock issues on FUSE.
  */
-function autoCommitDirtyTree(reason) {
+function autoCommitDirtyTree(reason, sliceId) {
   try {
     const status = gitFinalizer.runGit('git status --porcelain', { slice_id: '0', op: 'autoCommit_status', encoding: 'utf-8' }).trim();
     // Only care about modified tracked files (M, D, R) — not untracked (??)
     const allTracked = status.split('\n').filter(l => l && !l.startsWith('??'));
 
-    // …and never machine bookkeeping, even while it is still tracked. Untracking
-    // these files (slice 372) cannot protect the run that LANDS the untracking:
-    // the orchestrator performing that merge is still executing the previous
-    // code, from a tree where they are tracked and ticking. Filtering here closes
-    // that window, and keeps a path that is re-added by mistake later from
-    // reopening it.
+    // …and never machine bookkeeping, even while it is still tracked: untracking
+    // it (slice 372) cannot protect the run that LANDS the untracking, whose
+    // orchestrator still runs code from a tree where it ticks. See the note above.
     const stagePaths = stageablePathsFrom(allTracked);
-    const skippedPaths = allTracked.flatMap(porcelainPaths).filter(isVolatileRuntimePath);
+    const skippedPaths = allTracked.flatMap(porcelainPaths).filter(isPipelineOwnedPath);
 
     if (skippedPaths.length) {
       log('info', 'git_safety', {
-        msg: `Autocommit skipped ${skippedPaths.length} volatile runtime file(s) — bookkeeping, not source`,
+        msg: `Autocommit skipped ${skippedPaths.length} pipeline-owned file(s) — bookkeeping, not source`,
         files: skippedPaths.join(', '),
       });
     }
     if (stagePaths.length === 0) return false;
 
     const branch = gitFinalizer.runGit('git rev-parse --abbrev-ref HEAD', { slice_id: '0', op: 'autoCommit_branch', encoding: 'utf-8' }).trim();
-    const msg = `autocommit: ${reason} [${stagePaths.length} file(s) on ${branch}]`;
+    const msg = gitFinalizer.pipelineCommitSubject(sliceId,
+      `autocommit before checkout, ${stagePaths.length} source file(s) a person left uncommitted (${reason}, on ${branch})`);
     log('warn', 'git_safety', { msg, files: stagePaths.join(', ') });
 
     // `git add -u` still stages tracked modifications only — now against the named
@@ -1421,12 +1436,12 @@ function fuseSafeCheckoutMain(id) {
 
   if (current === 'main') {
     // Already on main — just verify tree is clean.
-    autoCommitDirtyTree('uncommitted changes on main before slice processing');
+    autoCommitDirtyTree('uncommitted changes on main before slice processing', id);
     return;
   }
 
   // Step 1: commit any dirty tracked files to the CURRENT branch (not main).
-  autoCommitDirtyTree(`uncommitted changes on ${current} before switching to main`);
+  autoCommitDirtyTree(`uncommitted changes on ${current} before switching to main`, id);
 
   // Step 2: get list of files that differ between current HEAD and main.
   let diffFiles = [];
@@ -1535,7 +1550,7 @@ function fuseSafeCheckoutBranch(id, branchName) {
   }
 
   // Step 1: commit anything dirty
-  autoCommitDirtyTree(`pre-checkout-branch-${branchName}`);
+  autoCommitDirtyTree(`pre-checkout-branch-${branchName}`, id);
 
   // Step 2: diff files between current HEAD and the target branch
   const diffRaw = execSync(`git diff --name-only HEAD ${branchName}`, { cwd: PROJECT_DIR, encoding: 'utf-8' }).trim();
@@ -3733,6 +3748,32 @@ function hasMergedEvent(id, regFile) {
   return false;
 }
 
+/**
+ * hasArchivedEvent(id, regFile)
+ *
+ * Has this slice's archival already been RECORDED — not merely half-performed?
+ *
+ * Slice 395 moved the ACCEPTED→ARCHIVED rename into the landing commit, so the
+ * presence of {id}-ARCHIVED.md on disk no longer proves archival finished: the
+ * landing leaves the file renamed and the worktree, the branch and the register
+ * event still to do. The event is what proves it. Same restage cutoff as
+ * hasMergedEvent, so a slice sent round again archives again.
+ */
+function hasArchivedEvent(id, regFile) {
+  const file = regFile || REGISTER_FILE;
+  try {
+    const cutoff = latestRestagedTs(id, file);
+    for (const line of _getRegLines(file)) {
+      try {
+        const e = JSON.parse(line);
+        if (!e || e.event !== 'ARCHIVED' || String(e.slice_id) !== String(id)) continue;
+        if (!cutoff || String(e.ts || '') > cutoff) return true;
+      } catch (_) {}
+    }
+  } catch (_) {}
+  return false;
+}
+
 // Gate-flow sibling of hasMergedEvent: has this slice already been squashed onto dev?
 // In the dev→main gate model SLICE_SQUASHED_TO_DEV — not MERGED — is the "landed"
 // signal, so crash recovery uses this to avoid re-squashing a slice already on dev.
@@ -4275,6 +4316,143 @@ function archiveSiblingStateFiles(id, terminalState, opts) {
 }
 
 /**
+ * stageQueueArchiveForLanding(id, opts) → { staged, renamed, reportRel, reason }
+ *
+ * Put this slice's archive rename INTO the landing commit, rather than into a
+ * commit of its own after it (slice 395).
+ *
+ * Archival renames the report forward to {id}-ARCHIVED.md by a filesystem move.
+ * bridge/queue/*.md is gitignored and the reports are force-added, so git sees a
+ * tracked file vanish and an ignored one appear, and something has to say so. Since
+ * slice 381 that something was recordArchivedQueueRename() — correct, but a SECOND
+ * commit, `chore(queue): record slice N archive rename (...)`, wedged between every
+ * pair of real ones. Eleven commits on dev, three of them named.
+ *
+ * The landing already amends once (slice 387: regenerated locks, re-filled report).
+ * This rides that amend. It runs BEFORE the lock regeneration on purpose: the AC
+ * manifest is derived from the git INDEX and cites a criterion's slice file by path
+ * when no trailer declares it, so a rename staged after the regeneration would leave
+ * the committed lock naming a path its own commit no longer holds — and the
+ * integrity gate re-derives that lock on CI.
+ *
+ * Nothing is committed here and nothing is swept to trash: the index is staged, the
+ * ACCEPTED file becomes the ARCHIVED file, and the on-disk siblings are left for
+ * archiveAcceptedSlice(), which by then is moving untracked files that git ignores.
+ * Fully reversible — revertQueueArchiveStaging() puts both halves back if the amend
+ * fails, because a half-staged index is what the autocommit used to sweep.
+ *
+ * `opts.runGit` is a seam for the tests (same shape as gitFinalizer.runGit).
+ */
+function stageQueueArchiveForLanding(id, opts) {
+  opts = opts || {};
+  const repoRoot = opts.repoRoot || PROJECT_DIR;
+  const queueDir = opts.queueDir || QUEUE_DIR;
+  const git = opts.runGit || gitFinalizer.runGit;
+
+  const nothing = (reason) => ({ staged: [], renamed: null, reportRel: null, reason });
+
+  // A fixture queue dir (the squash fixtures, the e2e seed root) is not a repository.
+  if (!fs.existsSync(path.join(repoRoot, '.git'))) return nothing('not_a_repo');
+  const queueRel = path.relative(repoRoot, queueDir).split(path.sep).join('/');
+  if (!queueRel || queueRel.startsWith('..') || path.isAbsolute(queueRel)) {
+    return nothing('queue_outside_repo');
+  }
+
+  const archivedRel = `${queueRel}/${id}-ARCHIVED.md`;
+  const archivedAbs = path.join(repoRoot, archivedRel);
+
+  // Idempotent: a recovery run re-squashing a slice finds the rename already done.
+  let renamed = null;
+  if (!fs.existsSync(archivedAbs)) {
+    const acceptedRel = `${queueRel}/${id}-ACCEPTED.md`;
+    const acceptedAbs = path.join(repoRoot, acceptedRel);
+    // Only the ACCEPTED journey file becomes ARCHIVED. No ACCEPTED file means this
+    // landing is not an archival (a deferred slice squashed before Nog's verdict
+    // reached the queue), and inventing one would archive a live slice.
+    if (!fs.existsSync(acceptedAbs)) return nothing('no_accepted_file');
+    try {
+      fs.renameSync(acceptedAbs, archivedAbs);
+      renamed = { from: acceptedRel, to: archivedRel };
+    } catch (err) {
+      log('warn', 'archive', { id, msg: 'Could not rename ACCEPTED to ARCHIVED inside the landing', error: err.message });
+      return nothing('rename_failed');
+    }
+  }
+
+  // What git still believes about this slice's queue files, whatever suffix it last
+  // saw them under — the builder's force-added {id}-DONE.md, and any older attempt.
+  let tracked;
+  try {
+    const raw = git(`git ls-files -- ${shQuote(queueRel)}`, {
+      slice_id: String(id), op: 'landingArchive_lsFiles', cwd: repoRoot, encoding: 'utf-8',
+    });
+    tracked = String(raw || '').split('\n').map(l => l.trim()).filter(Boolean)
+      .filter(rel => path.basename(rel).startsWith(`${id}-`) && CANONICAL_SUFFIX_RE.test(rel));
+  } catch (err) {
+    log('warn', 'archive', { id, msg: 'Could not list tracked queue files for the landing', error: err.message });
+    return { staged: [], renamed, reportRel: fs.existsSync(archivedAbs) ? archivedRel : null, reason: 'ls_files_failed' };
+  }
+
+  const leaving = tracked.filter(rel => rel !== archivedRel);
+  const arriving = tracked.includes(archivedRel) ? [] : [archivedRel];
+  const staged = leaving.concat(arriving);
+  if (!staged.length) return { staged: [], renamed, reportRel: archivedRel, reason: 'nothing_to_record' };
+
+  try {
+    // --cached: the old name leaves the INDEX only. Its blob is already in history
+    // and the file itself is still on disk for archiveSiblingStateFiles to sweep.
+    if (leaving.length) {
+      git(`git rm -q --cached --ignore-unmatch -- ${leaving.map(shQuote).join(' ')}`, {
+        slice_id: String(id), op: 'landingArchive_rm', cwd: repoRoot, execOpts: { stdio: 'pipe' },
+      });
+    }
+    // -f because the queue is ignored and the new name would be invisible without it.
+    if (arriving.length) {
+      git(`git add -f -- ${arriving.map(shQuote).join(' ')}`, {
+        slice_id: String(id), op: 'landingArchive_add', cwd: repoRoot, execOpts: { stdio: 'pipe' },
+      });
+    }
+  } catch (err) {
+    log('warn', 'archive', { id, msg: 'Could not stage the archive rename into the landing', error: err.message, paths: staged });
+    revertQueueArchiveStaging(id, { staged, renamed }, opts);
+    return { staged: [], renamed: null, reportRel: null, reason: 'stage_failed', error: err.message };
+  }
+
+  log('info', 'archive', { id, msg: `Archive rename folded into the landing commit (${staged.length} queue path(s))`, paths: staged });
+  return { staged, renamed, reportRel: archivedRel, reason: 'ok' };
+}
+
+/**
+ * revertQueueArchiveStaging(id, archive, opts)
+ *
+ * Undo stageQueueArchiveForLanding: unstage the index entries it added and put the
+ * ACCEPTED name back. A landing that fails is abandoned whole (dev rewound, nothing
+ * pushed), so the queue must read exactly as it did before the attempt — a
+ * half-staged index is precisely what the autocommit used to sweep into a nameless
+ * commit, and a slice left ARCHIVED without having landed would never be retried.
+ * Best-effort throughout: the caller is already on its error path.
+ */
+function revertQueueArchiveStaging(id, archive, opts) {
+  if (!archive) return;
+  opts = opts || {};
+  const repoRoot = opts.repoRoot || PROJECT_DIR;
+  const git = opts.runGit || gitFinalizer.runGit;
+
+  if (archive.staged && archive.staged.length) {
+    try {
+      git(`git reset -q HEAD -- ${archive.staged.map(shQuote).join(' ')}`, {
+        slice_id: String(id), op: 'landingArchive_reset', cwd: repoRoot, execOpts: { stdio: 'pipe' },
+      });
+    } catch (_) { /* the index lock is held or HEAD is unborn — nothing was staged either */ }
+  }
+  if (archive.renamed) {
+    try {
+      fs.renameSync(path.join(repoRoot, archive.renamed.to), path.join(repoRoot, archive.renamed.from));
+    } catch (_) { /* the file moved on under us — the operator's ERROR report says the rest */ }
+  }
+}
+
+/**
  * recordArchivedQueueRename(id, opts) → { recorded, reason, paths }
  *
  * Queue reports are permanent records by contract, and they are tracked — but
@@ -4291,6 +4469,12 @@ function archiveSiblingStateFiles(id, terminalState, opts) {
  * exists to keep. It is to tell git about the rename in the step that performs
  * it, so the old name leaves and the new one arrives together. Only this slice's
  * queue paths are ever touched.
+ *
+ * Slice 395 moved the ordinary case — the landing — into the landing commit itself
+ * (stageQueueArchiveForLanding above), so this is now the recorder for the archivals
+ * that have no landing to ride: a nothing-to-do ticket archived without review, a
+ * backfill at startup, an operator calling it by hand. Those still deserve one
+ * commit, and its subject now carries the S<id> prefix so the topology labels it.
  *
  * Runs inside the merge path, which is why it takes nothing and waits for
  * nothing: git's own index.lock is the only lock here and a git command that
@@ -4361,7 +4545,9 @@ function recordArchivedQueueRename(id, opts) {
 
   const quoted = paths.map(shQuote).join(' ');
   const from = departed.length ? departed.map(rel => path.basename(rel)).join(', ') : '(nothing tracked)';
-  const msg = `chore(queue): record slice ${id} archive rename (${from} -> ${id}-ARCHIVED.md)`;
+  // S<id>: — every commit the pipeline writes says which slice it belongs to, so the
+  // topology can label it; a nameless commit on dev now means a person made it (395).
+  const msg = gitFinalizer.pipelineCommitSubject(id, `archive ${from} -> ${id}-ARCHIVED.md`);
 
   try {
     // -f because the queue is ignored and the new name would be invisible without
@@ -4413,16 +4599,22 @@ function archiveAcceptedSlice(id, branchName, opts) {
 
   const archivedPath = path.join(queueDir, `${id}-ARCHIVED.md`);
   if (fs.existsSync(archivedPath)) {
-    return { archived: false, reason: 'already_archived' };
+    // Slice 395: the landing commit performs this rename so it can carry it, which
+    // means the ARCHIVED file alone no longer proves the archival finished — the
+    // worktree, the branch and the register event may all still be outstanding. The
+    // ARCHIVED event proves it; without one, fall through and do the rest.
+    if (hasArchivedEvent(id, opts && opts.regFile)) {
+      return { archived: false, reason: 'already_archived' };
+    }
+    log('info', 'archive', { id, msg: 'ARCHIVED file already in place (folded into the landing commit) — finishing the archival' });
+  } else {
+    const acceptedPath = path.join(queueDir, `${id}-ACCEPTED.md`);
+    if (!fs.existsSync(acceptedPath)) {
+      return { archived: false, reason: 'no_accepted_file' };
+    }
+    // Rename ACCEPTED → ARCHIVED
+    fs.renameSync(acceptedPath, archivedPath);
   }
-
-  const acceptedPath = path.join(queueDir, `${id}-ACCEPTED.md`);
-  if (!fs.existsSync(acceptedPath)) {
-    return { archived: false, reason: 'no_accepted_file' };
-  }
-
-  // Rename ACCEPTED → ARCHIVED
-  fs.renameSync(acceptedPath, archivedPath);
 
   // Prune worktree if present
   const wtPath = getWorktreePath(id);
@@ -8292,9 +8484,12 @@ function newestDoneEvent(sliceId, regFile) {
  * Never fatal: the locks are the integrity-critical half of the amend, and a report that
  * still reads zero is worth less than a landing that fails.
  */
-function refillLandedDoneReport(sliceId) {
-  const rel = `bridge/queue/${sliceId}-DONE.md`;
-  const abs = path.join(PROJECT_DIR, 'bridge', 'queue', `${sliceId}-DONE.md`);
+function refillLandedDoneReport(sliceId, relOverride) {
+  // Slice 395: the landing also folds in the archive rename, so by the time the
+  // metrics go in the report may already be tracked as {id}-ARCHIVED.md. Fill the
+  // name the commit is about to carry — the other one is untracked and ignored.
+  const rel = relOverride || `bridge/queue/${sliceId}-DONE.md`;
+  const abs = path.join(PROJECT_DIR, rel.split('/').join(path.sep));
 
   const ev = newestDoneEvent(sliceId);
   if (!ev) {
@@ -8347,8 +8542,18 @@ function refillLandedDoneReport(sliceId) {
 function regenerateLocksAtLanding(sliceId, sliceBranch, preSquashSha) {
   const quotedLocks = LOCK_FILES.map(shQuote).join(' ');
 
+  // Set by step 1b below. Declared here so fail() can unwind it: the staged rename
+  // and the ACCEPTED→ARCHIVED move must both come back if the amend never happens.
+  let archive = null;
+
   const fail = (detail) => {
     log('error', 'squash-to-dev', { sliceId, msg: 'lock regeneration failed — rewinding dev and abandoning the landing', detail });
+
+    // The archive rename joined this amend (slice 395). Unstage it and put the
+    // ACCEPTED name back before anything else touches the index — a half-staged
+    // index is exactly what the autocommit used to sweep into a nameless commit.
+    revertQueueArchiveStaging(sliceId, archive);
+    archive = null;
 
     // Put the regenerated locks back the way the commit has them, so the reset has
     // nothing of its own to refuse.
@@ -8429,6 +8634,15 @@ function regenerateLocksAtLanding(sliceId, sliceBranch, preSquashSha) {
     return fail(`uncommitted lock-deriver inputs in the working tree: ${dirty.join(', ')}`);
   }
 
+  // 1b. The archive rename joins this amend, so one landing is one commit (slice 395).
+  //     Strictly BEFORE the regeneration: build-ac-manifest derives from the git INDEX
+  //     and cites an untrailered criterion's slice file by path, so a rename staged
+  //     afterwards would leave the committed lock naming a path its own commit does
+  //     not hold — and CI re-derives that lock. Not fatal on its own: a landing whose
+  //     paperwork could not be staged is still a landing, and the recorder that has
+  //     always followed archival picks the rename up in its own commit.
+  archive = stageQueueArchiveForLanding(sliceId);
+
   // 2. Regenerate. Both derivers are pure over the tree plus (for the manifest) the
   //    trailers reachable from HEAD — which is now the squash commit.
   for (const script of ['scripts/build-coverage-map.js', 'scripts/build-ac-manifest.js']) {
@@ -8454,8 +8668,9 @@ function regenerateLocksAtLanding(sliceId, sliceBranch, preSquashSha) {
     }
   }
 
-  // 4. The landed report's real numbers, from the same amend.
-  refillLandedDoneReport(sliceId);
+  // 4. The landed report's real numbers, from the same amend — under the name the
+  //    rename above just gave it, if it gave it one.
+  refillLandedDoneReport(sliceId, (archive && archive.reportRel) || null);
 
   // 5. One commit, not two: the slice lands as a single commit with correct locks.
   try {
@@ -8464,8 +8679,12 @@ function regenerateLocksAtLanding(sliceId, sliceBranch, preSquashSha) {
     return fail(`git commit --amend failed: ${amendErr.message}`);
   }
 
-  log('info', 'squash-to-dev', { sliceId, msg: 'lock files regenerated into the landing commit', locksMoved });
-  return { success: true };
+  log('info', 'squash-to-dev', {
+    sliceId, msg: 'lock files regenerated into the landing commit', locksMoved,
+    archive_rename: (archive && archive.reason) || 'not_attempted',
+    archive_paths: (archive && archive.staged) || [],
+  });
+  return { success: true, archive };
 }
 
 /**
@@ -8541,7 +8760,11 @@ function squashSliceToDev(sliceId, sliceTitle, sliceBranch, lane = 'core') {
           execSync(`git checkout --theirs -- ${shQuote(f)}`, { cwd: PROJECT_DIR, stdio: 'pipe' });
           execSync(`git add -- ${shQuote(f)}`, { cwd: PROJECT_DIR, stdio: 'pipe' });
         }
-        execSync('git commit --no-edit', { cwd: PROJECT_DIR, stdio: 'pipe' });
+        // Named like every other commit the pipeline writes (slice 395). This one
+        // lives on the slice branch and is squashed away at landing, but the branch
+        // is read by hand when a landing goes wrong and a nameless merge there is
+        // the same puzzle as a nameless commit on dev.
+        execSync(`git commit -m ${shQuote(gitFinalizer.pipelineCommitSubject(sliceId, `merge dev into ${sliceBranch} to resolve lock drift`))}`, { cwd: PROJECT_DIR, stdio: 'pipe' });
         lockDriftResolved = true;
         log('info', 'squash-to-dev', { sliceId, msg: "drift conflict on lock files only — took dev's copies and completed the merge", files: conflictingFiles });
       } catch (resolveErr) {
@@ -8691,7 +8914,10 @@ function squashSliceToDev(sliceId, sliceTitle, sliceBranch, lane = 'core') {
     }
   } catch (_) { /* no branch log → no trailers, squash proceeds unchanged */ }
 
-  const commitMsg = `S${sliceId}: ${sliceTitle}\n\nSlice-Id: ${sliceId}\nSlice-Branch: ${sliceBranch}\nLane: ${resolvedLane}\n${acTrailers}${moveTrailers}`;
+  // One helper spells the S<id> prefix for every commit the pipeline writes (slice
+  // 395); for the squash it produces exactly the `S<id>: <title>` subject that
+  // j-s-numbering-squash-subject has pinned since slice 350.
+  const commitMsg = `${gitFinalizer.pipelineCommitSubject(sliceId, sliceTitle)}\n\nSlice-Id: ${sliceId}\nSlice-Branch: ${sliceBranch}\nLane: ${resolvedLane}\n${acTrailers}${moveTrailers}`;
   const commitMsgFile = path.join(PROJECT_DIR, '.squash-commit-msg');
   try {
     fs.writeFileSync(commitMsgFile, commitMsg);
@@ -8869,6 +9095,15 @@ function drainDeferredAfterGate() {
         error: result.error,
       });
       break;
+    }
+    // The landing folded the ACCEPTED→ARCHIVED rename into its commit (slice 395), so
+    // finish the archival here the way handleAccepted does — otherwise a drained slice
+    // would be ARCHIVED on disk and in git with no ARCHIVED event, no pruned worktree
+    // and its branch still alive. Best-effort: the squash is the contract.
+    try {
+      archiveAcceptedSlice(entry.slice_id, meta.branch);
+    } catch (archErr) {
+      log('warn', 'archive', { id: entry.slice_id, msg: 'Post-drain archival failed (non-fatal)', error: archErr.message });
     }
     // Remove this entry from deferred_slices
     // Re-read branch-state since squashSliceToDev updates it
@@ -9095,4 +9330,4 @@ function mergeDevToMain() {
 // Exports — for use by helper scripts (e.g. bridge/next-id.js)
 // ---------------------------------------------------------------------------
 
-module.exports = { resolveLane, laneEventFields, applyLaneArgs, romSpawnArgs, registerCommissioned, sessionTelemetry, fillDoneMetrics, validateDoneMetrics, extractRomTelemetry, buildDoneTemplate, buildHashLines, regenerateLocksAtLanding, newestDoneEvent, isLockDeriverInput, LOCK_FILES, checkDispatchProvenance, parkUnprovenancedSlice, hasPreCutoverHistory, fileIsPreCutover, provenanceRootId, parseFrontmatter, handleNogReturn, startGate, abortGate, buildBashirPrompt, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, classifyHonestNonProduct, doneSummarySection, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, recordArchivedQueueRename, validateIntakeMeta, ensureIntegrationIsFresh, ensureMainIsFresh: ensureIntegrationIsFresh, fastForwardIntegrationRef, branchNamesFrom, INTEGRATION_BRANCH, TRUNK_BRANCH, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, provisionWorkspaceDeps, releaseDispatch, _testSetHeartbeatFile: (p) => { HEARTBEAT_FILE = p; }, _testGetDispatchState: () => ({ processing, heartbeat: { ...heartbeatState } }), _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted, hasTerminalLandedEvent, crashRecovery, trashEntryRecordsStaging, STAGING_TRASH_SUFFIXES, countUnreadableVerdicts, unreadableBackoffMs, retryBackoffElapsed, MAX_UNREADABLE_ATTEMPTS, UNREADABLE_BACKOFF_MS, porcelainPaths, isVolatileRuntimePath, recoverRuntimeStateAfterGit, stageablePathsFrom, shQuote, _testResetRefusalEmitted: () => { _refusalEmitted.clear(); }, _testGetRefusalEmitted: () => _refusalEmitted };
+module.exports = { resolveLane, laneEventFields, applyLaneArgs, romSpawnArgs, registerCommissioned, sessionTelemetry, fillDoneMetrics, validateDoneMetrics, extractRomTelemetry, buildDoneTemplate, buildHashLines, regenerateLocksAtLanding, newestDoneEvent, isLockDeriverInput, LOCK_FILES, checkDispatchProvenance, parkUnprovenancedSlice, hasPreCutoverHistory, fileIsPreCutover, provenanceRootId, parseFrontmatter, handleNogReturn, startGate, abortGate, buildBashirPrompt, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, classifyHonestNonProduct, doneSummarySection, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, recordArchivedQueueRename, validateIntakeMeta, ensureIntegrationIsFresh, ensureMainIsFresh: ensureIntegrationIsFresh, fastForwardIntegrationRef, branchNamesFrom, INTEGRATION_BRANCH, TRUNK_BRANCH, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, provisionWorkspaceDeps, releaseDispatch, _testSetHeartbeatFile: (p) => { HEARTBEAT_FILE = p; }, _testGetDispatchState: () => ({ processing, heartbeat: { ...heartbeatState } }), _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted, hasTerminalLandedEvent, crashRecovery, trashEntryRecordsStaging, STAGING_TRASH_SUFFIXES, countUnreadableVerdicts, unreadableBackoffMs, retryBackoffElapsed, MAX_UNREADABLE_ATTEMPTS, UNREADABLE_BACKOFF_MS, porcelainPaths, isVolatileRuntimePath, isPipelineOwnedPath, recoverRuntimeStateAfterGit, stageablePathsFrom, autoCommitDirtyTree, shQuote, stageQueueArchiveForLanding, revertQueueArchiveStaging, hasArchivedEvent, pipelineCommitSubject: gitFinalizer.pipelineCommitSubject, refillLandedDoneReport, _testResetRefusalEmitted: () => { _refusalEmitted.clear(); }, _testGetRefusalEmitted: () => _refusalEmitted };
