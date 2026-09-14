@@ -40,8 +40,10 @@ function extractFn(name) {
   throw new Error(`unbalanced braces while extracting ${name}()`);
 }
 
-// The page's own constant, not a copy of its value: a test that hardcodes 25 would
-// keep passing if someone quietly put the page size back to five.
+// The page's own constant, not a copy of its value: a test that hardcodes the page size
+// would keep passing if someone quietly changed it. Slice 385 renamed HISTORY_PAGE_SIZE
+// to LIST_PAGE_SIZE — one page size for every list on the operations page — so this reads
+// the new name; the assertions below stayed derived from it and did not move.
 function extractConst(name) {
   const m = SRC.match(new RegExp(`\\n\\s*const ${name}\\s*=\\s*[^;]+;`));
   assert.ok(m, `const ${name} must exist in lcars-dashboard.html`);
@@ -74,7 +76,8 @@ function loadHistory() {
     let cachedHistoryItems = [];
     let cachedHistoryAllRows = [];
     let historyPage = 1;
-    ${extractConst('HISTORY_PAGE_SIZE')}
+    ${extractConst('LIST_PAGE_SIZE')}
+    ${extractFn('clampListPage')}
     ${extractConst('INPUT_COST_PER_M')}
     ${extractConst('OUTPUT_COST_PER_M')}
     ${extractFn('escHtml')}
@@ -97,7 +100,7 @@ function loadHistory() {
       orderHistoryRowsByRecency,
       renderHistoryPanel,
       historyGoPage,
-      HISTORY_PAGE_SIZE,
+      LIST_PAGE_SIZE,
       allRows: () => cachedHistoryAllRows,
       page: () => historyPage,
     };
@@ -172,7 +175,7 @@ test('J-inspect-slice-history slice-380-ac-1 — the logbook is ordered by when 
 
 test('J-inspect-slice-history slice-380-ac-2 — every entry is reachable from the panel itself, by turning its pages', () => {
   const h = loadHistory();
-  const total = 3 * h.HISTORY_PAGE_SIZE + 4;      // deliberately not a whole number of pages
+  const total = 3 * h.LIST_PAGE_SIZE + 4;      // deliberately not a whole number of pages
   const recent = Array.from({ length: total }, (_, i) => ({
     id: String(500 + i),
     title: `Slice ${500 + i}`,
@@ -207,7 +210,7 @@ test('J-inspect-slice-history slice-380-ac-2 — every entry is reachable from t
   // And back again: the "newer" control returns to the top of the log.
   h.historyGoPage(1);
   assert.equal(h.page(), 1);
-  assert.equal(renderedIds(h.listEl).length, h.HISTORY_PAGE_SIZE);
+  assert.equal(renderedIds(h.listEl).length, h.LIST_PAGE_SIZE);
 });
 
 // ── slice-380-ac-3 ──────────────────────────────────────────────────────────
@@ -223,7 +226,7 @@ test('J-inspect-slice-history slice-380-ac-3 — the panel says how many entries
   assert.equal(h.pageEl.classList.contains('hidden'), false, 'the count bar is on screen');
   assert.match(h.pageEl.innerHTML, /of 60 entries/,
     'a truncated view must state the size of the whole log');
-  assert.match(h.pageEl.innerHTML, /showing 1–25 of 60 entries/,
+  assert.match(h.pageEl.innerHTML, new RegExp(`showing 1–${h.LIST_PAGE_SIZE} of 60 entries`),
     'and which slice of it is on screen');
 
   // The case the old code got wrong: fewer entries than a page. It hid the bar

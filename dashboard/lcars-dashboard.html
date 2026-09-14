@@ -802,7 +802,7 @@
 
   .history-details-btn:hover { color: var(--info); }
 
-  #history-pagination {
+  .history-pager {
     margin-top: 4px;
     border-top: 1px solid var(--bg-hover);
     padding: 10px 12px 4px;
@@ -811,7 +811,12 @@
     justify-content: space-between;
     min-height: 44px;
   }
-  #history-pagination.hidden { visibility: hidden; }
+  .history-pager.hidden { visibility: hidden; }
+  .queue-pager {
+    padding-left: 0;
+    padding-right: 0;
+    min-height: 36px;
+  }
   .history-pg-btn {
     background: none;
     border: none;
@@ -4957,7 +4962,7 @@ button:disabled,
 }
 
 /* Pagination bar */
-#history-pagination { border-top: 1px solid var(--border); }
+.history-pager { border-top: 1px solid var(--border); }
 .history-pg-btn {
   font-family: var(--font-sans);
   font-size: var(--text-xs);
@@ -7823,15 +7828,28 @@ body:not(.lcars-mode) .staged-details-body pre code {
     return Math.ceil(n / 50);
   }
 
+  // ── One page size, for every list on the operations page ──────────────────
+  // Ten rows a page: History, Approved Work Orders and Proposed Improvement all read
+  // this one number. Ten is a product decision, not a preference — nothing on the page
+  // offers to change it, and no list declares a page size of its own (slice 385).
+  // A page also has to be worth turning: five rows could not hold a single day's work,
+  // so the newest day spilled onto page 2 the moment anything else finished, which is
+  // how slice 367's 18:02 failure ended up out of sight (slice 380). The list scrolls
+  // inside the panel; the pager reaches the rest.
+  const LIST_PAGE_SIZE = 10;
+
+  // Clamp a page number to a list of `total` rows: past the end lands on the last page
+  // that exists, never back at page 1. Shared by History and by both queue sections, so
+  // "the list shrank under the operator" has exactly one answer wherever it happens.
+  function clampListPage(page, total) {
+    const totalPages = Math.max(1, Math.ceil(total / LIST_PAGE_SIZE));
+    return Math.max(1, Math.min(totalPages, page));
+  }
+
   // ── History panel ─────────────────────────────────────────────────────────
   let cachedHistoryItems = [];
   let cachedHistoryAllRows = [];
   let historyPage = 1;
-  // A page has to be worth turning. Five rows could not hold a single day's work,
-  // so the newest day was already spilling onto page 2 the moment anything else
-  // finished — which is how slice 367's 18:02 failure ended up out of sight
-  // (slice 380). The list scrolls inside the panel; the pager reaches the rest.
-  const HISTORY_PAGE_SIZE = 25;
 
   // Determine terminal outcome for a slice from register events
   function classifyTerminalOutcome(sliceId, events) {
@@ -8008,9 +8026,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
     // Chronological, newest first — the logbook's order is time, not id.
     cachedHistoryAllRows = orderHistoryRowsByRecency(classified);
 
-    const totalPages = Math.max(1, Math.ceil(cachedHistoryAllRows.length / HISTORY_PAGE_SIZE));
-    if (historyPage > totalPages) historyPage = totalPages;
-    if (historyPage < 1) historyPage = 1;
+    historyPage = clampListPage(historyPage, cachedHistoryAllRows.length);
 
     renderHistoryPage();
   }
@@ -8099,9 +8115,9 @@ body:not(.lcars-mode) .staged-details-body pre code {
     if (!listEl || !pageEl) return;
 
     const total = cachedHistoryAllRows.length;
-    const totalPages = Math.max(1, Math.ceil(total / HISTORY_PAGE_SIZE));
-    const start = (historyPage - 1) * HISTORY_PAGE_SIZE;
-    const rows = cachedHistoryAllRows.slice(start, start + HISTORY_PAGE_SIZE);
+    const totalPages = Math.max(1, Math.ceil(total / LIST_PAGE_SIZE));
+    const start = (historyPage - 1) * LIST_PAGE_SIZE;
+    const rows = cachedHistoryAllRows.slice(start, start + LIST_PAGE_SIZE);
 
     cachedHistoryItems = rows;
 
@@ -8199,8 +8215,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
   }
 
   function historyGoPage(page) {
-    const totalPages = Math.max(1, Math.ceil(cachedHistoryAllRows.length / HISTORY_PAGE_SIZE));
-    historyPage = Math.max(1, Math.min(totalPages, page));
+    historyPage = clampListPage(page, cachedHistoryAllRows.length);
     renderHistoryPage();
   }
 
@@ -9471,6 +9486,11 @@ body:not(.lcars-mode) .staged-details-body pre code {
   let cachedBridgeSlices = [];
   let cachedQueueOrder = [];
   let cachedStagedOrder = [];
+  // The two Backlog Queue sections page independently: approving a proposal must not
+  // move the operator's place in the other list. Both survive a routine re-render and
+  // are only moved by clampListPage() when their list shrank under the operator.
+  let queueApprovedPage = 1;
+  let queueProposedPage = 1;
   let _lastBridgeData = null;
   let _lastBridgeFingerprint = '';
   let dragSrcId = null;
@@ -9657,6 +9677,30 @@ body:not(.lcars-mode) .staged-details-body pre code {
       </div>${expandHtml}</div>`;
   }
 
+  // History's pager, as markup a queue section can drop underneath its rows: the same
+  // history-pager container and the same history-pg-* controls, so all three pagers on
+  // the operations page are one thing wearing one name. Returns '' when the list fits on
+  // a single page — a section with nothing to page through renders no pager at all
+  // (slice-385-ac-4), which is why the ordinary one-work-order queue shows none.
+  function queuePagerHtml(id, page, total, goFn) {
+    const totalPages = Math.max(1, Math.ceil(total / LIST_PAGE_SIZE));
+    if (totalPages <= 1) return '';
+    const start = (page - 1) * LIST_PAGE_SIZE;
+    const first = start + 1;
+    const last = Math.min(start + LIST_PAGE_SIZE, total);
+    return `<div id="${id}" class="history-pager queue-pager">
+      <button class="history-pg-btn" onclick="${goFn}(${page - 1})" ${page <= 1 ? 'disabled' : ''}>\u2190 prev</button>
+      <span class="history-pg-info">showing ${first}\u2013${last} of ${total} \u00b7 page ${page} of ${totalPages}</span>
+      <button class="history-pg-btn" onclick="${goFn}(${page + 1})" ${page >= totalPages ? 'disabled' : ''}>next \u2192</button>
+    </div>`;
+  }
+
+  // Both controls hand the requested page straight to renderQueueList(), which clamps it
+  // against the list as it stands right now — one clamping rule, whether the page moved
+  // because the operator clicked or because the list shrank.
+  function queueApprovedGoPage(page) { queueApprovedPage = page; renderQueueList(); }
+  function queueProposedGoPage(page) { queueProposedPage = page; renderQueueList(); }
+
   function renderQueueList() {
     const container = document.getElementById('queue-list');
     const rows = buildQueueRows();
@@ -9666,6 +9710,17 @@ body:not(.lcars-mode) .staged-details-body pre code {
     const stagedRows = rows.filter(r => r.rowState === 'STAGED' || r.rowState === 'NEEDS_APENDMENT');
     // In-flight slices (IN_PROGRESS, DONE, ERROR) excluded from both sections (AC9)
 
+    // Ten rows a page in each section. These lists shrink on their own — a slice
+    // dispatches and leaves the queue while the operator is reading page 2 — so the page
+    // is clamped against the list as it stands, and left exactly where it was whenever
+    // that page still exists. A poll re-render never bounces the operator back to page 1.
+    queueApprovedPage = clampListPage(queueApprovedPage, approvedRows.length);
+    queueProposedPage = clampListPage(queueProposedPage, stagedRows.length);
+    const approvedStart = (queueApprovedPage - 1) * LIST_PAGE_SIZE;
+    const stagedStart = (queueProposedPage - 1) * LIST_PAGE_SIZE;
+    const approvedPageRows = approvedRows.slice(approvedStart, approvedStart + LIST_PAGE_SIZE);
+    const stagedPageRows = stagedRows.slice(stagedStart, stagedStart + LIST_PAGE_SIZE);
+
     let html = '';
 
     // ── Approved section (top) ──
@@ -9673,7 +9728,10 @@ body:not(.lcars-mode) .staged-details-body pre code {
     if (approvedRows.length === 0) {
       html += '<div class="queue-empty-card">No approved work orders waiting. Approve a proposed improvement below.</div>';
     } else {
-      html += approvedRows.map((row, idx) => renderQueueRow(row, { position: idx + 1 })).join('');
+      // The position number counts from the head of the whole queue, not the head of the
+      // page: the first row of page 2 is the eleventh work order and says so.
+      html += approvedPageRows.map((row, idx) => renderQueueRow(row, { position: approvedStart + idx + 1 })).join('');
+      html += queuePagerHtml('queue-approved-pagination', queueApprovedPage, approvedRows.length, 'queueApprovedGoPage');
     }
 
     // ── Dashed divider ──
@@ -9693,7 +9751,8 @@ body:not(.lcars-mode) .staged-details-body pre code {
     if (stagedRows.length === 0) {
       html += '<div class="queue-empty-card">No proposed improvements yet. The dev lead proposes new work here.</div>';
     } else {
-      html += stagedRows.map(row => renderQueueRow(row, {})).join('');
+      html += stagedPageRows.map(row => renderQueueRow(row, {})).join('');
+      html += queuePagerHtml('queue-proposed-pagination', queueProposedPage, stagedRows.length, 'queueProposedGoPage');
     }
 
     container.innerHTML = html;
@@ -9835,8 +9894,10 @@ body:not(.lcars-mode) .staged-details-body pre code {
     if (!list || !wrap) return;
     const move = () => {
       if (target === 'approved') {
-        const divider = list.querySelector('.queue-section-divider');     // end of Approved
-        if (divider) list.insertBefore(wrap, divider); else list.appendChild(wrap);
+        // End of Approved = above its pager when it has one, else above the divider.
+        const tail = list.querySelector('#queue-approved-pagination')
+                  || list.querySelector('.queue-section-divider');
+        if (tail) list.insertBefore(wrap, tail); else list.appendChild(wrap);
       } else {
         const label = list.querySelector('.queue-section-label-row');     // top of Proposed
         if (label && label.nextSibling) list.insertBefore(wrap, label.nextSibling);

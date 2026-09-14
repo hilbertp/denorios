@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 702,
+  "guardCount": 708,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -882,6 +882,36 @@
         "tag": "slice-383-ac-5",
         "file": "regression/direct-controls/j-panel-owner-names.test.js",
         "guardAcHash": "sha256:3cafcbc471845befc6a9decfa74138632bfbecb023461622a5792d5a539d7a6c"
+      },
+      {
+        "tag": "slice-385-ac-1",
+        "file": "regression/authoring-staging/j-ten-rows-a-page.test.js",
+        "guardAcHash": "sha256:8d49e82acb0752a6421c5f50b0aa6b8bef0a77a199588c5c1f32b08063849421"
+      },
+      {
+        "tag": "slice-385-ac-2",
+        "file": "regression/authoring-staging/j-ten-rows-a-page.test.js",
+        "guardAcHash": "sha256:bccbb55e0e024ca3d1db57710a91a4b73d1a8fa5c78475cdbce6731f167be805"
+      },
+      {
+        "tag": "slice-385-ac-3",
+        "file": "regression/authoring-staging/j-ten-rows-a-page.test.js",
+        "guardAcHash": "sha256:3a8dc2653f847c591b0a8178ae0bae743842c7842a935aab1124815ce964bfc0"
+      },
+      {
+        "tag": "slice-385-ac-4",
+        "file": "regression/authoring-staging/j-ten-rows-a-page.test.js",
+        "guardAcHash": "sha256:9ce657a504b131bf441143f20e30fb548b997ce3b3dc77112630322daddc2002"
+      },
+      {
+        "tag": "slice-385-ac-5",
+        "file": "regression/authoring-staging/j-ten-rows-a-page.test.js",
+        "guardAcHash": "sha256:6144f8e7dc39a92ddccfd098a52458761a912eb55aa0f07f3acb90f61cf0eb1b"
+      },
+      {
+        "tag": "slice-385-ac-6",
+        "file": "regression/authoring-staging/j-ten-rows-a-page.test.js",
+        "guardAcHash": "sha256:cd96bff22de70af125def973070038bab8820c3d54518a140cfd51d778be8e2f"
       },
       {
         "tag": "slice-388-ac-1",
@@ -2739,6 +2769,38 @@
         "tag": "slice-371-ac-6",
         "file": "regression/authoring-staging/j-reorder-proposed-backlog.test.js",
         "guardAcHash": "sha256:e88e5111d0f9835d7f3ca13a31d855588575e3c02a78a2eca07824b733f880fe"
+      }
+    ],
+    "regression/authoring-staging/j-ten-rows-a-page.test.js": [
+      {
+        "tag": "slice-385-ac-1",
+        "file": "regression/authoring-staging/j-ten-rows-a-page.test.js",
+        "guardAcHash": "sha256:8d49e82acb0752a6421c5f50b0aa6b8bef0a77a199588c5c1f32b08063849421"
+      },
+      {
+        "tag": "slice-385-ac-2",
+        "file": "regression/authoring-staging/j-ten-rows-a-page.test.js",
+        "guardAcHash": "sha256:bccbb55e0e024ca3d1db57710a91a4b73d1a8fa5c78475cdbce6731f167be805"
+      },
+      {
+        "tag": "slice-385-ac-3",
+        "file": "regression/authoring-staging/j-ten-rows-a-page.test.js",
+        "guardAcHash": "sha256:3a8dc2653f847c591b0a8178ae0bae743842c7842a935aab1124815ce964bfc0"
+      },
+      {
+        "tag": "slice-385-ac-4",
+        "file": "regression/authoring-staging/j-ten-rows-a-page.test.js",
+        "guardAcHash": "sha256:9ce657a504b131bf441143f20e30fb548b997ce3b3dc77112630322daddc2002"
+      },
+      {
+        "tag": "slice-385-ac-5",
+        "file": "regression/authoring-staging/j-ten-rows-a-page.test.js",
+        "guardAcHash": "sha256:6144f8e7dc39a92ddccfd098a52458761a912eb55aa0f07f3acb90f61cf0eb1b"
+      },
+      {
+        "tag": "slice-385-ac-6",
+        "file": "regression/authoring-staging/j-ten-rows-a-page.test.js",
+        "guardAcHash": "sha256:cd96bff22de70af125def973070038bab8820c3d54518a140cfd51d778be8e2f"
       }
     ],
     "regression/direct-controls/j-dark-mode-label.test.js": [
