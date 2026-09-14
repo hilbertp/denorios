@@ -3103,7 +3103,11 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
       cwd: worktreePath,
       encoding: 'utf-8',
       // No timeout here — we handle killing via inactivity check below.
-      maxBuffer: 10 * 1024 * 1024, // 10 MB stdout buffer
+      // 256 MB: a dashboard slice that reads screenshots logs 160-420 KB per image, and slices
+      // 358 and 363 were killed at 10 MB with ERR_CHILD_PROCESS_STDIO_MAXBUFFER, 688 lines of
+      // work left uncommitted (2026-09-14). The log is already teed line by line; a streaming
+      // parser that drops the buffer entirely is slice 396.
+      maxBuffer: 256 * 1024 * 1024,
     },
     (err, stdout, stderr) => {
       clearInterval(tickInterval);
@@ -3469,8 +3473,11 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
         // Claude API returns is_error:true with "hit your limit" text when the
         // account's rate limit is exceeded.  This is NOT a bug in the slice —
         // requeue it and pause dispatch until the limit resets.
+        // Only a REJECTED rate-limit event or the CLI's own limit message is a rate limit. The
+        // CLI also emits "approaching your limit" warnings at 90% utilisation mid-session (13 in
+        // slice 363's log); matching those paused dispatch for eight hours over a buffer crash.
         const isRateLimit = reason === 'crash' && stdout &&
-          (stdout.includes('hit your limit') || stdout.includes('your limit'));
+          (stdout.includes('hit your limit') || /"rate_limit_event"[^\n]*"status":"rejected"/.test(stdout));
 
         if (isRateLimit) {
           // Calculate how long to wait before retrying.
