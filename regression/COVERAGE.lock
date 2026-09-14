@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 698,
+  "guardCount": 702,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -3628,6 +3628,28 @@
       {
         "tag": "slice-99825-ac-92",
         "file": "regression/gate-merge/j-ac-hash-extraction.test.js"
+      }
+    ],
+    "scripts/build-timing.js": [
+      {
+        "tag": "slice-392-ac-1",
+        "file": "regression/observability/j-build-timing.test.js",
+        "guardAcHash": "sha256:3f5dd727b3f0c982e825f4871aa2190695533d6809d156e8efa0612c6c0e586e"
+      },
+      {
+        "tag": "slice-392-ac-2",
+        "file": "regression/observability/j-build-timing.test.js",
+        "guardAcHash": "sha256:150607341e56f9be7e2e0b258063160f12ec25c09a80ea5063c416da6b5e00f0"
+      },
+      {
+        "tag": "slice-392-ac-3",
+        "file": "regression/observability/j-build-timing.test.js",
+        "guardAcHash": "sha256:deff2b4a6009ddb52e1c38f8e807c2364f89ce3b67cbc621086cacca024d248a"
+      },
+      {
+        "tag": "slice-392-ac-4",
+        "file": "regression/observability/j-build-timing.test.js",
+        "guardAcHash": "sha256:b65a2435afed2c31dc55424550351017f3d0a9e3b20e5699aad5710c48aee480"
       }
     ],
     "scripts/check-test-updates.js": [

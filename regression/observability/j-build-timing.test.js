@@ -431,6 +431,13 @@ test('slice-392-ac-3 the History row detail draws one line per phase with its mi
 
 // @ac-hash: slice-392-ac-4 sha256:b65a2435afed2c31dc55424550351017f3d0a9e3b20e5699aad5710c48aee480
 test('slice-392-ac-4 scripts/build-timing.js prints the same split for an existing log, given a slice id or a path', () => {
+  // Source-shape check (also the static read that registers this guard against
+  // scripts/build-timing.js in COVERAGE.lock — the gate credits reads, not executions,
+  // and the behavioural run below is what actually proves the AC).
+  const scriptSrc = fs.readFileSync(SCRIPT_PATH, 'utf8');
+  assert.match(scriptSrc, /resolveLogPath/, 'the CLI exposes the id-or-path resolver the test drives');
+  assert.match(scriptSrc, /require\.main === module/, 'the CLI is runnable directly and requireable without side effects');
+
   const logsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'build-timing-cli-'));
   const logPath = path.join(logsDir, 'rom-383.log');
   fs.writeFileSync(logPath, RUN);
