@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 758,
+  "guardCount": 773,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -761,6 +761,31 @@
         "guardAcHash": "sha256:306ddc815a5129ea773ab4c2e6df83add8d98c4f8ab15cc476b7952a7b0cc29e"
       },
       {
+        "tag": "slice-359-ac-1",
+        "file": "regression/gate-merge/j-authoring-containment.test.js",
+        "guardAcHash": "sha256:125d16965df34771d93cd253c63424fe7adc6a9893e3750f41d94cc87ccfe37c"
+      },
+      {
+        "tag": "slice-359-ac-2",
+        "file": "regression/gate-merge/j-authoring-containment.test.js",
+        "guardAcHash": "sha256:0ea3a4284521eee05ad8803d08397b3641d28995af6342289cb7a2f1a53513c5"
+      },
+      {
+        "tag": "slice-359-ac-3",
+        "file": "regression/gate-merge/j-authoring-containment.test.js",
+        "guardAcHash": "sha256:c0cbd68e02a390a4854d3b2cb467627895f3ab9a6e5c459c8b3784af05306f2a"
+      },
+      {
+        "tag": "slice-359-ac-4",
+        "file": "regression/gate-merge/j-authoring-containment.test.js",
+        "guardAcHash": "sha256:44b64e2d4b9044988809cf4e47b921f63c869d875fd56aa376535773a210432c"
+      },
+      {
+        "tag": "slice-359-ac-5",
+        "file": "regression/gate-merge/j-authoring-containment.test.js",
+        "guardAcHash": "sha256:4792476b9eb1c830acd8ffd00a4f6e0fbc994a6ce62876bc43eb3e341abea2a1"
+      },
+      {
         "tag": "slice-361-ac-1",
         "file": "regression/gate-merge/j-merge-lock-server.test.js",
         "guardAcHash": "sha256:e6953637487630b71692176dfb2df6c6c07d65a8cb36f4a9d0f9ec0abb5d2eb8"
@@ -1455,6 +1480,31 @@
         "tag": "slice-358-ac-6",
         "file": "regression/gate-merge/j-apply-draft.test.js",
         "guardAcHash": "sha256:306ddc815a5129ea773ab4c2e6df83add8d98c4f8ab15cc476b7952a7b0cc29e"
+      },
+      {
+        "tag": "slice-359-ac-1",
+        "file": "regression/gate-merge/j-authoring-containment.test.js",
+        "guardAcHash": "sha256:125d16965df34771d93cd253c63424fe7adc6a9893e3750f41d94cc87ccfe37c"
+      },
+      {
+        "tag": "slice-359-ac-2",
+        "file": "regression/gate-merge/j-authoring-containment.test.js",
+        "guardAcHash": "sha256:0ea3a4284521eee05ad8803d08397b3641d28995af6342289cb7a2f1a53513c5"
+      },
+      {
+        "tag": "slice-359-ac-3",
+        "file": "regression/gate-merge/j-authoring-containment.test.js",
+        "guardAcHash": "sha256:c0cbd68e02a390a4854d3b2cb467627895f3ab9a6e5c459c8b3784af05306f2a"
+      },
+      {
+        "tag": "slice-359-ac-4",
+        "file": "regression/gate-merge/j-authoring-containment.test.js",
+        "guardAcHash": "sha256:44b64e2d4b9044988809cf4e47b921f63c869d875fd56aa376535773a210432c"
+      },
+      {
+        "tag": "slice-359-ac-5",
+        "file": "regression/gate-merge/j-authoring-containment.test.js",
+        "guardAcHash": "sha256:4792476b9eb1c830acd8ffd00a4f6e0fbc994a6ce62876bc43eb3e341abea2a1"
       },
       {
         "tag": "slice-361-ac-1",
@@ -3321,6 +3371,33 @@
         "guardAcHash": "sha256:306ddc815a5129ea773ab4c2e6df83add8d98c4f8ab15cc476b7952a7b0cc29e"
       }
     ],
+    "regression/gate-merge/j-authoring-containment.test.js": [
+      {
+        "tag": "slice-359-ac-1",
+        "file": "regression/gate-merge/j-authoring-containment.test.js",
+        "guardAcHash": "sha256:125d16965df34771d93cd253c63424fe7adc6a9893e3750f41d94cc87ccfe37c"
+      },
+      {
+        "tag": "slice-359-ac-2",
+        "file": "regression/gate-merge/j-authoring-containment.test.js",
+        "guardAcHash": "sha256:0ea3a4284521eee05ad8803d08397b3641d28995af6342289cb7a2f1a53513c5"
+      },
+      {
+        "tag": "slice-359-ac-3",
+        "file": "regression/gate-merge/j-authoring-containment.test.js",
+        "guardAcHash": "sha256:c0cbd68e02a390a4854d3b2cb467627895f3ab9a6e5c459c8b3784af05306f2a"
+      },
+      {
+        "tag": "slice-359-ac-4",
+        "file": "regression/gate-merge/j-authoring-containment.test.js",
+        "guardAcHash": "sha256:44b64e2d4b9044988809cf4e47b921f63c869d875fd56aa376535773a210432c"
+      },
+      {
+        "tag": "slice-359-ac-5",
+        "file": "regression/gate-merge/j-authoring-containment.test.js",
+        "guardAcHash": "sha256:4792476b9eb1c830acd8ffd00a4f6e0fbc994a6ce62876bc43eb3e341abea2a1"
+      }
+    ],
     "regression/gate-merge/j-draft-contract.test.js": [
       {
         "tag": "slice-357-ac-1",
@@ -3823,6 +3900,31 @@
         "tag": "slice-357-ac-5",
         "file": "regression/gate-merge/j-draft-contract.test.js",
         "guardAcHash": "sha256:1e6fe4552f48c95b862a3eff68039bf245ad516e4dbf0ae348042c649f80b1e8"
+      },
+      {
+        "tag": "slice-359-ac-1",
+        "file": "regression/gate-merge/j-authoring-containment.test.js",
+        "guardAcHash": "sha256:125d16965df34771d93cd253c63424fe7adc6a9893e3750f41d94cc87ccfe37c"
+      },
+      {
+        "tag": "slice-359-ac-2",
+        "file": "regression/gate-merge/j-authoring-containment.test.js",
+        "guardAcHash": "sha256:0ea3a4284521eee05ad8803d08397b3641d28995af6342289cb7a2f1a53513c5"
+      },
+      {
+        "tag": "slice-359-ac-3",
+        "file": "regression/gate-merge/j-authoring-containment.test.js",
+        "guardAcHash": "sha256:c0cbd68e02a390a4854d3b2cb467627895f3ab9a6e5c459c8b3784af05306f2a"
+      },
+      {
+        "tag": "slice-359-ac-4",
+        "file": "regression/gate-merge/j-authoring-containment.test.js",
+        "guardAcHash": "sha256:44b64e2d4b9044988809cf4e47b921f63c869d875fd56aa376535773a210432c"
+      },
+      {
+        "tag": "slice-359-ac-5",
+        "file": "regression/gate-merge/j-authoring-containment.test.js",
+        "guardAcHash": "sha256:4792476b9eb1c830acd8ffd00a4f6e0fbc994a6ce62876bc43eb3e341abea2a1"
       },
       {
         "tag": "slice-363-ac-1",

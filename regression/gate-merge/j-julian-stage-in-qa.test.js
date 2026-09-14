@@ -478,7 +478,10 @@ test('J-julian-stage-in-qa slice-363-ac-6 — the built prompt contains no diff 
 // ── AC-7 ─────────────────────────────────────────────────────────────────────
 test('J-julian-stage-in-qa slice-363-ac-7 — the explore-the-repo instruction and the product-folder list are gone from the authoring script', () => {
   const src = fs.readFileSync(AUTHOR_SCRIPT, 'utf8');
-  const prompt = src.slice(src.indexOf('const prompt = `'), src.indexOf('const args = ['));
+  // Slice 359 moved the prompt into promptFor(draftsDir) so every path it names points
+  // inside the sandbox. Same prompt, new address: re-anchored on the function, not on the
+  // `const prompt = \`` line that used to hold it. Every assertion below is unchanged.
+  const prompt = src.slice(src.indexOf('function promptFor('), src.indexOf('// \u2500\u2500 The box'));
   assert.ok(prompt.length > 0, 'the authoring prompt must still be there to check');
 
   assert.doesNotMatch(prompt, /explore the repo/i,

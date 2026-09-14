@@ -5826,6 +5826,34 @@ button:disabled,
 }
 .utc-draft-more:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
 .utc-draft-err { font-size: var(--text-sm); color: var(--warn); }
+/* ── Dispatching one AC's guard, and the run that failed (slice 359) ──────────────
+   A failed authoring run is the one state here the operator MUST not miss: it is what a
+   containment breach looks like from the outside, and its predecessor — a cleared marker
+   read as "pending" — showed a spinner instead. So it gets the error colour, a border,
+   and the report it came from, rather than one grey sentence. */
+.utc-btn-author { background: var(--bg-panel); color: var(--ink-2); border-color: var(--border-strong); }
+.utc-btn-author:hover:not([disabled]) { background: var(--bg-hover, #f3f4f6); }
+.utc-authored-fail {
+  border: 1px solid var(--err); border-left-width: 3px; border-radius: 4px;
+  background: rgba(220,38,38,.07); color: var(--err);
+  padding: 7px 9px; font-size: var(--text-sm); line-height: var(--leading-normal);
+}
+.utc-fail-head { font-weight: 600; }
+.utc-fail-detail {
+  margin: 6px 0 0; padding: 6px 8px; max-height: 190px; overflow: auto;
+  background: var(--bg-panel); color: var(--ink-2); border-radius: 3px;
+  font-family: var(--font-mono); font-size: var(--text-xs); white-space: pre-wrap;
+}
+.utc-fail-where { display: block; margin-top: 5px; color: var(--ink-muted); font-size: var(--text-xs); }
+.utc-authoring-by { color: var(--ink-muted); font-size: var(--text-xs); }
+.utc-q-answer { margin-top: 7px; }
+.utc-q-input {
+  width: 100%; box-sizing: border-box; padding: 6px 8px;
+  border: 1px solid var(--border-strong); border-radius: 3px;
+  background: var(--bg-panel); color: var(--ink);
+  font-family: inherit; font-size: var(--text-sm); line-height: var(--leading-normal);
+}
+.utc-q-hint { display: block; margin-top: 4px; color: var(--ink-muted); font-size: var(--text-xs); }
 /* ── Applying a draft (slice 358) ──────────────────────────────────────────────
    The consequential half of this panel is the PLAN, not the button, so the plan reads as
    a short list of facts with a verdict glyph each — lands where, runs green, gets counted,
@@ -11021,6 +11049,15 @@ body:not(.lcars-mode) .staged-details-body pre code {
   // True once an apply has written to the suite in this overlay session (slice 358) — the
   // "ready to gate" state then stops auto-dismissing, so what landed stays readable.
   let _applyLanded = false;
+  // Which tags THIS page has dispatched an authoring run for (slice 359). The server's
+  // 'pending' means "nothing on file for this AC", which is true both in the seconds
+  // after a dispatch (before the marker is written) and when nobody has asked for a run
+  // at all. Only the page that pressed the button can tell those two apart, so the
+  // spinner is shown for a run we actually started — and never as a guess.
+  const _dispatched = new Set();
+  // The operator's half-typed answers to Julian's questions, so a 4-second poll re-render
+  // cannot wipe a sentence mid-word.
+  const _answers = new Map();
 
   function _promoteEsc(s) {
     return String(s == null ? '' : s)
@@ -11385,8 +11422,11 @@ body:not(.lcars-mode) .staged-details-body pre code {
       } else {                                    // low-confidence ACs → operator decides
         const _n = (rep.decisions && rep.decisions.length) || (rep.pending && rep.pending.length) || (Array.isArray(rep.acs) ? rep.acs.length : 0) || 1;
         _testUpdatesPending = { sha: _testUpdatesSha, count: _n };
+        // The press dispatches every flagged AC, so the first render already says so —
+        // _authorAndPoll() takes any tag the server did NOT kick straight back out again.
+        for (const f of (rep.flagged || [])) if (f && f.tag) _dispatched.add(f.tag);
         openTestUpdatesOverlay(rep);
-        _authorAndPoll();   // one press: drain the ACs AND have Julian author the flagged tests
+        _authorAndPoll(rep);   // one press: drain the ACs AND have Julian author the flagged tests
       }
     } catch (e) {
       _promoteSlotError = 'test-update check failed: network error';
@@ -11451,22 +11491,54 @@ body:not(.lcars-mode) .staged-details-body pre code {
         : `<span class="utc-ac-missing">(${_esc(it.tag)} — no AC text on file)</span>`;
       // Julian's authoring state for this AC (he drafts autonomously on the CHECK press).
       const a = it.authoring || { state: 'pending' };
+      const tagAttr = _escAttr(it.tag);
       let act;
       if (a.state === 'drafted') {
         act = '<div class="utc-authored utc-authored-done"><span class="utc-authored-glyph">&#10003;</span> '
           + `Julian drafted the guard &middot; <code>regression/.drafts/${_esc(a.draft || '')}</code>`
           + '<div class="utc-authored-sub">Read it, then apply it &mdash; applying shows you the plan first, and nothing is written until you confirm it.</div></div>';
       } else if (a.state === 'question') {
+        // A question is an ANSWER REQUEST, never a dead end: the answer goes back to the
+        // same dispatch, which re-runs the agent with the journey decided (slice 359).
         act = '<div class="utc-authored utc-authored-q"><strong>&#9888; Julian needs a product call:</strong>'
-          + `<pre class="utc-q">${_esc((a.question || '').trim())}</pre></div>`;
+          + `<pre class="utc-q">${_esc((a.question || '').trim())}</pre>`
+          + '<div class="utc-q-answer">'
+          + `<textarea class="utc-q-input" id="utc-answer-${tagAttr}" rows="2" aria-label="Your answer to Julian's question"`
+          + ` placeholder="Answer him here, then press Answer &amp; re-draft." oninput="_rememberAnswer('${tagAttr}', this.value)"></textarea>`
+          + '<span class="utc-q-hint">Nothing is running for this AC until you answer &mdash; your answer is handed to the next run as the decided journey.</span>'
+          + '</div></div>';
       } else if (a.state === 'failed') {
-        act = '<div class="utc-authored utc-authored-fail">Julian&#39;s run didn&#39;t finish &mdash; re-press CHECK to retry.</div>';
+        // AC-3's visible half. A withheld draft is not a hiccup: name what happened and
+        // where the report is, so "the machine tried to weaken the suite" cannot be read
+        // as "nothing happened".
+        const head = a.reason === 'run' ? 'Julian&#39;s run FAILED &mdash; nothing was drafted.'
+                   : a.reason === 'contract' ? 'Julian&#39;s draft was REJECTED &mdash; it would have registered no coverage.'
+                   : 'Julian&#39;s run didn&#39;t finish &mdash; it stopped reporting and was timed out.';
+        act = '<div class="utc-authored utc-authored-fail">'
+          + `<span class="utc-fail-head">&#9888; ${head}</span>`
+          + (a.detail ? `<pre class="utc-fail-detail">${_esc(String(a.detail).trim())}</pre>` : '')
+          + (a.report ? `<span class="utc-fail-where">Full report: <code>regression/.drafts/${_esc(a.report)}</code></span>` : '')
+          + '</div>';
+      } else if (a.state === 'authoring' || _dispatched.has(it.tag)) {
+        // 'pending' + dispatched-from-this-page covers the seconds between the POST and
+        // the marker showing up in a poll. 'pending' with nothing dispatched is NOT this.
+        act = '<div class="utc-authored utc-authoring"><span class="utc-authoring-spin">&#8635;</span> Julian is drafting the test&#8230;'
+          + (a.by ? ` <span class="utc-authoring-by">(dispatched: ${_esc(a.by)})</span>` : '')
+          + '</div>';
       } else {
-        act = '<div class="utc-authored utc-authoring"><span class="utc-authoring-spin">&#8635;</span> Julian is drafting the test&#8230;</div>';
+        act = '<div class="utc-authored utc-authoring-none">No guard has been drafted for this criterion, and nothing is running for it.</div>';
       }
       // Slice 356: a drafted guard becomes readable in place. `.utc-actions` is already
       // flex + wrap, so the disclosure drops in beside the existing ruling with no layout work.
       const drafted = a.state === 'drafted';
+      // Slice 359: the per-AC dispatch. Offered whenever there is no draft — an AC flagged
+      // after the last CHECK press, or one whose run failed, no longer costs a re-press of
+      // CHECK and a re-dispatch of every other AC. It AUTHORS; applying stays separate.
+      const running = a.state === 'authoring' || (a.state !== 'question' && a.state !== 'failed' && _dispatched.has(it.tag));
+      const answering = a.state === 'question';
+      const authorLabel = answering ? 'Answer &amp; re-draft'
+                        : a.state === 'failed' ? 'Try again'
+                        : running ? 'Julian is on it&hellip;' : 'Write the guard for this AC';
       html += '<div class="utc-card">'
         + `<div class="utc-card-meta"><span class="utc-tag">${_esc(it.tag)}</span></div>`
         + `<p class="utc-ac">${ac}</p>`
@@ -11475,6 +11547,9 @@ body:not(.lcars-mode) .staged-details-body pre code {
         + '<div class="utc-actions">'
         + (drafted ? `<button class="utc-btn utc-btn-update" id="utc-read-${_escAttr(it.tag)}" aria-expanded="false" aria-controls="utc-draft-${_escAttr(it.tag)}" onclick="_toggleDraft('${_escAttr(it.tag)}', this)">Read the draft</button>` : '')
         + (drafted ? `<button class="utc-btn utc-btn-apply" id="utc-apply-btn-${_escAttr(it.tag)}" aria-expanded="false" aria-controls="utc-apply-${_escAttr(it.tag)}" onclick="_toggleApply('${_escAttr(it.tag)}', this)">Apply this guard&hellip;</button>` : '')
+        + (drafted ? '' : `<button class="utc-btn utc-btn-author" id="utc-author-btn-${tagAttr}"`
+            + ` title="Dispatches Julian for this one acceptance criterion. He drafts a guard for review — nothing is installed."`
+            + ` onclick="_dispatchAuthoring('${tagAttr}', this)"${running ? ' disabled' : ''}>${authorLabel}</button>`)
         + `<button class="utc-btn utc-btn-keep" onclick="_decideTestUpdate('${_escAttr(it.tag)}','keep')">No test needed for this AC</button>`
         + '</div>'
         + (drafted ? `<div class="utc-draft" id="utc-draft-${_escAttr(it.tag)}" hidden></div>` : '')
@@ -11482,6 +11557,12 @@ body:not(.lcars-mode) .staged-details-body pre code {
         + '</div>';
     }
     body.innerHTML = html;
+    // Answers go back in by PROPERTY, never through the markup above: what the operator
+    // typed is arbitrary text and an attribute is one quote away from being escaped out of.
+    for (const it of flagged) {
+      const box = document.getElementById('utc-answer-' + it.tag);
+      if (box && _answers.has(it.tag)) box.value = _answers.get(it.tag);
+    }
     // The overlay re-renders on every authoring poll and on every ruling. Re-open the
     // drafts the operator had open, or reading one would be wiped out mid-scroll.
     for (const it of flagged) {
@@ -11850,9 +11931,35 @@ body:not(.lcars-mode) .staged-details-body pre code {
 
   // One CHECK press kicks Julian off to author the flagged tests (autonomous, adversarial
   // QA), then polls until his drafts — or a product question — land, re-rendering each time.
-  async function _authorAndPoll() {
-    try { await fetch('/api/check-test-updates/author', { method: 'POST' }); } catch (_) {}
-    let tries = 0, _resultShown = false;
+  async function _authorAndPoll(rep) {
+    const asked = ((rep && rep.flagged) || []).map(f => f && f.tag).filter(Boolean);
+    let out = null, status = 0;
+    try {
+      const r = await uiFetch('/api/check-test-updates/author', { method: 'POST' });
+      status = r.status;
+      out = await r.json();
+    } catch (_) { out = null; }
+    if (!out || status === 403) {
+      // Nothing was dispatched, so nothing is drafting: drop the optimistic spinners and
+      // let each AC offer its own button rather than spin for a run that never started.
+      for (const t of asked) _dispatched.delete(t);
+      if (rep) _renderTestUpdatesBody(rep);
+      return;
+    }
+    // A pre-359 server (and the browser-test stub) answers without `kicked`; the press
+    // dispatched every flagged AC, which is what those tags were optimistically marked as.
+    const kicked = Array.isArray(out.kicked) ? out.kicked : asked;
+    for (const t of asked) if (kicked.indexOf(t) === -1) _dispatched.delete(t);
+    _renderTestUpdatesBody(out);
+    _pollAuthoring(kicked);
+  }
+
+  // Poll until the dispatched runs land — scoped to the tags THIS dispatch started, so a
+  // per-AC press is not held open by some other AC nobody has run yet.
+  function _pollAuthoring(tags) {
+    const watched = (tags || []).filter(Boolean);
+    if (!watched.length) return;
+    let tries = 0, resultShown = false;
     const tick = async () => {
       if (!document.getElementById('test-updates-overlay')) return;   // operator closed it
       let rep = null;
@@ -11861,18 +11968,75 @@ body:not(.lcars-mode) .staged-details-body pre code {
         _renderTestUpdatesBody(rep);
         if (rep.ready) return;                                         // all resolved
         const flagged = rep.flagged || [];
-        const working = flagged.some(f => { const st = f.authoring && f.authoring.state; return st === 'authoring' || st === 'pending' || !st; });
-        if (!working && !_resultShown) {                              // Julian finished this round
-          _resultShown = true;
-          const drafted   = flagged.filter(f => f.authoring && f.authoring.state === 'drafted');
-          const questions = flagged.filter(f => f.authoring && f.authoring.state === 'question').length;
+        const mine = flagged.filter(f => f && watched.indexOf(f.tag) !== -1);
+        const working = mine.some(f => { const st = f.authoring && f.authoring.state; return st === 'authoring' || st === 'pending' || !st; });
+        if (!working && !resultShown) {                                // Julian finished this round
+          resultShown = true;
+          for (const f of mine) _dispatched.delete(f.tag);
+          const drafted   = mine.filter(f => f.authoring && f.authoring.state === 'drafted');
+          const questions = mine.filter(f => f.authoring && f.authoring.state === 'question').length;
           if (drafted.length) showAuthoringResultToast(drafted, questions);
           return;
         }
+        // Every watched tag left the flagged list (applied, or ruled on) — nothing to wait for.
+        if (!mine.length) { for (const t of watched) _dispatched.delete(t); return; }
       }
       if (tries++ < 60) setTimeout(tick, 4000);                        // ~4 min ceiling
     };
     setTimeout(tick, 4000);
+  }
+
+  // Remember an answer as it is typed (see _answers).
+  function _rememberAnswer(tag, value) { _answers.set(tag, value); }
+
+  /**
+   * Dispatch Julian for ONE acceptance criterion (slice 359).
+   *
+   * Same endpoint for "write me a guard" and "here is the answer to your question" — the
+   * second is the first with a journey attached. It AUTHORS: what comes back is a draft to
+   * read and, separately, to apply. Nothing here installs anything.
+   */
+  async function _dispatchAuthoring(tag, btn) {
+    const box = document.getElementById('utc-answer-' + tag);
+    const journey = box ? String(box.value || '').trim() : '';
+    if (box && !journey) {                       // an empty answer would just ask again
+      box.focus();
+      return;
+    }
+    if (btn) { btn.disabled = true; btn.textContent = '↻ dispatching…'; }
+    let out = null, status = 0;
+    try {
+      const r = await uiFetch('/api/check-test-updates/author-one', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(journey ? { tag, journey } : { tag }) });
+      status = r.status;
+      out = await r.json();
+    } catch (_) { out = null; }
+    // Already drafted, or already in flight: not a failure. The server's own report is the
+    // answer — render it and watch that tag, rather than telling the operator it broke.
+    if (out && out.error === 'already_handled') {
+      _dispatched.add(tag);
+      _renderTestUpdatesBody(out);
+      _pollAuthoring([tag]);
+      return;
+    }
+    if (!out || status === 403 || out.ok === false) {
+      _dispatched.delete(tag);
+      const why = status === 403
+        ? ['Reload the page to dispatch',
+           'The dashboard could not prove this request came from a person at this page. Reload and press it again.']
+        : (out && out.error === 'not_flagged')
+        ? ['This AC is no longer flagged',
+           'The triage has moved on since this panel was drawn — re-run the check to see where it stands.']
+        : ['Dispatch failed — try again',
+           (out && out.error) ? String(out.error) : 'The server refused the dispatch.'];
+      if (btn) { btn.disabled = false; btn.textContent = why[0]; btn.title = why[1]; }
+      return;
+    }
+    _dispatched.add(tag);
+    _answers.delete(tag);
+    _renderTestUpdatesBody(out);
+    _pollAuthoring([tag]);
   }
 
   // Result toast: which ACs Julian used to update/extend the suite — first few shown,

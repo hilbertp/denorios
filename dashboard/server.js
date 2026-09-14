@@ -1176,26 +1176,91 @@ function recordAcDecision(tag, decision) {
 const DRAFTS_DIR = path.join(REPO_ROOT, 'regression', '.drafts');
 function _draftMtime(p) { try { return fs.statSync(p).mtimeMs; } catch (_) { return 0; } }
 
+// The failure artifacts a finished run leaves behind, newest concern first. Before slice
+// 359 the ONLY 'failed' signal was a marker that had gone stale, so a run that failed FAST
+// — a containment breach, a rejected draft, an agent that died on a rate limit — cleared
+// its marker and read as 'pending', which the overlay renders as "Julian is drafting…".
+// The operator then watched a spinner for a process that had already exited.
+const AUTHORING_FAILURES = [
+  { file: (t) => `${t}.FAILED.md`,   reason: 'run' },
+  { file: (t) => `${t}.REJECTED.md`, reason: 'contract' },
+];
+const FAIL_DETAIL_CAP = 2000;
+
 // What has Julian produced for this AC: drafted | question | authoring | failed | pending.
 function authoringStateFor(tag) {
   let files = [];
   try { files = fs.readdirSync(DRAFTS_DIR); } catch (_) { return { state: 'pending' }; }
+  const clearMarker = () => { try { fs.unlinkSync(path.join(DRAFTS_DIR, `${tag}.running`)); } catch (_) {} };
   const draft = files.find(f => f.startsWith(`${tag}.draft.`));
-  if (draft) { try { fs.unlinkSync(path.join(DRAFTS_DIR, `${tag}.running`)); } catch (_) {} return { state: 'drafted', draft }; }
+  if (draft) { clearMarker(); return { state: 'drafted', draft }; }
   if (files.includes(`${tag}.QUESTION.md`)) {
-    try { fs.unlinkSync(path.join(DRAFTS_DIR, `${tag}.running`)); } catch (_) {}
+    clearMarker();
     let question = ''; try { question = fs.readFileSync(path.join(DRAFTS_DIR, `${tag}.QUESTION.md`), 'utf8'); } catch (_) {}
     return { state: 'question', question };
   }
+  for (const f of AUTHORING_FAILURES) {
+    const name = f.file(tag);
+    if (!files.includes(name)) continue;
+    clearMarker();
+    let detail = '';
+    try { detail = fs.readFileSync(path.join(DRAFTS_DIR, name), 'utf8').slice(0, FAIL_DETAIL_CAP); } catch (_) {}
+    return { state: 'failed', reason: f.reason, detail, report: name };
+  }
   if (files.includes(`${tag}.running`)) {
-    const age = Date.now() - _draftMtime(path.join(DRAFTS_DIR, `${tag}.running`));
-    return { state: age > 12 * 60 * 1000 ? 'failed' : 'authoring' };
+    const marker = path.join(DRAFTS_DIR, `${tag}.running`);
+    const age = Date.now() - _draftMtime(marker);
+    if (age > 12 * 60 * 1000) return { state: 'failed', reason: 'timeout', detail: '' };
+    // Who set it going. Older markers hold a bare ISO string; those answer "nobody recorded".
+    let by = null, since = null;
+    try { const m = JSON.parse(fs.readFileSync(marker, 'utf8')); by = m.provenance || null; since = m.ts || null; } catch (_) {}
+    return { state: 'authoring', by, since };
   }
   return { state: 'pending' };
 }
 
-// Spawn Julian (detached) for each not-already-handled tag. Returns the tags kicked off.
-function kickOffAuthoring(tags) {
+/** The provenance to record when the caller did not decide one. Never blank. */
+function _provenanceOr(p) {
+  if (p) return p;
+  try { return approvalProvenance().PROVENANCE.MACHINE_UNKNOWN; } catch (_) { return 'machine-unknown'; }
+}
+
+/**
+ * Record that a dispatch happened, and who asked for it (slice 359, trap 2).
+ *
+ * A spawn from an HTTP POST carries no operator identity of its own — it is exactly the
+ * shape of request that made the 2026-09-01 approvals unexplainable. So a dispatch is
+ * written down the same way an approval is: an event in the register with its provenance,
+ * plus the same provenance inside the in-flight marker, which is what lets the panel say
+ * WHO has an agent running rather than just that one is.
+ *
+ * `draftsDir`/`register` are overridable so a fixture can exercise this without writing
+ * into the live drafts directory or the live register (cf. routeDevSuiteRun's stateFile).
+ */
+function recordAuthoringDispatch(tag, { provenance, journey, draftsDir, register } = {}) {
+  const dir = draftsDir || DRAFTS_DIR;
+  const prov = _provenanceOr(provenance);
+  const answered = typeof journey === 'string' && journey.trim() !== '';
+  const marker = { tag, ts: new Date().toISOString(), provenance: prov, journey: answered ? journey : null };
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, `${tag}.running`), JSON.stringify(marker, null, 1));
+  writeRegisterEvent({ event: 'AC_AUTHORING_DISPATCH', tag, provenance: prov, answered }, register);
+  return marker;
+}
+
+/**
+ * Spawn Julian (detached) for each not-already-handled tag. Returns the tags kicked off.
+ *
+ * ONE path serves the CHECK press and the per-AC button (slice 359): the button passes a
+ * single tag. A parallel dispatcher would be a second place for the containment, the
+ * provenance and the skip rules to drift out of.
+ *
+ * `journey` is the operator's answer to a question the agent asked. It is the one thing
+ * that re-opens a tag parked in 'question': the answer is consumed here (the question file
+ * is removed) so the panel flips to "authoring" on the very next poll rather than showing
+ * a question that has already been answered.
+ */
+function kickOffAuthoring(tags, { provenance, journey } = {}) {
   const { spawn } = require('child_process');
   const authorScript = path.join(REPO_ROOT, 'scripts', 'author-ac-test.js');
   // Never spawn where the author script isn't present (e.g. the e2e seed-fixture tmpdir,
@@ -1203,14 +1268,24 @@ function kickOffAuthoring(tags) {
   // would pollute the shared test server and flake unrelated specs.
   if (!fs.existsSync(authorScript)) return [];
   try { fs.mkdirSync(DRAFTS_DIR, { recursive: true }); } catch (_) {}
+  const answered = typeof journey === 'string' && journey.trim() !== '';
   const kicked = [];
   for (const tag of tags) {
     if (!/^slice-\d+-ac-\d+$/.test(tag)) continue;
     const st = authoringStateFor(tag).state;
-    if (st === 'drafted' || st === 'question' || st === 'authoring') continue; // done or in-flight
+    if (st === 'drafted' || st === 'authoring') continue;         // done or in-flight
+    if (st === 'question' && !answered) continue;                 // waiting on a human, not on a run
     try {
-      fs.writeFileSync(path.join(DRAFTS_DIR, `${tag}.running`), new Date().toISOString());
-      const child = spawn(process.execPath, [authorScript, tag],
+      // The new run's outcome must be the only thing on file for this tag. The script
+      // clears these too, but it does so a second later — and in that second the panel
+      // would still be rendering the last run's failure beside a live spinner.
+      for (const stale of [`${tag}.QUESTION.md`, `${tag}.FAILED.md`, `${tag}.REJECTED.md`]) {
+        try { fs.unlinkSync(path.join(DRAFTS_DIR, stale)); } catch (_) {}
+      }
+      recordAuthoringDispatch(tag, { provenance, journey });
+      const args = [authorScript, tag];
+      if (answered) args.push('--journey', journey);
+      const child = spawn(process.execPath, args,
         { cwd: REPO_ROOT, detached: true, stdio: 'ignore' });
       child.unref();
       kicked.push(tag);
@@ -2277,14 +2352,17 @@ function classifyApprovalOrigin(req) {
 // blank — a blank field is what let an unattributed event be read as a person.
 // Additive only: docs/contracts/slice-pipeline.md §7.2 requires consumers to
 // ignore fields they do not recognise.
-const PROVENANCED_EVENTS = new Set(['HUMAN_APPROVAL', 'APPROVAL_REFUSED', 'AUTO_APPROVE_POLICY']);
+// AC_AUTHORING_DISPATCH joined this set in slice 359: dispatching an authoring agent is an
+// action that makes the system do work (and spend money), so it answers "who asked for
+// this?" the same way an approval does.
+const PROVENANCED_EVENTS = new Set(['HUMAN_APPROVAL', 'APPROVAL_REFUSED', 'AUTO_APPROVE_POLICY', 'AC_AUTHORING_DISPATCH']);
 
-function writeRegisterEvent(event) {
+function writeRegisterEvent(event, register) {
   const full = { ts: new Date().toISOString(), ...event };
   if (PROVENANCED_EVENTS.has(full.event) && !full.provenance) {
     full.provenance = approvalProvenance().PROVENANCE.MACHINE_UNKNOWN;
   }
-  fs.appendFileSync(REGISTER, JSON.stringify(full) + '\n', 'utf8');
+  fs.appendFileSync(register || REGISTER, JSON.stringify(full) + '\n', 'utf8');
 }
 
 // ── Return to stage — one action, one implementation ─────────────────────────
@@ -4018,11 +4096,22 @@ const server = http.createServer(async (req, res) => {
   // CHECK FOR TEST UPDATES → drain the flagged ACs AND kick Julian off (autonomous,
   // adversarial QA) to author the guarding test for each. Returns immediately; the drafts
   // land asynchronously in regression/.drafts/ and surface on the next GET (poll).
+  //
+  // Origin-gated since slice 359, like /apply and /apply-plan: this POST spawns agents —
+  // one per flagged AC, each costing a real model run — and a request with no live UI
+  // nonce is a request nobody can be shown to have made.
   if (pathname === '/api/check-test-updates/author' && req.method === 'POST') {
+    const origin = classifyApprovalOrigin(req);
+    if (!origin.ok) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, stage: 'origin', reason: origin.reason,
+        refusals: [{ code: 'E_NOT_UI', message: 'dispatching an authoring agent must originate from the dashboard UI' }] }));
+      return;
+    }
     try {
       const rep = getCheckTestUpdates();
       const tags = (rep.flagged || []).map(f => f.tag).filter(Boolean);
-      const kicked = kickOffAuthoring(tags);
+      const kicked = kickOffAuthoring(tags, { provenance: origin.provenance });
       const out = getCheckTestUpdates();
       out.kicked = kicked;
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
@@ -4031,6 +4120,64 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: String(err) }));
     }
+    return;
+  }
+
+  // ── Author the guard for ONE acceptance criterion (slice 359) ────────────────────────
+  // Bashir's ask: an AC that came back flagged with no draft — because its run failed, or
+  // because it was flagged after the last CHECK press — gets a button of its own instead
+  // of making the operator re-press CHECK and re-dispatch everything.
+  //
+  // It runs the SAME machinery (kickOffAuthoring → scripts/author-ac-test.js → the
+  // sandbox), and it authors — it never applies. What comes back is a draft for review;
+  // installing it is still the separate, plan-then-confirm action of /apply.
+  //
+  // The tag must be one the triage actually flagged. That is not ceremony: it is what
+  // stops this endpoint from being a way to spawn an agent per POST against any string
+  // that looks like a tag.
+  if (pathname === '/api/check-test-updates/author-one' && req.method === 'POST') {
+    const origin = classifyApprovalOrigin(req);
+    if (!origin.ok) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, stage: 'origin', reason: origin.reason,
+        refusals: [{ code: 'E_NOT_UI', message: 'dispatching an authoring agent must originate from the dashboard UI' }] }));
+      return;
+    }
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const { tag, journey } = JSON.parse(body || '{}');
+        if (!tag || typeof tag !== 'string' || !/^slice-\d+-ac-\d+$/.test(tag)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: 'bad_tag' }));
+          return;
+        }
+        if (journey != null && typeof journey !== 'string') {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: 'journey must be a string' }));
+          return;
+        }
+        const rep = getCheckTestUpdates();
+        if (!(rep.flagged || []).some(f => f && f.tag === tag)) {
+          res.writeHead(409, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: 'not_flagged', tag }));
+          return;
+        }
+        const kicked = kickOffAuthoring([tag], { provenance: origin.provenance, journey });
+        const out = getCheckTestUpdates();
+        out.kicked = kicked;
+        out.ok = kicked.length > 0;
+        // Already drafted, or already running: not an error, and above all not a second
+        // agent on the same tag racing the first one onto the same draft file.
+        if (!kicked.length) out.error = 'already_handled';
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify(out));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: String(err && err.message || err) }));
+      }
+    });
     return;
   }
 
@@ -4548,4 +4695,4 @@ if (require.main === module) {
   startDevSuiteRouting();
 }
 
-module.exports = { QUEUE_SUFFIX_STATE, QUEUE_SIDECAR_SUFFIXES, queueStateOf, isQueueSidecar, readQaStage, sliceIdOfSubject, routeDevSuiteRun, startDevSuiteRouting, withDevSuiteFixRequest, readDevSuiteState, DEV_SUITE_STATE, getPinnedClassification, getTestChanges, getTestsNeeded, mergeLockRefusal, buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, STALE_DONE_DAYS, deriveHistoryOutcome, deriveReviewStatus, authoringStateFor, draftDetailFor, lineDiff, liveGuardsForTag, kickOffAuthoring, applyPlanFor, applyDraftFor, createRevertCommit, resolveSquashSha, mapPromotePhases, parseGateFailures, isFreshPromoteCompletion, isReconciling, _promoteTtlMs };
+module.exports = { QUEUE_SUFFIX_STATE, QUEUE_SIDECAR_SUFFIXES, queueStateOf, isQueueSidecar, readQaStage, sliceIdOfSubject, routeDevSuiteRun, startDevSuiteRouting, withDevSuiteFixRequest, readDevSuiteState, DEV_SUITE_STATE, getPinnedClassification, getTestChanges, getTestsNeeded, mergeLockRefusal, buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, STALE_DONE_DAYS, deriveHistoryOutcome, deriveReviewStatus, authoringStateFor, draftDetailFor, lineDiff, liveGuardsForTag, kickOffAuthoring, recordAuthoringDispatch, applyPlanFor, applyDraftFor, createRevertCommit, resolveSquashSha, mapPromotePhases, parseGateFailures, isFreshPromoteCompletion, isReconciling, _promoteTtlMs };

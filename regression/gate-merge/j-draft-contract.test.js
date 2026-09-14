@@ -20,7 +20,7 @@
 // @ac-hash: slice-357-ac-4 sha256:0089213c6da962578b26e8df343977c73536361f3eeb8477ce34db062d64419e
 // @ac-hash: slice-357-ac-5 sha256:1e6fe4552f48c95b862a3eff68039bf245ad516e4dbf0ae348042c649f80b1e8
 
-const { test } = require('node:test');
+const { test, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -72,12 +72,18 @@ function runAuthor(argv, env) {
 // into the drafts directory — the agent's whole observable contribution. This exercises the
 // script's VERIFICATION of what came back without spending an agent run. (The real `claude`
 // lives in ~/.local/bin, so a PATH of the shim plus the system directories cannot reach it.)
+//
+// It writes into the drafts directory of the checkout it was HANDED (`./regression/.drafts/`,
+// relative to its cwd), because since slice 359 that is a throwaway sandbox worktree rather
+// than this repo, and a draft reaches the live directory only by being harvested out of it.
+// A shim writing straight into the live directory would exercise a path the agent no
+// longer has.
 function runAuthorWithAgent(files) {
   const bin = mkTmp();
   const payload = mkTmp();
   for (const [name, body] of Object.entries(files)) fs.writeFileSync(path.join(payload, name), body);
   const shim = path.join(bin, 'claude');
-  fs.writeFileSync(shim, `#!/bin/sh\ncp -R "${payload}/." "${LIVE_DRAFTS}/"\nexit 0\n`);
+  fs.writeFileSync(shim, `#!/bin/sh\ncp -R "${payload}/." "./regression/.drafts/"\nexit 0\n`);
   fs.chmodSync(shim, 0o755);
   try {
     return runAuthor([TAG, '--text', 'the flux capacitor refuses a negative charge'],
@@ -88,7 +94,11 @@ function runAuthorWithAgent(files) {
   }
 }
 
-// Everything this fixture tag could have left in the live drafts directory.
+// Everything this fixture tag could have left in the live drafts directory. Since slice 359
+// that includes a `<tag>.FAILED.md`: a run whose sandbox could not be created (these runs
+// strip PATH, so neither `claude` NOR `git` resolves) records the failure the same way the
+// live panel reads it, and the fixture's debris is the fixture's to sweep.
+after(clearFixture);
 function clearFixture() {
   let files = [];
   try { files = fs.readdirSync(LIVE_DRAFTS); } catch (_) { return; }
