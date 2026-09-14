@@ -38,6 +38,21 @@ Nothing to build. Three things to do:
    when you build it: "run the full suite", "run npm test", "run the safety-net suite",
    "regenerate the locks". Contract wording is Patch 2d.
 
+## 2026-09-14: the first surface-lane run, and why 394 reads as an error
+
+394 (rename six trap-test titles; dev had been red on the tagging guard since 389) was the first
+slice to run as `lane: surface`. Sam got `--effort high`, took 2 min 11 s, and changed nothing,
+correctly: the rename had been made by hand on dev one minute before approval (`ae50dd7`, "QA:
+give the six slice-389 trap tests their J-lanes journey prefix"), and dev is green again. He
+committed only his report, and `rom_no_product_change` filed that as an ERROR, the same fault as
+388's first attempt. I retired 394 (register `RETIRED`, branch and worktree removed); nothing is
+owed. Two things to carry: (1) 393's fault 4 must cover this case too, a `status: DONE` report
+whose branch is empty because the work was already on dev, not only BLOCKED and PARTIAL; the
+cheap test is "is `git diff dev..branch` empty AND does the report say so", and the honest outcome
+is a `NOTHING_TO_DO` verdict, not an error. (2) A hand edit on dev while a slice for the same change
+is staged costs a wasted dispatch; when someone fixes something by hand, the staged slice should be
+withdrawn in the same breath.
+
 ## 2026-09-13: the first landing through the new code crashed the daemon; fix slice 393 is staged
 
 Jordan accepted 389 in 8 minutes; the landing first failed on the uncommitted rename work in the
