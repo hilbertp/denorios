@@ -2190,6 +2190,16 @@
     row-gap: 22px;
     align-items: start;
   }
+  /* The stage row exists only while a stage does (slice 363). A named row holding a
+     hidden element is still a row: it would keep 22px of row-gap above the controls
+     every day of the year for a line nobody is reading. */
+  .topo-panel-body.has-qa {
+    grid-template-areas:
+      "qa       qa"
+      "controls controls"
+      "graph    gate"
+      "action   action";
+  }
   .topo-collapsed .topo-panel-body { display: none; }
   .topo-svg-wrap {
     overflow-x: auto;
@@ -2552,6 +2562,35 @@
   .gate-step-card.error { border-color: var(--err-border); background: var(--err-bg); }
   .gate-step-card.error .step-label::before { content: '\2717 '; }
   .gate-steps-error { padding: 4px 12px; font-size: 12px; color: var(--err); }
+
+  /* Julian's stage line (slice 363). Amber while it runs, never green: the stage has no
+     verdict yet, and a green line beside a running stage reads as "this slice passed". */
+  .qa-stage-line {
+    /* Full-width, at the top of the panel: while a stage runs it is the most
+       important thing this panel has to say, not a footnote under the buttons. */
+    grid-area: qa;
+    margin: 4px 0 0;
+    padding: 9px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--warn-border);
+    background: var(--warn-bg);
+    color: var(--ink-1);
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .qa-stage-line .qa-stage-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--warn-border);
+    flex: 0 0 auto;
+    animation: qa-stage-pulse 1.8s ease-in-out infinite;
+  }
+  .qa-stage-line .qa-stage-sub { color: var(--ink-4); font-size: 11px; }
+  @keyframes qa-stage-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+  @media (prefers-reduced-motion: reduce) {
+    .qa-stage-line .qa-stage-dot { animation: none; }
+  }
 
   /* Gate-fail actions (slice 271) */
   .gate-fail-actions { display: flex; gap: 8px; margin-top: 8px; }
@@ -6534,6 +6573,16 @@ body:not(.lcars-mode) .staged-details-body pre code {
         <button class="topo-collapse-btn" id="topo-collapse-btn" onclick="toggleTopoCollapse()" aria-label="Toggle QA and Branches panel">&#9662;</button>
       </div>
       <div class="topo-panel-body" id="topo-panel-body">
+        <!-- Julian's stage — visible for exactly as long as one slice is IN_QA (slice 363).
+             Server-derived on every poll and on first paint, so a reload mid-stage shows
+             the same line rather than an empty panel. -->
+        <div class="qa-stage-line" id="qa-stage-line" style="display:none">
+          <span class="qa-stage-dot" id="qa-stage-dot"></span>
+          <span>
+            <span id="qa-stage-label"></span>
+            <span class="qa-stage-sub" id="qa-stage-sub"></span>
+          </span>
+        </div>
         <div class="topo-svg-wrap" id="topo-svg-wrap"></div>
         <div class="topo-foot" id="topo-foot">
           <span id="topo-foot-rr"></span>
@@ -12642,6 +12691,44 @@ body:not(.lcars-mode) .staged-details-body pre code {
     _prevGateStatus = gateStatus;
   }
 
+  // ── Julian's stage line (slice 363) ────────────────────────────────────────
+  // "Julian is writing browser tests for slice N" while the stage runs, and nothing at
+  // all when no slice is in QA. It is rendered straight from the server's qa_stage — which
+  // is read off {id}-IN_QA.md on every request — so it survives a reload and can never
+  // outlive the stage. Deliberately amber, never green: this stage records no verdict yet
+  // (the run, the verdict and the two red exits are the next slices), and a green line
+  // beside a running stage would claim a pass nobody has made.
+  function renderQaStage(qa) {
+    const line = document.getElementById('qa-stage-line');
+    if (!line) return;
+    // The panel grows a row for the stage and loses it again — see .topo-panel-body.has-qa.
+    const body = document.getElementById('topo-panel-body');
+    if (!qa || !qa.slice_id) {
+      line.style.display = 'none';
+      if (body) body.classList.remove('has-qa');
+      return;
+    }
+    line.style.display = '';
+    if (body) body.classList.add('has-qa');
+    line.classList.remove('done', 'ok', 'gate-step-card');
+    const label = document.getElementById('qa-stage-label');
+    const sub = document.getElementById('qa-stage-sub');
+    if (label) {
+      label.textContent = qa.question
+        ? 'Slice ' + qa.slice_id + ' is waiting for Philipp'
+        : 'Julian is writing browser tests for slice ' + qa.slice_id;
+    }
+    if (sub) {
+      const bits = [];
+      if (qa.title) bits.push('— ' + qa.title);
+      if (qa.started_ts) {
+        const mins = Math.max(0, Math.round((Date.now() - new Date(qa.started_ts)) / 60000));
+        bits.push('(' + mins + ' min)');
+      }
+      sub.textContent = bits.join(' ');
+    }
+  }
+
   async function fetchBranchState() {
     try {
       const res = await fetch('/api/branch-state');
@@ -12657,6 +12744,9 @@ body:not(.lcars-mode) .staged-details-body pre code {
       // Update gate step cards based on branch-state
       const gateStatus = data.gate ? data.gate.status : null;
       updateGateStepCards(gateStatus, data.gate);
+
+      // Julian's stage — server-derived, so a reload paints it the same way (slice 363)
+      renderQaStage(data.qa_stage);
 
       // Render the CI strip from the live GitHub-truth payload
       renderCiStrip(data.github);

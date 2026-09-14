@@ -120,16 +120,16 @@ function clearArtifacts() {
 
 const journeyClause = journey
   ? `The operator has ALREADY answered the journey question for this AC:\n"""\n${journey}\n"""\nAuthor the test to match that answer — do not ask again.`
-  : `DECIDE AUTONOMOUSLY. Test-design calls — pin an exact value vs assert a property, how strict to be, which of several equivalent paths to cover — are YOURS as the QA engineer; do NOT bounce them to the operator. Make the call that best surfaces faults, write one line of WHAT you decided and WHY into the rationale, and proceed. Escalate (write ${DRAFT_DIR}/${tag}.QUESTION.md and STOP) ONLY for a genuine PRODUCT-level ambiguity unresolvable from the AC text + the codebase — e.g. the AC contradicts itself, or the correct behaviour depends on intent only the product owner holds. Default strongly to deciding.`;
+  : `DECIDE AUTONOMOUSLY. Test-design calls — pin an exact value vs assert a property, how strict to be, which of several equivalent paths to cover — are YOURS as the QA engineer; do NOT bounce them to the operator. Make the call that best surfaces faults, write one line of WHAT you decided and WHY into the rationale, and proceed. Escalate (write ${DRAFT_DIR}/${tag}.QUESTION.md and STOP) ONLY for a genuine PRODUCT-level ambiguity unresolvable from the AC text and the existing suites — e.g. the AC contradicts itself, or the correct behaviour depends on intent only the product owner holds. Default strongly to deciding.`;
 
 const ANNOTATION = annotationFor(tag, expectedHash);
 
 const prompt = `You are Julian (Bashir), the QA engineer for this repo. Your mission is ADVERSARIAL: surface as many wrong/faulty things as fast as possible — you write tests to BREAK the feature, never to rubber-stamp it. You did NOT build this code; your incentive is to catch its faults, which is exactly why it is safe for you (not the implementer) to author the guard. The test-update gate flagged an acceptance criterion that needs coverage. Author (or update) the test that GUARDS it.
 
-AC ${tag}: ${acText || '(text not found in trailers/manifest — infer the intent from the codebase and the tag)'}
+AC ${tag}: ${acText || '(text not found in trailers/manifest — infer the intent from the tag and the existing suites; do not go looking in the product)'}
 
 Steps:
-1. Explore the repo. Find the feature/behaviour this AC describes (dashboard/, lib/, scripts/, server) and any EXISTING tests (regression/**/*.test.js node:test, e2e/*.spec.js Playwright) that touch it. Match the house style and the j-<name> ${tag} naming.
+1. You are INFORMATION-ONLY. Do not explore the product: not dashboard/, not lib/, not scripts/, not the server, not the diff. The AC text above plus the stage's packet is what you get, and that independence is exactly why your guard is worth having — a test written from the code under test can only ever agree with it. What you DO read is the test suites, which are your own files: the EXISTING tests (regression/**/*.test.js node:test, e2e/*.spec.js Playwright) and the fixtures beside them, so you match the house style and the j-<name> ${tag} naming and find anything that already touches this AC.
 2. If an existing test CONFLICTS with this AC (a wanted change), UPDATE it to match — preserving its real intent, never weakening it to a no-op just to pass.
 3. If nothing covers this AC, WRITE a new test. node:test for source/logic assertions; Playwright (e2e/) for browser journeys.
 4. ${journeyClause}
@@ -149,7 +149,7 @@ D. DECLARED TARGET. Also write ${DRAFT_DIR}/${targetName(tag)} — a JSON object
    {"tag": "${tag}", "replaces": "e2e/<existing>.spec.js"}               — you rewrote an EXISTING guard; applying overwrites that file
    If step 2 applied (you updated an existing test), it is ALWAYS "replaces" naming that exact file. Getting this wrong means both copies land and both register, inflating the guard count and forcing a Coverage-Removed: trailer later just to delete the duplicate. The path's extension and directory must match the draft's (.test.js → regression/, .spec.js → e2e/).
 
-HARD RULES: this is a DRAFT for human review — do NOT modify, add, or delete anything in the live regression/ or e2e/ suites, or anywhere outside ${DRAFT_DIR}. The draft must be runnable and must genuinely fail if the AC is violated.`;
+HARD RULES: this is a DRAFT for human review — do NOT modify, add, or delete anything in the live regression/ or e2e/ suites, or anywhere outside ${DRAFT_DIR}. Do NOT read a product source file or a diff to work out what the AC means: a criterion you cannot judge from the AC text and the suites is an unclear criterion, which you escalate. The draft must be runnable and must genuinely fail if the AC is violated.`;
 
 const args = ['-p', '--permission-mode', 'bypassPermissions',
   '--model', model, '--effort', effort, prompt];

@@ -74,27 +74,26 @@ DS9_USE_GATE_FLOW=1 bash scripts/orch-start.sh
 launchctl load ~/Library/LaunchAgents/com.liberation-of-bajor.health.plist
 ```
 
-## 5. Firing the gate by hand (the merge-button equivalent)
+## 5. Julian's stage (there is no gate button any more)
 
-The Ops merge button hits `POST /api/gate/start` → `startGate()`. To fire it headless
-without the dashboard: a script that `require`s the orchestrator (guarded by
-`require.main`, so it will **not** spawn a rogue orchestrator) and calls `startGate()`.
-Run it **with** `--env-file` (auth + flag) and `DS9_WATCHER_MERGE=1` (so Bashir can commit):
+Since slice 363 nothing fires the gate by hand and `startGate()` refuses: it throws
+`GATE_RETIRED`, and `POST /api/gate/start` answers 410. Julian's stage is **per-slice** and
+starts **by itself** the moment a slice lands on the integration branch — `startQaStage()`,
+called from the landing paths (`handleAccepted`, `drainDeferredAfterGate`). The Ops merge
+button only promotes.
 
-```bash
-cat > /tmp/fire-gate.js <<'EOF'
-const REPO = '/Users/phillyvanilly/01 - The Liberation of Bajor/repo';
-process.chdir(REPO);
-const { execFileSync } = require('child_process');
-const runGit = c => { const p = c.split(' '); return execFileSync(p[0], p.slice(1), { encoding:'utf-8', cwd:REPO }); };
-require(REPO + '/bridge/state/branch-state-recovery').reconcileBranchState({ registerEvent:()=>{}, log:()=>{}, runGit });
-require(REPO + '/bridge/orchestrator').startGate();
-EOF
-DS9_WATCHER_MERGE=1 node --env-file=.env /tmp/fire-gate.js
-```
-The process stays alive through the gate chain (Bashir → suite → verdict → merge) and
-exits when it resolves. Watch `bridge/register.jsonl`, `bridge/bridge.log`, and
-`bridge/state/branch-state.json` (`gate.status`).
+One slice at a time is unchanged: the stage holds the gate mutex
+(`bridge/state/gate-running.json`), so any slice accepted while it runs is deferred and
+drained when the stage records its result. Watch it in:
+
+- the Ops **QA and Branches** panel — "Julian is writing browser tests for slice N";
+- `bridge/queue/{id}-IN_QA.md` — the slice file while the stage holds it;
+- `bridge/register.jsonl` — the `IN_QA` event, then `QA_STAGE_RECORDED`;
+- `bridge/state/qa-stage-{id}.json` — start, end and outcome of that one run.
+
+Archival (the `ARCHIVED` event, the sibling sweep, the branch delete, the worktree prune)
+runs **after** the stage records its result, not at squash — the sweep would otherwise put
+the brief and Nog's verdict in the trash before the packet could be made of them.
 
 ## 6. Pre-fire checklist
 

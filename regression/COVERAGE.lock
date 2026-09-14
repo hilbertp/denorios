@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 708,
+  "guardCount": 740,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -269,6 +269,46 @@
       {
         "tag": "slice-354-ac-7",
         "file": "regression/provenance/j-approval-provenance-dispatch.test.js"
+      },
+      {
+        "tag": "slice-363-ac-1",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:5ae26caefed8993e1b97957a02d9315489b929f4eceb1b1341b0791749db56d3"
+      },
+      {
+        "tag": "slice-363-ac-2",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:51053c05bfa9c95b7f370e2bd33ded85ef059ef17192f5ca414867b268dc4b40"
+      },
+      {
+        "tag": "slice-363-ac-3",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:153a7d0a876e55b3eb2d2c6e9cf90c67439239a19ae1ac006baf9704beee3734"
+      },
+      {
+        "tag": "slice-363-ac-4",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:de6cbfff611a3e3dfa681ca78945cf8b6175b04c8ac3d6f7e7adaa470c23831f"
+      },
+      {
+        "tag": "slice-363-ac-5",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:5213f5e8bbd6130e8ad4bf93097194672fce3c191302d48669ae6e13fef846d0"
+      },
+      {
+        "tag": "slice-363-ac-6",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:d037330c3147acdadc9b2fcadd8825cd4e9bd3bc26c57c6d82ba11bf0d13e302"
+      },
+      {
+        "tag": "slice-363-ac-7",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:cf129b43b68e1c6b673992ed124acce62af88fbd3197b72ed9031f4fcce2e95f"
+      },
+      {
+        "tag": "slice-363-ac-8",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:8848de8b28af4dbe26236613fc470d1dd3113938f1c4b93b67c2c60eff051e1d"
       },
       {
         "tag": "slice-370-ac-1",
@@ -735,6 +775,46 @@
       {
         "tag": "slice-362-ac-4",
         "file": "regression/gate-merge/j-merge-truth-now.test.js"
+      },
+      {
+        "tag": "slice-363-ac-1",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:5ae26caefed8993e1b97957a02d9315489b929f4eceb1b1341b0791749db56d3"
+      },
+      {
+        "tag": "slice-363-ac-2",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:51053c05bfa9c95b7f370e2bd33ded85ef059ef17192f5ca414867b268dc4b40"
+      },
+      {
+        "tag": "slice-363-ac-3",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:153a7d0a876e55b3eb2d2c6e9cf90c67439239a19ae1ac006baf9704beee3734"
+      },
+      {
+        "tag": "slice-363-ac-4",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:de6cbfff611a3e3dfa681ca78945cf8b6175b04c8ac3d6f7e7adaa470c23831f"
+      },
+      {
+        "tag": "slice-363-ac-5",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:5213f5e8bbd6130e8ad4bf93097194672fce3c191302d48669ae6e13fef846d0"
+      },
+      {
+        "tag": "slice-363-ac-6",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:d037330c3147acdadc9b2fcadd8825cd4e9bd3bc26c57c6d82ba11bf0d13e302"
+      },
+      {
+        "tag": "slice-363-ac-7",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:cf129b43b68e1c6b673992ed124acce62af88fbd3197b72ed9031f4fcce2e95f"
+      },
+      {
+        "tag": "slice-363-ac-8",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:8848de8b28af4dbe26236613fc470d1dd3113938f1c4b93b67c2c60eff051e1d"
       },
       {
         "tag": "slice-367-ac-1",
@@ -1361,6 +1441,46 @@
       {
         "tag": "slice-362-ac-4",
         "file": "regression/gate-merge/j-merge-truth-now.test.js"
+      },
+      {
+        "tag": "slice-363-ac-1",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:5ae26caefed8993e1b97957a02d9315489b929f4eceb1b1341b0791749db56d3"
+      },
+      {
+        "tag": "slice-363-ac-2",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:51053c05bfa9c95b7f370e2bd33ded85ef059ef17192f5ca414867b268dc4b40"
+      },
+      {
+        "tag": "slice-363-ac-3",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:153a7d0a876e55b3eb2d2c6e9cf90c67439239a19ae1ac006baf9704beee3734"
+      },
+      {
+        "tag": "slice-363-ac-4",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:de6cbfff611a3e3dfa681ca78945cf8b6175b04c8ac3d6f7e7adaa470c23831f"
+      },
+      {
+        "tag": "slice-363-ac-5",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:5213f5e8bbd6130e8ad4bf93097194672fce3c191302d48669ae6e13fef846d0"
+      },
+      {
+        "tag": "slice-363-ac-6",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:d037330c3147acdadc9b2fcadd8825cd4e9bd3bc26c57c6d82ba11bf0d13e302"
+      },
+      {
+        "tag": "slice-363-ac-7",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:cf129b43b68e1c6b673992ed124acce62af88fbd3197b72ed9031f4fcce2e95f"
+      },
+      {
+        "tag": "slice-363-ac-8",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:8848de8b28af4dbe26236613fc470d1dd3113938f1c4b93b67c2c60eff051e1d"
       },
       {
         "tag": "slice-367-ac-1",
@@ -3131,6 +3251,48 @@
         "guardAcHash": "sha256:7e4d4e7f317ed3e0e3eb0dc1a20625c8a383898250ed3c0801d7fc3b6766cb0c"
       }
     ],
+    "regression/gate-merge/j-julian-stage-in-qa.test.js": [
+      {
+        "tag": "slice-363-ac-1",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:5ae26caefed8993e1b97957a02d9315489b929f4eceb1b1341b0791749db56d3"
+      },
+      {
+        "tag": "slice-363-ac-2",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:51053c05bfa9c95b7f370e2bd33ded85ef059ef17192f5ca414867b268dc4b40"
+      },
+      {
+        "tag": "slice-363-ac-3",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:153a7d0a876e55b3eb2d2c6e9cf90c67439239a19ae1ac006baf9704beee3734"
+      },
+      {
+        "tag": "slice-363-ac-4",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:de6cbfff611a3e3dfa681ca78945cf8b6175b04c8ac3d6f7e7adaa470c23831f"
+      },
+      {
+        "tag": "slice-363-ac-5",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:5213f5e8bbd6130e8ad4bf93097194672fce3c191302d48669ae6e13fef846d0"
+      },
+      {
+        "tag": "slice-363-ac-6",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:d037330c3147acdadc9b2fcadd8825cd4e9bd3bc26c57c6d82ba11bf0d13e302"
+      },
+      {
+        "tag": "slice-363-ac-7",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:cf129b43b68e1c6b673992ed124acce62af88fbd3197b72ed9031f4fcce2e95f"
+      },
+      {
+        "tag": "slice-363-ac-8",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:8848de8b28af4dbe26236613fc470d1dd3113938f1c4b93b67c2c60eff051e1d"
+      }
+    ],
     "regression/gate-merge/j-merge-lock-server.test.js": [
       {
         "tag": "slice-361-ac-1",
@@ -3537,6 +3699,46 @@
         "tag": "slice-357-ac-5",
         "file": "regression/gate-merge/j-draft-contract.test.js",
         "guardAcHash": "sha256:1e6fe4552f48c95b862a3eff68039bf245ad516e4dbf0ae348042c649f80b1e8"
+      },
+      {
+        "tag": "slice-363-ac-1",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:5ae26caefed8993e1b97957a02d9315489b929f4eceb1b1341b0791749db56d3"
+      },
+      {
+        "tag": "slice-363-ac-2",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:51053c05bfa9c95b7f370e2bd33ded85ef059ef17192f5ca414867b268dc4b40"
+      },
+      {
+        "tag": "slice-363-ac-3",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:153a7d0a876e55b3eb2d2c6e9cf90c67439239a19ae1ac006baf9704beee3734"
+      },
+      {
+        "tag": "slice-363-ac-4",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:de6cbfff611a3e3dfa681ca78945cf8b6175b04c8ac3d6f7e7adaa470c23831f"
+      },
+      {
+        "tag": "slice-363-ac-5",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:5213f5e8bbd6130e8ad4bf93097194672fce3c191302d48669ae6e13fef846d0"
+      },
+      {
+        "tag": "slice-363-ac-6",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:d037330c3147acdadc9b2fcadd8825cd4e9bd3bc26c57c6d82ba11bf0d13e302"
+      },
+      {
+        "tag": "slice-363-ac-7",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:cf129b43b68e1c6b673992ed124acce62af88fbd3197b72ed9031f4fcce2e95f"
+      },
+      {
+        "tag": "slice-363-ac-8",
+        "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
+        "guardAcHash": "sha256:8848de8b28af4dbe26236613fc470d1dd3113938f1c4b93b67c2c60eff051e1d"
       }
     ],
     "scripts/build-ac-manifest.js": [

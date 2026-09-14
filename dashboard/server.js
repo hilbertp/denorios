@@ -1777,6 +1777,87 @@ function _readRegisterTail(regPath, count, filter) {
   } catch (_) { return []; }
 }
 
+// ── Queue suffix → state (slice 363) ─────────────────────────────────────────
+// The Ops half of bridge/orchestrator.js's CANONICAL_LIVE_SUFFIXES. Both lists have to
+// know `-IN_QA.md`: it is the name the slice file wears while Julian's stage runs, and a
+// suffix neither side recognises is a slice that vanishes from the panel and gets flagged
+// by the startup legacy-file audit as pre-terminology residue.
+const QUEUE_SUFFIX_STATE = {
+  '-STAGED.md': 'STAGED',
+  '-QUEUED.md': 'QUEUED',
+  '-PENDING.md': 'PENDING',
+  '-IN_PROGRESS.md': 'IN_PROGRESS',
+  '-DONE.md': 'DONE',
+  '-IN_REVIEW.md': 'IN_REVIEW',
+  '-REVIEWED.md': 'REVIEWED',
+  '-EVALUATING.md': 'EVALUATING',
+  '-PARKED.md': 'PARKED',
+  '-ACCEPTED.md': 'ACCEPTED',
+  '-IN_QA.md': 'IN_QA',
+  '-ARCHIVED.md': 'ARCHIVED',
+  '-ERROR.md': 'ERROR',
+  '-STUCK.md': 'STUCK',
+};
+
+// Files the pipeline parks in the queue directory that are NOT a slice state. The QA
+// question is a sidecar for Philipp — a slice is IN_QA *and* has a question open; it is
+// never "in QA_QUESTION" — so it is expected on disk but must never derive a state.
+const QUEUE_SIDECAR_SUFFIXES = ['-QA_QUESTION.md'];
+
+/** queueStateOf('363-IN_QA.md') → { id: '363', state: 'IN_QA' } | null */
+function queueStateOf(filename) {
+  for (const [suffix, state] of Object.entries(QUEUE_SUFFIX_STATE)) {
+    if (filename.endsWith(suffix)) {
+      return { id: filename.slice(0, -suffix.length), state };
+    }
+  }
+  return null;
+}
+
+/** True for a queue file that is expected but carries no slice state. */
+function isQueueSidecar(filename) {
+  return QUEUE_SIDECAR_SUFFIXES.some(suffix => filename.endsWith(suffix));
+}
+
+/**
+ * readQaStage(branchState) → { slice_id, title, started_ts, status, question } | null
+ *
+ * The slice Julian's stage is holding, derived from the queue directory: a slice is in QA
+ * exactly while {id}-IN_QA.md exists. branch-state supplies the trimmings (when it
+ * started, what it is called) but never the answer itself — a branch-state left stale by
+ * a crash would otherwise keep the panel claiming a stage that ended, and a panel that
+ * reads green while a stage runs is the failure this line exists to prevent.
+ */
+function readQaStage(branchState) {
+  let files = [];
+  try { files = fs.readdirSync(QUEUE_DIR); } catch (_) { return null; }
+
+  const inQa = files.filter(f => f.endsWith('-IN_QA.md')).sort();
+  if (!inQa.length) return null;
+
+  const id = inQa[0].slice(0, -'-IN_QA.md'.length);
+  const recorded = (branchState && branchState.qa_stage) || null;
+  const matches = recorded && String(recorded.slice_id) === String(id);
+
+  let title = matches ? (recorded.title || null) : null;
+  if (!title) {
+    try {
+      const fm = parseFrontmatter(fs.readFileSync(path.join(QUEUE_DIR, inQa[0]), 'utf8'));
+      if (fm && fm.title) title = fm.title;
+    } catch (_) { /* the line names the slice by number either way */ }
+  }
+
+  return {
+    slice_id: String(id),
+    title,
+    started_ts: matches ? (recorded.started_ts || null) : null,
+    status: 'IN_QA',
+    // The unclear-criterion exit parks its question beside the slice. Answering it is the
+    // third slice of this set; the panel only has to know the sidecar is there.
+    question: files.includes(`${id}-QA_QUESTION.md`),
+  };
+}
+
 // Legacy file suffix (pre-D3 backward compat — files may still exist on disk)
 const LEGACY_NEEDS_SUFFIX = '-NEEDS_' + 'AMEND' + 'MENT.md';
 const LEGACY_VERDICT_REQ  = 'AMEND' + 'MENT_REQUIRED';
@@ -2641,21 +2722,29 @@ function buildBridgeData() {
   );
   const files = queueCache.files;
 
-  // Build terminal ID set: filesystem ACCEPTED/ARCHIVED/SLICE markers + MERGED events
+  // Build terminal ID set: filesystem ACCEPTED/ARCHIVED/SLICE markers + MERGED events.
+  // IN_QA counts: that slice is already on the integration branch, so it is no longer
+  // queue work waiting on Rom — it shows on Julian's line, not in the queue (slice 363).
   const terminalIds = new Set(mergedIds);
   for (const f of files) {
-    const tm = f.match(/^(.+?)-(ACCEPTED|ARCHIVED|ERROR|STUCK|SLICE)\.md$/);
+    const tm = f.match(/^(.+?)-(ACCEPTED|IN_QA|ARCHIVED|ERROR|STUCK|SLICE)\.md$/);
     if (tm) terminalIds.add(String(tm[1]));
   }
 
   const queue = { waiting: 0, active: 0, done: 0, error: 0 };
   const slices = [];
 
+  const LIVE_QUEUE_STATES = new Set(['PENDING', 'QUEUED', 'IN_PROGRESS', 'DONE', 'ERROR']);
+
   for (const filename of files) {
-    // Derive state from filename suffix: {id}-{STATE}.md
-    const match = filename.match(/^(.+?)-(PENDING|QUEUED|IN_PROGRESS|DONE|ERROR)\.md$/);
-    if (!match) continue;
-    const [, rawId, state] = match;
+    // Derive state from filename suffix: {id}-{STATE}.md — via the one map, so a suffix
+    // added on the orchestrator side is added here too (slice 363). A sidecar (the QA
+    // question file) resolves to no state and is skipped, not treated as an unknown file.
+    if (isQueueSidecar(filename)) continue;
+    const resolved = queueStateOf(filename);
+    if (!resolved || !LIVE_QUEUE_STATES.has(resolved.state)) continue;
+    const rawId = resolved.id;
+    const state = resolved.state;
 
     // Skip terminal slices (merged to main or marked ACCEPTED/ARCHIVED/SLICE)
     if (terminalIds.has(rawId)) continue;
@@ -4026,47 +4115,18 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // ── Gate start (slice 265) ─────────────────────────────────────────────────
+  // ── Gate start — RETIRED (slice 363) ───────────────────────────────────────
+  // This endpoint used to call startGate() and spawn Bashir over the whole of dev on an
+  // operator press. Julian's stage is per-slice now and starts BY ITSELF when a slice
+  // lands on the integration branch; the merge button only promotes. Kept as a refusal
+  // rather than deleted so a stale client, the runbook or a curl gets told where the
+  // gate went instead of silently doing nothing.
   if (pathname === '/api/gate/start' && req.method === 'POST') {
-    // Validate branch-state preconditions
-    let branchState;
-    try {
-      branchState = JSON.parse(fs.readFileSync(BRANCH_STATE, 'utf8'));
-    } catch (_) {
-      res.writeHead(503, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'branch-state-unavailable' }));
-      return;
-    }
-
-    const gateStatus = branchState.gate ? branchState.gate.status : 'IDLE';
-    if (gateStatus === 'GATE_RUNNING' || gateStatus === 'GATE_FAILED' || gateStatus === 'GATE_ABORTED') {
-      res.writeHead(409, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'gate-not-idle', status: gateStatus }));
-      return;
-    }
-
-    const commitsAhead = branchState.dev ? (branchState.dev.commits_ahead_of_main || 0) : 0;
-    if (commitsAhead === 0) {
-      res.writeHead(409, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'nothing-to-gate' }));
-      return;
-    }
-
-    // Invoke orchestrator's startGate()
-    try {
-      const { startGate } = require(path.join(REPO_ROOT, 'bridge', 'orchestrator'));
-      const result = startGate();
-      res.writeHead(202, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ started: true, dev_tip_sha: result.devTipSha }));
-    } catch (err) {
-      if (err.code === 'MUTEX_HELD') {
-        res.writeHead(409, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'gate-not-idle', status: 'GATE_RUNNING' }));
-      } else {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message }));
-      }
-    }
+    res.writeHead(410, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      error: 'gate-start-retired',
+      detail: "Julian's stage starts by itself when a slice lands on dev. The merge button only promotes.",
+    }));
     return;
   }
 
@@ -4333,6 +4393,12 @@ const server = http.createServer(async (req, res) => {
     let base = {};
     try { base = JSON.parse(fs.readFileSync(BRANCH_STATE, 'utf8')); } catch (_) {}
 
+    // Who is in Julian's stage right now, read off the QUEUE DIRECTORY on every request
+    // (slice 363). The panel line is therefore never a client-side memory of an event it
+    // happened to be open for: reload the page mid-stage and the server says the same
+    // thing it said a second ago, because {id}-IN_QA.md is still on disk.
+    base.qa_stage = readQaStage(base);
+
     const gh = getGitHubState();
     base.github = gh;
 
@@ -4386,4 +4452,4 @@ if (require.main === module) {
   startDevSuiteRouting();
 }
 
-module.exports = { sliceIdOfSubject, routeDevSuiteRun, startDevSuiteRouting, withDevSuiteFixRequest, readDevSuiteState, DEV_SUITE_STATE, getPinnedClassification, getTestChanges, getTestsNeeded, mergeLockRefusal, buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, STALE_DONE_DAYS, deriveHistoryOutcome, deriveReviewStatus, authoringStateFor, draftDetailFor, lineDiff, liveGuardsForTag, kickOffAuthoring, createRevertCommit, resolveSquashSha, mapPromotePhases, parseGateFailures, isFreshPromoteCompletion, isReconciling, _promoteTtlMs };
+module.exports = { QUEUE_SUFFIX_STATE, QUEUE_SIDECAR_SUFFIXES, queueStateOf, isQueueSidecar, readQaStage, sliceIdOfSubject, routeDevSuiteRun, startDevSuiteRouting, withDevSuiteFixRequest, readDevSuiteState, DEV_SUITE_STATE, getPinnedClassification, getTestChanges, getTestsNeeded, mergeLockRefusal, buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, STALE_DONE_DAYS, deriveHistoryOutcome, deriveReviewStatus, authoringStateFor, draftDetailFor, lineDiff, liveGuardsForTag, kickOffAuthoring, createRevertCommit, resolveSquashSha, mapPromotePhases, parseGateFailures, isFreshPromoteCompletion, isReconciling, _promoteTtlMs };

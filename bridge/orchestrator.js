@@ -18,6 +18,9 @@ const { ensureRuntimeState, isVolatileRuntimePath, isPipelineOwnedPath } = requi
 // cannot disagree. (Slice 370.)
 const { evaluateReturnToStage } = require('./return-to-stage-eligibility');
 const approvalProvenance = require('./approval-provenance');
+// Julian's stage: the IN_QA state, the eight-item packet, and the sticker that survives
+// archive. Pure data — this module never spawns anything (slice 363).
+const qaStage = require('./qa-stage');
 
 // ---------------------------------------------------------------------------
 // Config
@@ -148,6 +151,11 @@ const LOCK_FILES = ['regression/COVERAGE.lock', 'regression/AC-MANIFEST.lock'];
 // The dev/main/gate state the dashboard reads. _testSetProjectDir reassigns it.
 let BRANCH_STATE_PATH = path.resolve(__dirname, 'state', 'branch-state.json');
 
+// drainDeferredAfterGate's re-entrancy guard (slice 363). Up here rather than beside the
+// drain for the reason above: startup recovery can reach the drain through finishQaStage
+// while every module-scope binding further down is still in its temporal dead zone.
+let _draining = false;
+
 // ── Unreadable-verdict retry cap (slice 372) ────────────────────────────────
 // An unparseable Nog verdict is re-queued for another try. The round only
 // advances when Nog appends a "## Nog Review — Round N" heading — which is
@@ -207,12 +215,18 @@ const CANONICAL_LIVE_SUFFIXES = [
   '-EVALUATING.md',
   '-PARKED.md',
   '-ACCEPTED.md',
+  // Julian's stage holds the slice while it runs (slice 363). QA_QUESTION is a SIDECAR,
+  // not a state — nothing is ever "in QA_QUESTION" — but it sits in the queue directory
+  // waiting for Philipp, so the startup audit has to know it is expected rather than
+  // pre-terminology residue.
+  '-IN_QA.md',
+  '-QA_QUESTION.md',
   '-ARCHIVED.md',
   '-ERROR.md',
   '-STUCK.md',
 ];
 
-const CANONICAL_SUFFIX_RE = /-(STAGED|QUEUED|PENDING|IN_PROGRESS|DONE|IN_REVIEW|REVIEWED|EVALUATING|PARKED|ACCEPTED|ARCHIVED|ERROR|STUCK)\.md$/;
+const CANONICAL_SUFFIX_RE = /-(STAGED|QUEUED|PENDING|IN_PROGRESS|DONE|IN_REVIEW|REVIEWED|EVALUATING|PARKED|ACCEPTED|IN_QA|QA_QUESTION|ARCHIVED|ERROR|STUCK)\.md$/;
 
 // ---------------------------------------------------------------------------
 // Activity tracking — updated by invokeRom when child process produces output.
@@ -674,6 +688,8 @@ function printStartupBlock(recoveryActions) {
         print(`    ${C.green}${SYM.check}${C.reset} Slice ${action.id}${SYM.dash}branch already on main (no merge needed)`);
       } else if (action.type === 'accepted_no_branch') {
         print(`    ${C.yellow}${SYM.cross}${C.reset} Slice ${action.id}${SYM.dash}ACCEPTED but no branch name — manual merge required`);
+      } else if (action.type === 'qa_stage_orphan') {
+        print(`    ${C.yellow}${SYM.check}${C.reset} Slice ${action.id}${SYM.dash}QA stage died with the daemon — result recorded, slice archived`);
       }
     }
   }
@@ -4355,7 +4371,7 @@ function acceptAndMerge(id, currentFilePath, branchName, title, opts) {
 function archiveSiblingStateFiles(id, terminalState, opts) {
   const queueDir = (opts && opts.queueDir) || QUEUE_DIR;
   const trashDir = (opts && opts.trashDir) || TRASH_DIR;
-  const suffixes = ['-DONE.md', '-IN_PROGRESS.md', '-PARKED.md', '-EVALUATING.md', '-IN_REVIEW.md', '-ACCEPTED.md'];
+  const suffixes = ['-DONE.md', '-IN_PROGRESS.md', '-PARKED.md', '-EVALUATING.md', '-IN_REVIEW.md', '-ACCEPTED.md', '-IN_QA.md'];
   const terminalSuffix = `-${terminalState}.md`;
   const isoDate = new Date().toISOString().replace(/[:.]/g, '-');
   const moved = [];
@@ -4518,6 +4534,27 @@ function revertQueueArchiveStaging(id, archive, opts) {
 }
 
 /**
+ * archivedFileDiffersFromIndex(id, rel, repoRoot, git) → bool
+ *
+ * The landing commit already tracks {id}-ARCHIVED.md, so "is it tracked?" stopped being
+ * the whole question once Julian's stage began rewriting that file into the sticker
+ * (slice 363). A tracked path whose CONTENT changed is a change to record; without this
+ * the sticker would sit on disk, correct and uncommitted, and the next landing's amend
+ * would be the first thing to notice.
+ */
+function archivedFileDiffersFromIndex(id, rel, repoRoot, git) {
+  try {
+    const raw = git(`git status --porcelain -- ${shQuote(rel)}`, {
+      slice_id: String(id), op: 'archiveRename_status', cwd: repoRoot, encoding: 'utf-8',
+    });
+    return String(raw || '').trim().length > 0;
+  } catch (_) {
+    // Unreadable status is not evidence of a change; the rename half below still records.
+    return false;
+  }
+}
+
+/**
  * recordArchivedQueueRename(id, opts) → { recorded, reason, paths }
  *
  * Queue reports are permanent records by contract, and they are tracked — but
@@ -4604,7 +4641,10 @@ function recordArchivedQueueRename(id, opts) {
   const archivedRel = `${queueRel}/${id}-ARCHIVED.md`;
   const departed = tracked.filter(rel => !fs.existsSync(path.join(repoRoot, rel)));
   const paths = [];
-  if (fs.existsSync(path.join(repoRoot, archivedRel)) && !tracked.includes(archivedRel)) paths.push(archivedRel);
+  if (fs.existsSync(path.join(repoRoot, archivedRel)) &&
+      (!tracked.includes(archivedRel) || archivedFileDiffersFromIndex(id, archivedRel, repoRoot, git))) {
+    paths.push(archivedRel);
+  }
   for (const rel of departed) if (!paths.includes(rel)) paths.push(rel);
   if (!paths.length) return { recorded: false, reason: 'nothing_to_record', paths: [] };
 
@@ -4653,9 +4693,14 @@ function recordArchivedQueueRename(id, opts) {
 /**
  * archiveAcceptedSlice(id, branchName, opts)
  *
- * Rename {id}-ACCEPTED.md → {id}-ARCHIVED.md. Prune worktree. Delete branch.
- * Emit ARCHIVED register event. Idempotent (no-op if ARCHIVED already exists).
+ * Rename {id}-IN_QA.md (or {id}-ACCEPTED.md, for a slice that never reached the stage)
+ * → {id}-ARCHIVED.md. Prune worktree. Delete branch. Emit ARCHIVED register event.
+ * Idempotent (no-op once the ARCHIVED event proves the archival finished).
  * Returns { archived: bool, reason: string }.
+ *
+ * Called by finishQaStage after Julian's stage records its result — NOT at squash time,
+ * which is where it used to run: the sibling sweep would otherwise put the brief and the
+ * verdict in bridge/trash/ before the packet could be made of them (slice 363).
  */
 function archiveAcceptedSlice(id, branchName, opts) {
   const queueDir = (opts && opts.queueDir) || QUEUE_DIR;
@@ -4663,22 +4708,31 @@ function archiveAcceptedSlice(id, branchName, opts) {
   const source = (opts && opts.source) || 'merge';
 
   const archivedPath = path.join(queueDir, `${id}-ARCHIVED.md`);
-  if (fs.existsSync(archivedPath)) {
-    // Slice 395: the landing commit performs this rename so it can carry it, which
-    // means the ARCHIVED file alone no longer proves the archival finished — the
-    // worktree, the branch and the register event may all still be outstanding. The
-    // ARCHIVED event proves it; without one, fall through and do the rest.
-    if (hasArchivedEvent(id, opts && opts.regFile)) {
-      return { archived: false, reason: 'already_archived' };
-    }
-    log('info', 'archive', { id, msg: 'ARCHIVED file already in place (folded into the landing commit) — finishing the archival' });
+
+  // Slice 395: the landing commit performs this rename so it can carry it, which means the
+  // ARCHIVED file alone no longer proves the archival finished — the worktree, the branch
+  // and the register event may all still be outstanding. The ARCHIVED event proves it.
+  if (fs.existsSync(archivedPath) && hasArchivedEvent(id, opts && opts.regFile)) {
+    return { archived: false, reason: 'already_archived' };
+  }
+
+  // IN_QA wins even over an ARCHIVED name that is already there: while Julian's stage runs
+  // the slice lives under that name and the file is the STICKER — the brief with every
+  // review round, the report and the verdict — not the bare report the landing tracked
+  // (slice 363). The sticker is the record that survives, so it wins. ACCEPTED does not:
+  // when the landing already produced the ARCHIVED file, that is the newer document and a
+  // leftover ACCEPTED renamed over it would throw the landing's own record away.
+  const archivedExists = fs.existsSync(archivedPath);
+  const inQaPath = path.join(queueDir, `${id}${qaStage.IN_QA_SUFFIX}`);
+  const acceptedPath = path.join(queueDir, `${id}-ACCEPTED.md`);
+  const sourcePath = fs.existsSync(inQaPath) ? inQaPath
+    : (!archivedExists && fs.existsSync(acceptedPath) ? acceptedPath : null);
+  if (sourcePath) {
+    fs.renameSync(sourcePath, archivedPath);
+  } else if (!archivedExists) {
+    return { archived: false, reason: 'no_accepted_file' };
   } else {
-    const acceptedPath = path.join(queueDir, `${id}-ACCEPTED.md`);
-    if (!fs.existsSync(acceptedPath)) {
-      return { archived: false, reason: 'no_accepted_file' };
-    }
-    // Rename ACCEPTED → ARCHIVED
-    fs.renameSync(acceptedPath, archivedPath);
+    log('info', 'archive', { id, msg: 'ARCHIVED file already in place (folded into the landing commit) — finishing the archival' });
   }
 
   // Prune worktree if present
@@ -4770,12 +4824,11 @@ function handleAccepted(id, reason, cycle, branchName, evaluatingPath, durationM
     print(`${B.vert}    ${C.green}${SYM.check}${C.reset} ACCEPTED${SYM.sep}Squashed ${branchName}${SYM.arrow}dev (${shortSha})`);
     // Clean up the worktree after successful squash
     try { cleanupWorktree(id, branchName); } catch (_) {}
-    // ACCEPTED → ARCHIVED transition (best-effort — squash is the contract)
-    try {
-      archiveAcceptedSlice(id, branchName);
-    } catch (archErr) {
-      log('warn', 'archive', { id, msg: 'Post-squash archival failed (non-fatal)', error: archErr.message });
-    }
+    // The slice is on the integration branch, so Julian's stage starts — by itself, for
+    // this one slice. Archival is no longer the next thing that happens: it runs when the
+    // stage records its result, because the sweep would otherwise take the brief and the
+    // verdict to the trash before the packet could be made of them (slice 363).
+    startQaStageOrArchive(id, { branchName, title, sha: result.sha, lane });
   } else {
     registerEvent(id, 'MERGE_FAILED', { branch: branchName, reason: result.error, slice_id: id });
     log('error', 'merge', { id, msg: `Squash failed for ${branchName}`, branch: branchName, reason: result.error });
@@ -6736,6 +6789,9 @@ function crashRecovery() {
     return actions;
   }
 
+  // Orphaned IN_QA files are NOT recovered here: see recoverOrphanedQaStages(), which runs
+  // after recoverGateMutex() because it has to know what that call decided.
+
   // Recover orphaned EVALUATING files → rename back to DONE for re-evaluation.
   const evaluatingFiles = files.filter(f => f.endsWith('-EVALUATING.md'));
   for (const file of evaluatingFiles) {
@@ -7312,6 +7368,9 @@ if (require.main === module) {
   restagedBootstrap();
   reconcileBranchState({ registerEvent, log, runGit: gitFinalizer.runGit });
   recoverGateMutex({ registerEvent, log });
+  // After recoverGateMutex, never before: whether the mutex survived that call is how this
+  // tells a stage that died with the daemon from one whose Julian is still writing.
+  recoveryActions.push(...recoverOrphanedQaStages());
   backfillAcceptedFiles();
   backfillArchive();
   backfillBranches();
@@ -7619,54 +7678,42 @@ const REGRESSION_TIMEOUT_MS = parseInt(process.env.DS9_REGRESSION_TIMEOUT_S || '
 const AC_NAMING_RE = /slice-(\d+)-ac-(\d+)/;
 
 /**
- * buildBashirPrompt(branchState)
+ * buildBashirPrompt(sliceId, opts)
  *
- * Reads unmerged slice DONE files from the queue, extracts their acceptance
- * criteria blocks, and hydrates the Bashir prompt template.
+ * Julian's prompt for ONE slice's stage: the eight-item packet, and beyond it only the
+ * operational lines (the mutex contract and where he writes).
+ *
+ * It used to take branchState and hand him a regex-cut `## Acceptance criteria` block from
+ * whichever file had survived archiving — usually Rom's re-typed copy of the criteria
+ * rather than the brief, for every unmerged slice at once. The stage is per-slice now, and
+ * what it gives him is the record: the brief with its goal, tasks and traps, Rom's report,
+ * Nog's verdict, the changed file NAMES, the screen hooks, the tests Rom moved, where to
+ * look at the running product, and the break-it result (slice 363).
+ *
+ * opts: { packet, queueDir, trashDir, sha, changedFiles, breakItResult, templatePath,
+ *         heartbeatPath }
+ *
+ * `opts.packet` is the one the stage already assembled, before it renamed the slice. Pass
+ * it: assembling a second time reads the queue again, after the rename, and two packets
+ * for one stage are two answers to "what was Julian given".
  */
-function buildBashirPrompt(branchState) {
-  const commits = (branchState.dev && branchState.dev.commits) || [];
-
-  // Extract slice IDs from commit subjects: "(slice NNN)"
-  const sliceIds = [];
-  for (const c of commits) {
-    const m = c.subject && c.subject.match(/\(slice\s+(\d+)\)/);
-    if (m) sliceIds.push(m[1]);
-  }
-
-  // Read each slice's DONE file and extract ACs
-  const acSections = [];
-  for (const sid of sliceIds) {
-    // Try multiple suffixes — the canonical settled copy may be DONE, ACCEPTED, PARKED, or ARCHIVED
-    const suffixes = ['-DONE.md', '-ACCEPTED.md', '-PARKED.md', '-ARCHIVED.md'];
-    let content = null;
-    for (const suffix of suffixes) {
-      const p = path.join(QUEUE_DIR, `${sid}${suffix}`);
-      try {
-        content = fs.readFileSync(p, 'utf-8');
-        break;
-      } catch (_) { /* try next */ }
-    }
-    if (!content) {
-      acSections.push(`### Slice ${sid}\n\n_Slice file not found — no ACs available._\n`);
-      continue;
-    }
-
-    // Extract acceptance criteria block
-    const acMatch = content.match(/## Acceptance [Cc]riteria\s*\n([\s\S]*?)(?=\n## |\n---|\n# |$)/);
-    const acBlock = acMatch ? acMatch[1].trim() : '_No acceptance criteria section found._';
-    acSections.push(`### Slice ${sid}\n\n${acBlock}\n`);
-  }
-
-  const sliceAcsText = acSections.length > 0
-    ? acSections.join('\n')
-    : '_No unmerged slices found._';
-
-  // Read and hydrate the template
-  const template = fs.readFileSync(BASHIR_PROMPT_TEMPLATE, 'utf-8');
-  return template
-    .replace('{{HEARTBEAT_PATH}}', 'bridge/state/bashir-heartbeat.json')
-    .replace('{{SLICE_ACS}}', sliceAcsText);
+function buildBashirPrompt(sliceId, opts) {
+  opts = opts || {};
+  const packet = opts.packet || qaStage.assemblePacket(String(sliceId), {
+    queueDir: opts.queueDir || QUEUE_DIR,
+    trashDir: opts.trashDir || TRASH_DIR,
+    repoRoot: opts.repoRoot || PROJECT_DIR,
+    sha: opts.sha || null,
+    changedFiles: opts.changedFiles || null,
+    breakItResult: opts.breakItResult || null,
+    // Names only. runGit is handed in so the call is a seam for the tests and so the one
+    // git question this builder asks can never be widened into `git show` or a diff.
+    runGit: opts.runGit || gitFinalizer.runGit,
+  });
+  return qaStage.buildPrompt(packet, {
+    templatePath: opts.templatePath || BASHIR_PROMPT_TEMPLATE,
+    heartbeatPath: opts.heartbeatPath || 'bridge/state/bashir-heartbeat.json',
+  });
 }
 
 /**
@@ -8020,152 +8067,408 @@ function invokeBashirNonGate(sliceContent, donePath, inProgressPath, errorPath, 
 /**
  * startGate()
  *
- * Entry point for the Bashir regression gate. Acquires the gate mutex,
- * transitions branch-state.gate to GATE_RUNNING, emits gate-start telemetry,
- * then spawns Bashir headless via `claude -p`. Monitors Bashir's heartbeat
- * for liveness. On `tests-updated` event, emits placeholder `regression-fail`
- * (suite execution is slice 268), releases mutex, transitions to GATE_FAILED.
- * On crash/timeout, emits `gate-abort` and releases mutex.
+ * RETIRED (slice 363). This was the whole-of-dev regression gate the Ops merge button
+ * fired: one Bashir run over every unmerged slice at once, started by a human press.
+ * Julian's stage is per-slice and starts by itself when a slice lands on the integration
+ * branch (startQaStage), so there is no press left to honour — and a second entry point
+ * that could spawn Bashir behind the stage's back would take the mutex out from under a
+ * running stage.
  *
- * Returns { devTipSha } on success.
- * Throws if mutex acquisition fails or branch-state is unreadable.
+ * Kept as a named refusal rather than deleted: /api/gate/start, the runbook and the
+ * operator's muscle memory all still point here, and a caller deserves to be told where
+ * the gate went instead of finding a missing function.
+ *
+ * Always throws; err.code === 'GATE_RETIRED'.
  */
 function startGate() {
-  const ctx = { registerEvent, log };
-
-  // 1. Read current branch-state
-  let branchState;
-  try {
-    branchState = JSON.parse(fs.readFileSync(BRANCH_STATE_PATH, 'utf-8'));
-  } catch (err) {
-    throw new Error('Cannot read branch-state.json: ' + err.message);
-  }
-
-  const devTipSha = branchState.dev ? branchState.dev.tip_sha : null;
-  if (!devTipSha) {
-    throw new Error('dev.tip_sha is null — nothing to gate');
-  }
-
-  const heartbeatRelPath = 'bridge/state/bashir-heartbeat.json';
-
-  // 2. Acquire mutex
-  const result = acquireGateMutex(devTipSha, null, heartbeatRelPath, ctx);
-  if (!result.ok) {
-    const err = new Error('Gate mutex already held');
-    err.code = 'MUTEX_HELD';
-    throw err;
-  }
-
-  // 3. Update branch-state: GATE_RUNNING
-  const ts = new Date().toISOString();
-  branchState.gate = branchState.gate || {};
-  branchState.gate.status = 'GATE_RUNNING';
-  branchState.gate.current_run = { started_ts: ts, snapshot_dev_tip_sha: devTipSha };
-  writeJsonAtomic(BRANCH_STATE_PATH, branchState);
-
-  // 4. Emit gate-start telemetry
-  emitGateTelemetry('gate-start', { devTipSha, ts });
-
-  // 5. Build Bashir prompt and spawn
-  const prompt = buildBashirPrompt(branchState);
-  // Bashir does not share config.claudeArgs (no stream-json here), so the model and
-  // effort must be set explicitly or he silently falls back to ANTHROPIC_MODEL.
-  const bashirArgs = ['-p', '--permission-mode', 'bypassPermissions', '--model', 'claude-opus-5', '--effort', 'max'];
-
-  log('info', 'gate', { msg: 'Spawning Bashir', args: bashirArgs, cwd: PROJECT_DIR });
-
-  // Guard against double _gateAbort: heartbeat/timeout handlers kill Bashir
-  // and call _gateAbort, then the execFile callback fires with err and would
-  // call _gateAbort a second time. This flag prevents the duplicate.
-  let abortHandled = false;
-
-  const bashirChild = execFile(
-    'claude',
-    bashirArgs,
-    {
-      cwd: PROJECT_DIR,
-      encoding: 'utf-8',
-      maxBuffer: 10 * 1024 * 1024,
-    },
-    (err, stdout, stderr) => {
-      // Bashir process exited — clean up heartbeat polling
-      clearInterval(heartbeatPoll);
-      clearTimeout(absoluteTimeout);
-
-      // Write stdout to log
-      try {
-        fs.writeFileSync(BASHIR_STDOUT_LOG, stdout || '', 'utf-8');
-      } catch (writeErr) {
-        log('warn', 'gate', { msg: 'Failed to write bashir-stdout.log', error: writeErr.message });
-      }
-
-      if (err) {
-        // Bashir crashed or was killed
-        log('warn', 'gate', { msg: 'Bashir process exited with error', error: err.message, code: err.code });
-        if (abortHandled) return;
-        _gateAbort(devTipSha, 'bashir_crash', ctx);
-        return;
-      }
-
-      // Check if tests-updated event was emitted by scanning register
-      const testsUpdated = _checkForEvent('tests-updated', ts);
-      if (testsUpdated) {
-        _gateTestsUpdated(devTipSha, ctx);
-      } else {
-        // Bashir exited cleanly but didn't emit tests-updated
-        log('warn', 'gate', { msg: 'Bashir exited without tests-updated event' });
-        _gateAbort(devTipSha, 'no_tests_updated', ctx);
-      }
-    }
+  const err = new Error(
+    "The Ops gate no longer starts Julian's stage. The stage starts by itself for one " +
+    'slice when that slice lands on the integration branch; the merge button only promotes.'
   );
+  err.code = 'GATE_RETIRED';
+  log('warn', 'gate', { msg: 'startGate() called — retired; the stage auto-starts per slice' });
+  throw err;
+}
 
-  // Pipe prompt to Bashir's stdin
-  bashirChild.stdin.write(prompt);
-  bashirChild.stdin.end();
+// ---------------------------------------------------------------------------
+// Julian's stage — the IN_QA state (slice 363)
+// ---------------------------------------------------------------------------
+//
+// One slice, one stage. It starts by itself when the slice lands on the integration
+// branch — nobody presses anything — and it holds the gate mutex while it runs, which is
+// what keeps the next accepted slice deferred behind it (the one-at-a-time behaviour the
+// gate already had). Archival waits for it: the sweep that moves the brief and Nog's
+// verdict to bridge/trash/ used to fire the instant the squash landed, which would have
+// deleted the very files the packet is made of before the stage could read them.
+//
+// NOT here, on purpose: the verdict, the two red exits, and the Playwright run. Those are
+// the next two slices. A half-built verdict path that can go green is worse than none, so
+// this stage records that it ran and nothing more.
 
-  // Update mutex with PID (diagnostic only)
+const QA_STAGE_TIMEOUT_MS = parseInt(process.env.DS9_QA_STAGE_TIMEOUT_S || '3600', 10) * 1000;
+const QA_STAGE_HEARTBEAT_POLL_MS = BASHIR_HEARTBEAT_POLL_MS;
+const QA_STAGE_HEARTBEAT_STALE_MS = BASHIR_HEARTBEAT_STALE_MS;
+
+/** Where one stage's run is recorded. Start, end and outcome — the measurement ac-19 wants. */
+function qaStageResultPath(id, opts) {
+  const dir = (opts && opts.stateDir) || path.resolve(__dirname, 'state');
+  return path.join(dir, `qa-stage-${id}.json`);
+}
+
+/**
+ * qaStageSourceDoc(id, queueDir) → { path, suffix } | null
+ *
+ * The document the stage renames into {id}-IN_QA.md. Straight after a landing that is
+ * {id}-ARCHIVED.md (the landing commit carries the report forward under its final name —
+ * slice 395); on a repo-less fixture or a landing that found no ACCEPTED file it is still
+ * {id}-ACCEPTED.md; on a re-run it is already the IN_QA file.
+ */
+function qaStageSourceDoc(id, queueDir) {
+  for (const suffix of [qaStage.IN_QA_SUFFIX, '-ARCHIVED.md', '-ACCEPTED.md', '-DONE.md']) {
+    const p = path.join(queueDir, `${id}${suffix}`);
+    if (fs.existsSync(p)) return { path: p, suffix };
+  }
+  return null;
+}
+
+/**
+ * setQaStageInBranchState(entry)
+ *
+ * The panel's source of truth for "who is in QA right now". Written here rather than
+ * inferred from the mutex so a reload reads the same answer the stage started with.
+ */
+function setQaStageInBranchState(entry) {
   try {
-    const mutex = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'state', 'gate-running.json'), 'utf-8'));
-    mutex.bashir_pid = bashirChild.pid;
-    writeJsonAtomic(path.resolve(__dirname, 'state', 'gate-running.json'), mutex);
-  } catch (_) { /* best effort */ }
+    const bs = JSON.parse(fs.readFileSync(BRANCH_STATE_PATH, 'utf-8'));
+    bs.qa_stage = entry;
+    writeJsonAtomic(BRANCH_STATE_PATH, bs);
+  } catch (err) {
+    log('warn', 'qa_stage', { msg: 'Could not record the stage in branch-state', error: err.message });
+  }
+}
 
-  // Reset heartbeat at spawn so a stale leftover file can't insta-abort the gate.
-  // Starts the staleness clock at spawn; Bashir has the full window to take over.
+/**
+ * startQaStage(id, opts) → { started, reason, inQaPath? }
+ *
+ * opts: { branchName, title, sha, queueDir, trashDir, stateDir, spawn }
+ *
+ * `opts.spawn(prompt, ctx)` is the seam that puts Julian on the end of this. It returns a
+ * child (or null for "nothing spawned"); the default spawns `claude -p`. A stage with no
+ * child still holds the mutex and still shows in Ops — finishQaStage is what ends it.
+ */
+function startQaStage(id, opts) {
+  opts = opts || {};
+  id = String(id);
+  const queueDir = opts.queueDir || QUEUE_DIR;
+  const trashDir = opts.trashDir || TRASH_DIR;
+  const branchName = opts.branchName || `slice/${id}`;
+  const ctx = { registerEvent, log };
+  // The mutex is real machine state under bridge/state/, shared with a live daemon, so it
+  // is a seam: a test drives the stage without ever creating the file the running
+  // orchestrator reads to decide whether to defer a real slice.
+  const acquire = (opts.mutex && opts.mutex.acquire) || acquireGateMutex;
+  const release = (opts.mutex && opts.mutex.release) || releaseGateMutex;
+
+  // 1. The mutex IS the one-at-a-time rule. A squash defers while it is held, so after a
+  //    landing it is free by construction; if it is not, say so rather than double-start.
+  const mutex = acquire(opts.sha || null, null, 'bridge/state/bashir-heartbeat.json', ctx);
+  if (!mutex.ok) {
+    log('warn', 'qa_stage', { id, msg: 'Stage not started — gate mutex already held', reason: mutex.reason });
+    return { started: false, reason: 'mutex_held' };
+  }
+
+  // 2. The packet, assembled while the brief and the verdict are still where they are.
+  //    This is why archival moved: after archiveSiblingStateFiles both are in the trash.
+  let packet;
+  try {
+    packet = qaStage.assemblePacket(id, {
+      queueDir, trashDir, repoRoot: PROJECT_DIR, sha: opts.sha || null,
+      runGit: opts.runGit || gitFinalizer.runGit,
+    });
+  } catch (err) {
+    release('qa_stage_start_failed', ctx);
+    log('error', 'qa_stage', { id, msg: 'Could not assemble the packet', error: err.message });
+    return { started: false, reason: 'packet_failed', error: err.message };
+  }
+
+  // 3. The sticker becomes the live file, under the IN_QA name. What survives archive is
+  //    now the whole record — brief with every review round, report, verdict, and the slot
+  //    Julian's result lands in — not just the builder's report.
+  const inQaPath = path.join(queueDir, `${id}${qaStage.IN_QA_SUFFIX}`);
+  const source = qaStageSourceDoc(id, queueDir);
+  try {
+    // Idempotent: a stage that runs twice for one slice must not wrap the record in a
+    // second record. If the IN_QA file is already a sticker, it stays exactly as it is —
+    // whatever has been appended to it since is part of the record now.
+    const already = source && source.path === inQaPath && qaStage.isSticker(qaStage.readIfPresent(inQaPath));
+    if (!already) {
+      fs.writeFileSync(inQaPath, qaStage.buildSticker(id, packet, { title: opts.title || null }));
+      if (source && source.path !== inQaPath) fs.unlinkSync(source.path);
+    }
+  } catch (err) {
+    release('qa_stage_start_failed', ctx);
+    log('error', 'qa_stage', { id, msg: 'Could not write the IN_QA slice file', error: err.message });
+    return { started: false, reason: 'rename_failed', error: err.message };
+  }
+
+  const startedTs = new Date().toISOString();
+  registerEvent(id, 'IN_QA', {
+    slice_id: id, branch: branchName, sha: opts.sha || null, started_ts: startedTs,
+  });
+  try {
+    fs.writeFileSync(qaStageResultPath(id, opts), JSON.stringify({
+      slice_id: id, branch: branchName, sha: opts.sha || null,
+      started_ts: startedTs, ended_ts: null, outcome: null,
+    }, null, 2) + '\n');
+  } catch (_) { /* the register event is the record; this file is the measurement */ }
+
+  setQaStageInBranchState({
+    slice_id: id, title: opts.title || null, branch: branchName,
+    started_ts: startedTs, status: 'IN_QA',
+  });
+
+  log('info', 'qa_stage', { id, msg: `Julian's stage started for slice ${id}`, branch: branchName });
+  print(`${B.vert}    ${C.green}${SYM.check}${C.reset} IN_QA${SYM.sep}Julian is writing browser tests for slice ${id}`);
+
+  // 4. Julian. The prompt is the packet and nothing else about the slice.
+  let prompt;
+  try {
+    prompt = buildBashirPrompt(id, {
+      packet,
+      templatePath: BASHIR_PROMPT_TEMPLATE,
+      heartbeatPath: 'bridge/state/bashir-heartbeat.json',
+    });
+  } catch (err) {
+    log('error', 'qa_stage', { id, msg: 'Could not build the stage prompt', error: err.message });
+    finishQaStage(id, 'stage_error', Object.assign({}, opts, { detail: `prompt_failed: ${err.message}` }));
+    return { started: false, reason: 'prompt_failed', error: err.message };
+  }
+
+  const spawn = Object.prototype.hasOwnProperty.call(opts, 'spawn') ? opts.spawn : defaultQaSpawn;
+  if (typeof spawn !== 'function') return { started: true, reason: 'ok', inQaPath, spawned: false };
+
+  let child = null;
+  try {
+    child = spawn(prompt, { id, branchName, opts });
+  } catch (err) {
+    log('error', 'qa_stage', { id, msg: 'Could not spawn Julian', error: err.message });
+    finishQaStage(id, 'stage_error', Object.assign({}, opts, { detail: `spawn_failed: ${err.message}` }));
+    return { started: false, reason: 'spawn_failed', error: err.message };
+  }
+  if (!child) return { started: true, reason: 'ok', inQaPath, spawned: false };
+
+  // 5. Liveness. Same two guards the gate always had, so a hung Julian cannot wedge the
+  //    mutex and stall every slice behind him: heartbeat by FILE MTIME (an LLM has no
+  //    clock and hallucinates its own timestamps) and an absolute wall-clock cap.
+  let settled = false;
+  const settle = (outcome, detail) => {
+    if (settled) return;
+    settled = true;
+    clearInterval(heartbeatPoll);
+    clearTimeout(absoluteTimeout);
+    finishQaStage(id, outcome, Object.assign({}, opts, { detail }));
+  };
+
   try { writeJsonAtomic(BASHIR_HEARTBEAT_PATH, { ts: new Date().toISOString() }); } catch (_) {}
 
-  // 6. Heartbeat polling — check every 30s, abort if stale > 90s
   const heartbeatPoll = setInterval(() => {
     try {
-      // Liveness by file mtime (OS clock), NOT Bashir's self-reported ts: an LLM has no
-      // clock and hallucinates timestamps (observed 2026-06-04: Bashir wrote a midnight ts
-      // ~7.6h off, tripping a false heartbeat_stale). Trust the write time, not the value.
       const age = Date.now() - fs.statSync(BASHIR_HEARTBEAT_PATH).mtimeMs;
-      if (age > BASHIR_HEARTBEAT_STALE_MS) {
-        log('warn', 'gate', { msg: 'Bashir heartbeat stale', age_ms: age });
-        clearInterval(heartbeatPoll);
-        clearTimeout(absoluteTimeout);
-        abortHandled = true;
-        try { bashirChild.kill('SIGTERM'); } catch (_) {}
-        _gateAbort(devTipSha, 'heartbeat_stale', ctx);
+      if (age > QA_STAGE_HEARTBEAT_STALE_MS) {
+        log('warn', 'qa_stage', { id, msg: 'Julian heartbeat stale', age_ms: age });
+        try { child.kill('SIGTERM'); } catch (_) {}
+        settle('stage_error', 'heartbeat_stale');
       }
-    } catch (_) {
-      // Heartbeat file missing — don't abort immediately on first check;
-      // Bashir may not have written it yet. Absolute timeout will catch it.
-    }
-  }, BASHIR_HEARTBEAT_POLL_MS);
+    } catch (_) { /* not written yet — the absolute cap is the backstop */ }
+  }, QA_STAGE_HEARTBEAT_POLL_MS);
 
-  // 7. Absolute timeout — 10 minutes
   const absoluteTimeout = setTimeout(() => {
-    log('warn', 'gate', { msg: 'Bashir absolute timeout reached', timeout_ms: BASHIR_TIMEOUT_MS });
-    clearInterval(heartbeatPoll);
-    abortHandled = true;
-    try { bashirChild.kill('SIGTERM'); } catch (_) {}
-    _gateAbort(devTipSha, 'timeout', ctx);
-  }, BASHIR_TIMEOUT_MS);
+    log('warn', 'qa_stage', { id, msg: 'Julian stage absolute timeout', timeout_ms: QA_STAGE_TIMEOUT_MS });
+    try { child.kill('SIGTERM'); } catch (_) {}
+    settle('stage_error', 'timeout');
+  }, QA_STAGE_TIMEOUT_MS);
 
-  return { devTipSha };
+  child.on('exit', (code) => {
+    settle(code === 0 ? 'recorded' : 'stage_error', code === 0 ? null : `exit_${code}`);
+  });
+  child.on('error', (err) => settle('stage_error', `spawn_error: ${err.message}`));
+
+  return { started: true, reason: 'ok', inQaPath, spawned: true };
 }
+
+/**
+ * defaultQaSpawn(prompt, { id })
+ *
+ * Julian headless, with the packet on stdin. The model and effort are set explicitly:
+ * Bashir does not share config.claudeArgs (no stream-json here) and without them he
+ * silently falls back to ANTHROPIC_MODEL.
+ */
+function defaultQaSpawn(prompt, { id }) {
+  const args = ['-p', '--permission-mode', 'bypassPermissions', '--model', 'claude-opus-5', '--effort', 'max'];
+  log('info', 'qa_stage', { id, msg: 'Spawning Julian for the stage', args, cwd: PROJECT_DIR });
+  const child = execFile('claude', args, {
+    // 256 MB, the same as Rom's (a8da61f). Item 7 of the packet is the live dashboard and
+    // looking at it is half of what this stage does: a session that reads screenshots logs
+    // 160-420 KB an image, and 10 MB is where slices 358 and 363 were killed mid-run with
+    // ERR_CHILD_PROCESS_STDIO_MAXBUFFER. The streaming parser that drops the buffer
+    // entirely is slice 396.
+    cwd: PROJECT_DIR, encoding: 'utf-8', maxBuffer: 256 * 1024 * 1024,
+  }, (err, stdout) => {
+    try { fs.writeFileSync(BASHIR_STDOUT_LOG, stdout || '', 'utf-8'); } catch (_) {}
+    if (err) log('warn', 'qa_stage', { id, msg: 'Julian exited with error', error: err.message });
+  });
+  try {
+    child.stdin.write(prompt);
+    child.stdin.end();
+  } catch (_) { /* the exit handler settles the stage either way */ }
+  return child;
+}
+
+/**
+ * finishQaStage(id, outcome, opts) → { recorded, archived }
+ *
+ * The stage records its result — and ONLY THEN does archival run. `outcome` is
+ * 'recorded' or 'stage_error'; neither is a verdict. Green, red and the two red exits
+ * belong to the third slice of this set, and inventing a green here would be the one
+ * failure this stage cannot come back from.
+ */
+function finishQaStage(id, outcome, opts) {
+  opts = opts || {};
+  id = String(id);
+  const branchName = opts.branchName || `slice/${id}`;
+  const endedTs = new Date().toISOString();
+
+  let startedTs = null;
+  const resultPath = qaStageResultPath(id, opts);
+  try { startedTs = JSON.parse(fs.readFileSync(resultPath, 'utf-8')).started_ts || null; } catch (_) {}
+  try {
+    fs.writeFileSync(resultPath, JSON.stringify({
+      slice_id: id, branch: branchName, sha: opts.sha || null,
+      started_ts: startedTs, ended_ts: endedTs, outcome: outcome || 'recorded',
+      detail: opts.detail || null,
+      elapsed_ms: startedTs ? (new Date(endedTs) - new Date(startedTs)) : null,
+    }, null, 2) + '\n');
+  } catch (err) {
+    log('warn', 'qa_stage', { id, msg: 'Could not write the stage result file', error: err.message });
+  }
+
+  registerEvent(id, 'QA_STAGE_RECORDED', {
+    slice_id: id, branch: branchName, outcome: outcome || 'recorded',
+    detail: opts.detail || null, started_ts: startedTs, ended_ts: endedTs,
+  });
+
+  setQaStageInBranchState(null);
+  const release = (opts.mutex && opts.mutex.release) || releaseGateMutex;
+  try { release('qa_stage_recorded', { registerEvent, log }); } catch (_) {}
+
+  // Archival, at last — after the result, not at squash.
+  let archived = { archived: false, reason: 'not_attempted' };
+  try {
+    archived = archiveAcceptedSlice(id, branchName, {
+      queueDir: opts.queueDir, trashDir: opts.trashDir, source: 'qa_stage',
+    });
+  } catch (err) {
+    log('warn', 'archive', { id, msg: 'Post-stage archival failed (non-fatal)', error: err.message });
+  }
+
+  log('info', 'qa_stage', { id, msg: `Julian's stage recorded for slice ${id}`, outcome, archived: archived.archived });
+
+  // The slices that deferred behind this stage now get their turn.
+  try { drainDeferredAfterGate(); } catch (_) {}
+
+  return { recorded: true, archived: archived.archived };
+}
+
+/**
+ * startQaStageOrArchive(id, opts)
+ *
+ * What the landing paths call. The stage is the normal route; a stage that cannot start
+ * must not strand the slice half-landed with its brief and verdict pinned in the queue
+ * forever, so the archival it was holding runs immediately instead and the reason is on
+ * the record.
+ */
+function startQaStageOrArchive(id, opts) {
+  opts = opts || {};
+  let result;
+  try {
+    result = startQaStage(id, opts);
+  } catch (err) {
+    log('error', 'qa_stage', { id, msg: 'Stage threw at start', error: err.message });
+    result = { started: false, reason: 'threw', error: err.message };
+  }
+  if (result.started) return result;
+
+  registerEvent(id, 'QA_STAGE_NOT_STARTED', { slice_id: String(id), reason: result.reason, error: result.error || null });
+  log('warn', 'qa_stage', { id, msg: 'Stage did not start — archiving now so the slice is not stranded', reason: result.reason });
+  try {
+    archiveAcceptedSlice(id, opts.branchName || `slice/${id}`, {
+      queueDir: opts.queueDir, trashDir: opts.trashDir, source: 'qa_stage_not_started',
+    });
+  } catch (err) {
+    log('warn', 'archive', { id, msg: 'Fallback archival failed (non-fatal)', error: err.message });
+  }
+  return result;
+}
+
+/**
+ * recoverOrphanedQaStages(opts) → actions[]
+ *
+ * Startup recovery for a slice left wearing {id}-IN_QA.md by a daemon that died mid-stage.
+ * It runs AFTER recoverGateMutex(), and the order is the point: recoverGateMutex keeps the
+ * mutex when Julian's heartbeat is still fresh ("gate is in flight, resuming wait"), which
+ * is exactly the case of a stage that outlived the daemon that spawned it. Finishing that
+ * stage from here would record stage_error, archive his slice and pull the mutex out from
+ * under him while he is still writing — so a mutex that survived recovery means the stage
+ * is his, and we leave it alone.
+ *
+ * With the mutex gone the stage died with the daemon, and then the slice must not stay
+ * pinned in QA forever: it is already on the integration branch, and its worktree, its
+ * branch and its ARCHIVED event are all waiting on a result that will never come. Record
+ * stage_error and let archival run. Re-running the stage is not done here; that is the
+ * third slice's business.
+ */
+function recoverOrphanedQaStages(opts) {
+  opts = opts || {};
+  const queueDir = opts.queueDir || QUEUE_DIR;
+  const actions = [];
+
+  let files;
+  try {
+    files = fs.readdirSync(queueDir).filter(f => f.endsWith(qaStage.IN_QA_SUFFIX));
+  } catch (err) {
+    log('warn', 'startup_recovery', { msg: 'Cannot read queue dir for IN_QA recovery', error: err.message });
+    return actions;
+  }
+  if (!files.length) return actions;
+
+  // The mutex is machine state shared with a live daemon, so reading it is a seam too: a
+  // test must never have its answer depend on whether a real stage happens to be running.
+  const mutexHeld = (opts.mutex && opts.mutex.held) || shouldDeferSquash;
+  if (mutexHeld()) {
+    log('info', 'startup_recovery', {
+      msg: 'IN_QA slices left alone — the gate mutex survived recovery, so a stage is still in flight',
+      ids: files.map(f => f.replace(qaStage.IN_QA_SUFFIX, '')),
+    });
+    return actions;
+  }
+
+  for (const file of files) {
+    const id = file.replace(qaStage.IN_QA_SUFFIX, '');
+    try {
+      finishQaStage(id, 'stage_error', {
+        branchName: `slice/${id}`, detail: 'orphaned_by_restart',
+        queueDir: opts.queueDir, trashDir: opts.trashDir, stateDir: opts.stateDir,
+        mutex: opts.mutex,
+      });
+      log('warn', 'startup_recovery', { id, msg: 'Orphaned IN_QA stage recorded and archived', action: 'qa-stage-orphan' });
+      actions.push({ id, type: 'qa_stage_orphan' });
+    } catch (err) {
+      log('warn', 'startup_recovery', { id, msg: 'Could not recover orphaned IN_QA slice', error: err.message });
+    }
+  }
+  return actions;
+}
+
 
 /**
  * _checkForEvent(eventName, afterTs)
@@ -9092,7 +9395,9 @@ function squashSliceToDev(sliceId, sliceTitle, sliceBranch, lane = 'core') {
  * small reads; first-wins means the extra ones cannot change the answer.
  */
 function readSliceMeta(sliceId) {
-  const suffixes = ['-ACCEPTED.md', '-PARKED.md', '-DONE.md', '-IN_PROGRESS.md'];
+  // -IN_QA.md is the ACCEPTED file's name while Julian's stage runs (slice 363); without
+  // it a slice in QA reads as having no title and no branch.
+  const suffixes = ['-ACCEPTED.md', '-IN_QA.md', '-PARKED.md', '-DONE.md', '-IN_PROGRESS.md'];
   let title = null;
   let branch = null;
   let lane = null;
@@ -9130,6 +9435,26 @@ function readSliceMeta(sliceId) {
  * gate.status to ACCUMULATING.
  */
 function drainDeferredAfterGate() {
+  // Re-entrancy guard. finishQaStage ends by calling this, and a stage that fails to start
+  // (no prompt template, `claude` not spawnable) calls finishQaStage from inside
+  // startQaStageOrArchive — which this loop calls. Without the guard the inner drain
+  // re-reads deferred_slices, squashes the slices this loop is part-way through, and the
+  // outer loop then carries on against its own stale snapshot: one slice squashed twice.
+  // Dropping the nested call loses nothing, because the loop that owns the flag is still
+  // walking the same list.
+  if (_draining) {
+    log('debug', 'drain', { msg: 'drainDeferredAfterGate: already draining — nested call ignored' });
+    return;
+  }
+  _draining = true;
+  try {
+    _drainDeferredAfterGate();
+  } finally {
+    _draining = false;
+  }
+}
+
+function _drainDeferredAfterGate() {
   let branchState;
   try {
     branchState = JSON.parse(fs.readFileSync(BRANCH_STATE_PATH, 'utf-8'));
@@ -9161,16 +9486,10 @@ function drainDeferredAfterGate() {
       });
       break;
     }
-    // The landing folded the ACCEPTED→ARCHIVED rename into its commit (slice 395), so
-    // finish the archival here the way handleAccepted does — otherwise a drained slice
-    // would be ARCHIVED on disk and in git with no ARCHIVED event, no pruned worktree
-    // and its branch still alive. Best-effort: the squash is the contract.
-    try {
-      archiveAcceptedSlice(entry.slice_id, meta.branch);
-    } catch (archErr) {
-      log('warn', 'archive', { id: entry.slice_id, msg: 'Post-drain archival failed (non-fatal)', error: archErr.message });
-    }
-    // Remove this entry from deferred_slices
+    // Remove this entry from deferred_slices FIRST: the squash succeeded, so the slice has
+    // landed and is not deferred any more whatever the stage does next. Leaving it in the
+    // list across the stage start is what let a failed start re-enter this loop and squash
+    // an already-landed slice a second time.
     // Re-read branch-state since squashSliceToDev updates it
     try {
       branchState = JSON.parse(fs.readFileSync(BRANCH_STATE_PATH, 'utf-8'));
@@ -9180,6 +9499,23 @@ function drainDeferredAfterGate() {
     );
     writeJsonAtomic(BRANCH_STATE_PATH, branchState);
     drained++;
+
+    // A drained slice has landed, so its stage starts the same way handleAccepted's does —
+    // and the archival the stage now holds (the ARCHIVED event, the branch delete, the
+    // worktree prune, the sibling sweep) runs when that stage records its result. Without
+    // this the drained slice would be ARCHIVED on disk and in git with no ARCHIVED event,
+    // no pruned worktree and its branch still alive.
+    const stage = startQaStageOrArchive(entry.slice_id, {
+      branchName: meta.branch, title: meta.title, sha: result.dev_sha, lane: meta.lane,
+    });
+
+    // One slice at a time, unchanged in spirit: the stage holds the gate mutex, so the
+    // next squash would defer anyway. Stop draining and let finishQaStage call us back —
+    // draining on regardless is what would put two slices on dev under one stage.
+    if (stage && stage.started) {
+      log('info', 'drain', { msg: `drainDeferredAfterGate: pausing — slice ${entry.slice_id} is in QA` });
+      break;
+    }
   }
 
   // State transition: IDLE + commits on dev → ACCUMULATING
@@ -9395,4 +9731,4 @@ function mergeDevToMain() {
 // Exports — for use by helper scripts (e.g. bridge/next-id.js)
 // ---------------------------------------------------------------------------
 
-module.exports = { resolveLane, laneEventFields, applyLaneArgs, romSpawnArgs, registerCommissioned, sessionTelemetry, recordBuildTiming, fillDoneMetrics, validateDoneMetrics, extractRomTelemetry, buildDoneTemplate, buildHashLines, regenerateLocksAtLanding, newestDoneEvent, isLockDeriverInput, LOCK_FILES, checkDispatchProvenance, parkUnprovenancedSlice, hasPreCutoverHistory, fileIsPreCutover, provenanceRootId, parseFrontmatter, handleNogReturn, startGate, abortGate, buildBashirPrompt, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, classifyHonestNonProduct, doneSummarySection, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, recordArchivedQueueRename, validateIntakeMeta, ensureIntegrationIsFresh, ensureMainIsFresh: ensureIntegrationIsFresh, fastForwardIntegrationRef, branchNamesFrom, INTEGRATION_BRANCH, TRUNK_BRANCH, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, provisionWorkspaceDeps, releaseDispatch, _testSetHeartbeatFile: (p) => { HEARTBEAT_FILE = p; }, _testGetDispatchState: () => ({ processing, heartbeat: { ...heartbeatState } }), _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted, hasTerminalLandedEvent, crashRecovery, trashEntryRecordsStaging, STAGING_TRASH_SUFFIXES, countUnreadableVerdicts, unreadableBackoffMs, retryBackoffElapsed, MAX_UNREADABLE_ATTEMPTS, UNREADABLE_BACKOFF_MS, porcelainPaths, isVolatileRuntimePath, isPipelineOwnedPath, recoverRuntimeStateAfterGit, stageablePathsFrom, autoCommitDirtyTree, shQuote, stageQueueArchiveForLanding, revertQueueArchiveStaging, hasArchivedEvent, pipelineCommitSubject: gitFinalizer.pipelineCommitSubject, refillLandedDoneReport, _testResetRefusalEmitted: () => { _refusalEmitted.clear(); }, _testGetRefusalEmitted: () => _refusalEmitted };
+module.exports = { resolveLane, laneEventFields, applyLaneArgs, romSpawnArgs, registerCommissioned, sessionTelemetry, recordBuildTiming, fillDoneMetrics, validateDoneMetrics, extractRomTelemetry, buildDoneTemplate, buildHashLines, regenerateLocksAtLanding, newestDoneEvent, isLockDeriverInput, LOCK_FILES, checkDispatchProvenance, parkUnprovenancedSlice, hasPreCutoverHistory, fileIsPreCutover, provenanceRootId, parseFrontmatter, handleNogReturn, startGate, abortGate, buildBashirPrompt, startQaStage, finishQaStage, startQaStageOrArchive, recoverOrphanedQaStages, qaStageSourceDoc, qaStageResultPath, setQaStageInBranchState, QA_STAGE_TIMEOUT_MS, qaStage, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, classifyHonestNonProduct, doneSummarySection, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, recordArchivedQueueRename, validateIntakeMeta, ensureIntegrationIsFresh, ensureMainIsFresh: ensureIntegrationIsFresh, fastForwardIntegrationRef, branchNamesFrom, INTEGRATION_BRANCH, TRUNK_BRANCH, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, provisionWorkspaceDeps, releaseDispatch, _testSetHeartbeatFile: (p) => { HEARTBEAT_FILE = p; }, _testGetDispatchState: () => ({ processing, heartbeat: { ...heartbeatState } }), _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted, hasTerminalLandedEvent, crashRecovery, trashEntryRecordsStaging, STAGING_TRASH_SUFFIXES, countUnreadableVerdicts, unreadableBackoffMs, retryBackoffElapsed, MAX_UNREADABLE_ATTEMPTS, UNREADABLE_BACKOFF_MS, porcelainPaths, isVolatileRuntimePath, isPipelineOwnedPath, recoverRuntimeStateAfterGit, stageablePathsFrom, autoCommitDirtyTree, shQuote, stageQueueArchiveForLanding, revertQueueArchiveStaging, hasArchivedEvent, pipelineCommitSubject: gitFinalizer.pipelineCommitSubject, refillLandedDoneReport, _testResetRefusalEmitted: () => { _refusalEmitted.clear(); }, _testGetRefusalEmitted: () => _refusalEmitted };
