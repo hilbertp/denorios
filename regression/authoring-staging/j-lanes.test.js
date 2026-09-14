@@ -348,7 +348,7 @@ test('slice-389-ac-5 romSpawnArgs gives a surface slice the lane effort on both 
 // Trap 1 — the --resume path used to build its own list
 // ---------------------------------------------------------------------------
 
-test('slice-389-trap-1 a rework round of a surface slice does not silently run at the global effort', () => {
+test('J-lanes slice-389-trap-1 a rework round of a surface slice does not silently run at the global effort', () => {
   // The resume list was assembled inline, by filtering -p out of config.claudeArgs.
   // Anything added to the fresh path missed every round after the first, and a
   // rejected surface slice would have been reworked at max while its first
@@ -382,7 +382,7 @@ test('slice-389-trap-1 a rework round of a surface slice does not silently run a
 // Trap 2 — the whole staged backlog predates the field
 // ---------------------------------------------------------------------------
 
-test('slice-389-trap-2 the orchestrator does not require a lane on intake', () => {
+test('J-lanes slice-389-trap-2 the orchestrator does not require a lane on intake', () => {
   // Only the writer requires it. Every queue file staged before this landed has
   // no lane; if intake validation learned the field, the backlog would stop
   // dispatching the moment this shipped.
@@ -402,7 +402,7 @@ test('slice-389-trap-2 the orchestrator does not require a lane on intake', () =
 // Trap 3 — the template is one string; only two things vary
 // ---------------------------------------------------------------------------
 
-test('slice-389-trap-3 the surface template keeps the report path, the frontmatter example and the trailer instruction', () => {
+test('J-lanes slice-389-trap-3 the surface template keeps the report path, the frontmatter example and the trailer instruction', () => {
   const surface = buildDoneTemplate({ ...TEMPLATE_ARGS, lane: 'surface' });
   const core = buildDoneTemplate({ ...TEMPLATE_ARGS, lane: 'core' });
 
@@ -442,7 +442,7 @@ test('slice-389-trap-3 the surface template keeps the report path, the frontmatt
 // Trap 4 — Slice 390 parses this trailer
 // ---------------------------------------------------------------------------
 
-test('slice-389-trap-4 the Lane trailer is exactly one line, one of two values, beside Slice-Id', () => {
+test('J-lanes slice-389-trap-4 the Lane trailer is exactly one line, one of two values, beside Slice-Id', () => {
   // Slice 390 parses this line the way the gate parses `AC:` — line-anchored,
   // one declaration per line. Two Lane lines, or a value the parser has to
   // interpret, and the gate reads a rigour setting nobody declared.
@@ -474,7 +474,7 @@ test('slice-389-trap-4 the Lane trailer is exactly one line, one of two values, 
 // Trap 5 — the ACCEPTED file is Sam's report, and it has no lane
 // ---------------------------------------------------------------------------
 
-test('slice-389-trap-5 the lane is never taken from the ACCEPTED report', () => {
+test('J-lanes slice-389-trap-5 the lane is never taken from the ACCEPTED report', () => {
   // The failure this guards: -ACCEPTED.md is first in readSliceMeta's suffix
   // list, and it is the DONE report renamed. Read the lane first-wins like the
   // title and it is always absent on the file checked first — and because the
@@ -502,7 +502,7 @@ test('slice-389-trap-5 the lane is never taken from the ACCEPTED report', () => 
 // Trap 6 — the wiring no unit test can reach
 // ---------------------------------------------------------------------------
 
-test('slice-389-trap-6 the call sites are wired to the exported seams', () => {
+test('J-lanes slice-389-trap-6 the call sites are wired to the exported seams', () => {
   // Every function above can be correct while nothing calls it. These four
   // checks are the house pattern for the wiring a unit test cannot drive.
   const invoke = ORCH_SRC.slice(ORCH_SRC.indexOf('function invokeRom('));
