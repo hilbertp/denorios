@@ -95,7 +95,9 @@ function branchNamesFrom(raw) {
 let QUEUE_DIR        = path.resolve(__dirname, config.queueDir);
 let STAGED_DIR       = path.resolve(__dirname, 'staged');
 const LOG_FILE       = path.resolve(__dirname, config.logFile);
-const HEARTBEAT_FILE = path.resolve(__dirname, config.heartbeatFile);
+// let, not const: a test that asserts on the heartbeat FILE has to be able to point it
+// somewhere else first — live bridge state is never touched (#99992).
+let HEARTBEAT_FILE   = path.resolve(__dirname, config.heartbeatFile);
 let PROJECT_DIR      = path.resolve(__dirname, config.projectDir);
 let REGISTER_FILE  = path.resolve(__dirname, 'register.jsonl');
 
@@ -123,6 +125,28 @@ const ESCALATIONS_DIR = path.resolve(__dirname, 'escalations');
 const CONTROL_DIR    = path.resolve(__dirname, 'control');
 const PIPELINE_PAUSED_FILE = path.resolve(__dirname, '.pipeline-paused');
 const MAX_ROUNDS     = 5; // Absolute cap — no round 6, ever, on any path.
+
+// ── Declared here, not beside the code that uses them (slice 393) ───────────
+// The startup block calls crashRecovery() DURING module evaluation, and a
+// recovery that lands an orphaned ACCEPTED slice runs the whole squash path
+// from inside it. Every module-scope const/let below that block is still in its
+// temporal dead zone at that moment: LOCK_FILES sat at the top of the squash
+// section and threw "Cannot access 'LOCK_FILES' before initialization" out of
+// regenerateLocksAtLanding, after the landing commit and before the register
+// event — the daemon exited 1, launchd restarted it, and the second attempt
+// found nothing left to squash (slice 389, 2026-09-13 19:25:28Z).
+// BRANCH_STATE_PATH is the same landmine one step further on: squashSliceToDev
+// reads it inside a try/catch, so the same recovery would have swallowed it as
+// "branch-state update failed" and left the dashboard's dev tip stale.
+// Anything the recovery landing path reads belongs above the startup block.
+
+// The two DERIVED files the integrity gates (j-coverage-map-integrity,
+// j-ac-manifest-integrity) require to equal a fresh regeneration at every commit.
+// Nobody hand-edits them; the pipeline owns them (slice 387).
+const LOCK_FILES = ['regression/COVERAGE.lock', 'regression/AC-MANIFEST.lock'];
+
+// The dev/main/gate state the dashboard reads. _testSetProjectDir reassigns it.
+let BRANCH_STATE_PATH = path.resolve(__dirname, 'state', 'branch-state.json');
 
 // ── Unreadable-verdict retry cap (slice 372) ────────────────────────────────
 // An unparseable Nog verdict is re-queued for another try. The round only
@@ -664,11 +688,15 @@ function printProgressTick(elapsedMs) {
 }
 
 /**
- * closeSliceBlock(success, durationMs, tokensIn, tokensOut, costUsd, reason)
+ * closeSliceBlock(success, durationMs, tokensIn, tokensOut, costUsd, reason, statusLine)
  *
- * Prints the completion or failure lines and closes the slice block.
+ * Prints the completion or failure lines and closes the slice block; call it exactly once
+ * per slice. `statusLine` overrides the line under the result — a slice can now end in a
+ * state that is neither "done, off to review" nor "failed" (BLOCKED goes back to O'Brien,
+ * NOTHING_TO_DO is archived unreviewed), and the box must not promise a review that is not
+ * coming (slice 393).
  */
-function closeSliceBlock(success, durationMs, tokensIn, tokensOut, costUsd, reason) {
+function closeSliceBlock(success, durationMs, tokensIn, tokensOut, costUsd, reason, statusLine) {
   const duration  = formatDuration(durationMs);
   const tokenStr  = formatTokens(tokensIn, tokensOut);
   const costStr   = formatCost(costUsd);
@@ -677,11 +705,11 @@ function closeSliceBlock(success, durationMs, tokensIn, tokensOut, costUsd, reas
     const parts = [duration, tokenStr];
     if (costStr) parts.push(costStr);
     print(`${B.vert}    ${C.green}${SYM.check}${C.reset} Complete${SYM.sep}${parts.join(SYM.sep)}`);
-    print(`${B.vert}    Status: Done${SYM.arrow}Waiting for Nog's review`);
+    print(`${B.vert}    Status: ${statusLine || `Done${SYM.arrow}Waiting for Nog's review`}`);
   } else {
     const reasonStr = reason || 'Unknown error';
     print(`${B.vert}    ${C.red}${SYM.cross}${C.reset} Failed${SYM.sep}${duration}${SYM.sep}Reason: ${reasonStr}`);
-    print(`${B.vert}    Status: Needs attention`);
+    print(`${B.vert}    Status: ${statusLine || 'Needs attention'}`);
   }
   print(`${B.bl}${B.sng.repeat(W - 1)}`);
   print('');
@@ -2310,6 +2338,97 @@ function productPathsFromNumstat(numstat) {
 }
 
 /**
+ * doneSummarySection(doneText)  (slice 393)
+ *
+ * The report's `## Summary` flattened to one line, or ''. It is what the BLOCKED register
+ * event carries, so the dashboard shows the builder's own words rather than a reason code,
+ * and it is what the nothing-to-do phrases below are matched against.
+ */
+function doneSummarySection(doneText) {
+  const body = [];
+  let inSummary = false;
+  for (const line of String(doneText || '').split('\n')) {
+    if (/^##\s+/.test(line)) {
+      if (inSummary) break;
+      inSummary = /^##\s+Summary\s*$/i.test(line);
+      continue;
+    }
+    if (inSummary) body.push(line);
+  }
+  return body.join(' ').replace(/\s+/g, ' ').trim();
+}
+
+// A report that says, in the builder's own words, that the work was already on dev when he
+// arrived. Slice 394 is the case that produced the rule: Philipp made the change by hand at
+// 2026-09-14T00:00:16Z, one minute before the brief was approved, and the report reads "The
+// rename was already done before I was invoked" and "it is already on `dev` and
+// `origin/dev`". Sam changed nothing, correctly, and was filed as fake work.
+//
+// Narrow on purpose. This route archives a slice with no review at all, so a report that
+// does not plainly say the work was already there falls through to the ordinary ERROR.
+const NOTHING_TO_DO_SUMMARY_RES = [
+  /\balready\b[^.]{0,60}\bon\s+`?(?:origin\/)?dev\b/i,
+  /\b(?:was|were|is|are|had been)\s+already\s+(?:done|made|landed|applied|committed|fixed|in place|there|present)\b/i,
+  /\bnothing\s+(?:left\s+)?to\s+do\b/i,
+];
+
+/**
+ * classifyHonestNonProduct(id, branchName, opts) → { kind, summary } | null
+ *
+ * verifyRomActuallyWorked answers "does the diff contain product work?" — and three honest
+ * outcomes answer no. A BLOCKED report is a builder who stopped and said why. A PARTIAL one
+ * is a builder who got part of the way. A nothing-to-do one is a builder who found the work
+ * already on dev and refused to reauthor it. None of them is fabricated work, and filing
+ * them as `rom_no_product_change` punishes exactly the honesty the rule wants (slice 388's
+ * first attempt, 2026-09-11 20:20Z; slice 394, 2026-09-14).
+ *
+ * kind is 'blocked', 'partial' or 'nothing_to_do'; null means the rule stands and the
+ * report is filed as fake work. The status test is frontmatter only and needs no git, so a
+ * git failure can never turn an honest BLOCKED into an ERROR. The nothing-to-do test does
+ * need git and fails closed: no readable diff, no free pass.
+ */
+function classifyHonestNonProduct(id, branchName, opts) {
+  const queueDir = (opts && opts.queueDir) || QUEUE_DIR;
+  let doneText;
+  try {
+    doneText = fs.readFileSync(path.join(queueDir, `${id}-DONE.md`), 'utf-8');
+  } catch (_) {
+    return null;
+  }
+  const meta = parseFrontmatter(doneText) || {};
+  const status = String(meta.status || '').trim().toUpperCase();
+  const summary = doneSummarySection(doneText);
+
+  if (status === 'BLOCKED') return { kind: 'blocked', summary };
+  if (status === 'PARTIAL') return { kind: 'partial', summary };
+
+  if (!NOTHING_TO_DO_SUMMARY_RES.some(re => re.test(summary))) return null;
+
+  // "Empty apart from the report": every path the branch changes against dev is this
+  // slice's own DONE report. Anything else — a test, a source file, another slice's
+  // paperwork — is a change somebody has to review, so it is not nothing to do.
+  const runGit = (opts && opts.runGit) || gitFinalizer.runGit;
+  let names;
+  try {
+    names = String(runGit(
+      `git diff --name-only --no-renames ${INTEGRATION_BRANCH}...${branchName}`,
+      {
+        slice_id: id, op: 'honestNonProduct_nameOnly', encoding: 'utf-8', cwd: PROJECT_DIR,
+        execOpts: { stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 32 * 1024 * 1024 },
+      },
+    ));
+  } catch (err) {
+    log('warn', 'rom_verify', { id, msg: 'git diff --name-only failed — cannot confirm nothing-to-do', error: err.message });
+    return null;
+  }
+  const changed = names.split('\n').map(l => l.trim()).filter(Boolean);
+  const reportRel = `bridge/queue/${id}-DONE.md`;
+  if (!changed.every(p => p === reportRel)) return null;
+
+  return { kind: 'nothing_to_do', summary };
+}
+
+/**
  * verifyRomActuallyWorked(id, branchName, actualDurationMs, actualTokensOut)
  *
  * Checks that Rom's claimed DONE report corresponds to real work on the slice
@@ -2578,6 +2697,31 @@ let currentPollMs = null; // set in start() from config.pollIntervalMs
 // ---------------------------------------------------------------------------
 
 const activeChildren = new Map(); // Map<sliceId: string, { child: ChildProcess, worktreePath: string }>
+
+/**
+ * releaseDispatch(id)  (slice 393)
+ *
+ * Hand the dispatch slot back. The tail of the exit callback does this for every slice
+ * that reaches it; a branch that returns early owes it by hand, and one of them did not:
+ * "Rom wrote DONE but verification failed" returned with processing still true and the
+ * heartbeat still naming the slice, so the poll loop dispatched nothing until someone
+ * restarted the daemon — slice 388 froze the queue from 2026-09-11 20:20Z to 22:41Z and
+ * 387's rework waited two hours behind it.
+ *
+ * Same fields as the rate-limit and api-retry returns, plus the heartbeat write the
+ * dashboard's liveness reads. processed_total is deliberately left alone: the tail counts
+ * slices that completed, and none of these did.
+ */
+function releaseDispatch(id) {
+  activeChildren.delete(String(id));
+  processing = false;
+  heartbeatState.status = 'idle';
+  heartbeatState.current_slice = null;
+  heartbeatState.current_slice_title = null;
+  heartbeatState.current_slice_goal = null;
+  heartbeatState.pickupTime = null;
+  writeHeartbeat();
+}
 
 // ---------------------------------------------------------------------------
 // Rom invocation
@@ -3004,27 +3148,120 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
           // --- Rom verification gate (slice 212) ---
           const verify = verifyRomActuallyWorked(id, sliceBranch, durationMs, tokensOut);
           if (!verify.ok) {
-            writeErrorFile(errorPath, id, verify.reason, null, stdout, stderr, { detail: verify.detail, durationMs });
-            registerEvent(id, 'ERROR', {
-              reason: verify.reason,
-              phase: 'rom_verification',
-              detail: verify.detail,
-              durationMs,
-              actualTokensOut: tokensOut,
-              stderr_tail: truncStderr(stderr),
-            });
-            appendOperationalEvent({
-              event: 'ERROR',
-              slice_id: id,
-              root_id: sliceMeta.root_commission_id || null,
-              cycle: null,
-              branch: sliceBranch || null,
-              details: `Slice ${id} errored: ${verify.reason}`,
-            });
-            log('warn', 'rom', { id, msg: 'Rom wrote DONE but verification failed — treating as error', reason: verify.reason, detail: verify.detail });
-            closeSliceBlock(false, durationMs, tokensIn, tokensOut, costUsd, 'Rom verification failed: ' + verify.reason);
-            recordSessionResult(false, tokensIn, tokensOut, costUsd);
-            return;
+            // Three honest reports reach this branch with nothing but bookkeeping in the
+            // diff, and the rule must not catch any of them (slice 393). The verdict is
+            // read HERE, inside the branch — the call above stays the one
+            // j-rom-work-substance pins, in the order it pins it.
+            const honest = classifyHonestNonProduct(id, sliceBranch);
+
+            if (!honest) {
+              writeErrorFile(errorPath, id, verify.reason, null, stdout, stderr, { detail: verify.detail, durationMs });
+              registerEvent(id, 'ERROR', {
+                reason: verify.reason,
+                phase: 'rom_verification',
+                detail: verify.detail,
+                durationMs,
+                actualTokensOut: tokensOut,
+                stderr_tail: truncStderr(stderr),
+              });
+              appendOperationalEvent({
+                event: 'ERROR',
+                slice_id: id,
+                root_id: sliceMeta.root_commission_id || null,
+                cycle: null,
+                branch: sliceBranch || null,
+                details: `Slice ${id} errored: ${verify.reason}`,
+              });
+              log('warn', 'rom', { id, msg: 'Rom wrote DONE but verification failed — treating as error', reason: verify.reason, detail: verify.detail });
+              closeSliceBlock(false, durationMs, tokensIn, tokensOut, costUsd, 'Rom verification failed: ' + verify.reason);
+              recordSessionResult(false, tokensIn, tokensOut, costUsd);
+              releaseDispatch(id);
+              return;
+            }
+
+            const summary = honest.summary.slice(0, 300);
+
+            if (honest.kind === 'blocked') {
+              // No ERROR file: Sam stopped and said why, which is the behaviour we want.
+              // The ticket goes back to staged/ for O'Brien — the slice-broken escalation's
+              // route — carrying the blocker at the top of its body, so the next thing that
+              // happens is a human reading it rather than another round.
+              registerEvent(id, 'BLOCKED', {
+                slice_id: String(id),
+                branch: sliceBranch || null,
+                summary,
+                durationMs,
+                ...laneEventFields(sliceMeta, clauseArgs),
+              });
+              let returned = false;
+              try {
+                const ticket = updateFrontmatter(fs.readFileSync(inProgressPath, 'utf-8'), { status: 'STAGED' });
+                const notice = [
+                  `## Blocked by Rom (${new Date().toISOString()})`,
+                  '',
+                  summary || '(the report gave no summary)',
+                  '',
+                  `The report Rom wrote is in \`bridge/trash/${id}-DONE.md.blocked\`.`,
+                  '',
+                ].join('\n');
+                const fmMatch = ticket.match(/^(---\n[\s\S]*?\n---)\n?([\s\S]*)$/);
+                const staged = fmMatch ? `${fmMatch[1]}\n\n${notice}\n${fmMatch[2]}` : `${ticket}\n\n${notice}`;
+                fs.writeFileSync(path.join(STAGED_DIR, `${id}-STAGED.md`), staged);
+                fs.renameSync(inProgressPath, path.join(TRASH_DIR, path.basename(inProgressPath) + '.blocked'));
+                returned = true;
+                log('info', 'state', { id, from: 'IN_PROGRESS', to: 'STAGED', reason: 'rom_blocked' });
+              } catch (err) {
+                log('warn', 'rom', { id, msg: 'Could not return the blocked ticket to staged — it stays in the queue for the operator', error: err.message });
+              }
+              try { fs.renameSync(donePath, path.join(TRASH_DIR, `${id}-DONE.md.blocked`)); } catch (_) {}
+              log('warn', 'rom', { id, msg: 'Rom reported BLOCKED — no ERROR file, ticket returned to O\'Brien', summary, returned, reason: verify.reason });
+              print(`  ${C.yellow}${SYM.back}${C.reset}  Slice ${id} blocked${SYM.dash}returned to O'Brien`);
+              closeSliceBlock(false, durationMs, tokensIn, tokensOut, costUsd, 'Rom reported BLOCKED', `Blocked${SYM.arrow}Returned to O'Brien`);
+              recordSessionResult(false, tokensIn, tokensOut, costUsd);
+              releaseDispatch(id);
+              return;
+            }
+
+            if (honest.kind === 'nothing_to_do') {
+              // The work was already on dev when Sam arrived and he refused to reauthor it.
+              // Not an error and not a round: there is no diff for Jordan to read, so the
+              // ticket is archived where it stands and the report goes with it.
+              registerEvent(id, 'NOTHING_TO_DO', {
+                slice_id: String(id),
+                branch: sliceBranch || null,
+                summary,
+                durationMs,
+                ...laneEventFields(sliceMeta, clauseArgs),
+              });
+              let archived = false;
+              try {
+                fs.renameSync(inProgressPath, path.join(QUEUE_DIR, `${id}-ARCHIVED.md`));
+                archived = true;
+                log('info', 'state', { id, from: 'IN_PROGRESS', to: 'ARCHIVED', reason: 'nothing_to_do' });
+              } catch (err) {
+                log('warn', 'rom', { id, msg: 'Could not archive the nothing-to-do ticket', error: err.message });
+              }
+              if (archived) {
+                // Sweeps the DONE report out of the queue with it, so the evaluator never
+                // sees a report whose slice is already finished.
+                try { archiveSiblingStateFiles(id, 'ARCHIVED'); } catch (_) {}
+                try { recordArchivedQueueRename(id); } catch (err) {
+                  log('warn', 'archive', { id, msg: 'Archive rename recording threw', error: err.message });
+                }
+              } else {
+                try { fs.renameSync(donePath, path.join(TRASH_DIR, `${id}-DONE.md.nothing-to-do`)); } catch (_) {}
+              }
+              log('info', 'rom', { id, msg: 'Nothing to do — the work was already on dev; archived without review', summary, archived });
+              print(`  ${C.green}${SYM.check}${C.reset} Slice ${id}${SYM.dash}Nothing to do, already on dev`);
+              closeSliceBlock(true, durationMs, tokensIn, tokensOut, costUsd, null, `Nothing to do${SYM.arrow}Archived without review`);
+              recordSessionResult(true, tokensIn, tokensOut, costUsd);
+              releaseDispatch(id);
+              return;
+            }
+
+            // PARTIAL: part of the work is real and all of it is reviewable. On to Jordan,
+            // exactly as today — the only thing skipped is the fake-work verdict.
+            log('info', 'rom', { id, msg: 'DONE report is PARTIAL — the substance rule does not apply; going to review', reason: verify.reason, summary });
           }
 
           // --- Write Point 1: append timesheet row (Bet 3) ---
@@ -3624,6 +3861,39 @@ function hasTerminalLandedEvent(id, regFile) {
 }
 
 /**
+ * STAGING_TRASH_SUFFIXES / trashEntryRecordsStaging(name)  (slice 393)
+ *
+ * Signal 4 of isTerminal() reads bridge/trash/ and treats ANY `{id}-` entry as proof the
+ * slice finished. Most suffixes in there do mean that. Two do not: the dashboard moves the
+ * staged brief aside the moment Philipp presses approve (`{id}-STAGED.md.approved`,
+ * server.js) or refine (`.amended`), so those entries appear when a slice STARTS and sit in
+ * trash for the whole of its life. An orphaned IN_PROGRESS file after a crash was therefore
+ * read as terminal and never re-queued — "startup-recovery: skipped terminal slice 390",
+ * 2026-09-13 19:26:02Z, one lost round.
+ *
+ * `.blocked` joins them: this slice routes an honest BLOCKED report back to STAGED, which
+ * is the same "waiting to start again" state as `.approved`.
+ *
+ * The exclusion stays deliberately narrow. Every other suffix the live trash holds —
+ * `.cleanup-ARCHIVED-`, `.cleanup-ERROR-`, `.attemptN`, `.orphan`, `.pass`, `.ratelimit`,
+ * `.api-retry` — records something that happened to a slice that had already run, and a
+ * wrong answer there re-dispatches finished work. Recovery stays conservative: when in
+ * doubt, terminal.
+ *
+ * `.branch-checkout` is stripped first. fuseSafeCheckoutBranch parks any file the target
+ * branch does not have, so it lands on top of whatever suffix was already there and carries
+ * no lifecycle meaning of its own; the live trash holds 13 `{id}-STAGED.md.approved.branch-checkout`
+ * entries that would otherwise slip straight back through this guard.
+ */
+const STAGING_TRASH_SUFFIXES = ['.approved', '.amended', '.blocked'];
+
+function trashEntryRecordsStaging(name) {
+  let n = String(name);
+  while (n.endsWith('.branch-checkout')) n = n.slice(0, -'.branch-checkout'.length);
+  return STAGING_TRASH_SUFFIXES.some(suffix => n.endsWith(suffix));
+}
+
+/**
  * isTerminal(sliceId, opts)
  *
  * Returns true if a slice is definitively terminal — i.e. it has completed its
@@ -3634,7 +3904,9 @@ function hasTerminalLandedEvent(id, regFile) {
  *   2. An {id}-ARCHIVED.md file exists in the queue directory.
  *   3. The register has a MERGED or SLICE_MERGED_TO_MAIN event for that slice
  *      (after the latest RESTAGED marker, per hasMergedEvent semantics).
- *   4. A bridge/trash/{id}-*.md archive entry exists.
+ *   4. A bridge/trash/{id}-*.md archive entry exists whose suffix records a
+ *      COMPLETION. Staging entries (.approved, .amended, .blocked) are ignored —
+ *      they say the slice started, not that it finished (slice 393).
  *
  * Accepts optional { queueDir, trashDir, regFile } for testing.
  */
@@ -3654,10 +3926,10 @@ function isTerminal(sliceId, opts) {
   // Signal 3: MERGED or SLICE_MERGED_TO_MAIN register event
   if (hasMergedEvent(id, rFile)) return true;
 
-  // Signal 4: trash entry
+  // Signal 4: trash entry that records a completion, not a staging move
   try {
     const trashFiles = fs.readdirSync(tDir);
-    if (trashFiles.some(f => f.startsWith(`${id}-`))) return true;
+    if (trashFiles.some(f => f.startsWith(`${id}-`) && !trashEntryRecordsStaging(f))) return true;
   } catch (_) {}
 
   return false;
@@ -7074,7 +7346,6 @@ function validateIntakeMeta(meta) {
 // Gate start — Bashir regression gate (slice 267)
 // ---------------------------------------------------------------------------
 
-let BRANCH_STATE_PATH = path.resolve(__dirname, 'state', 'branch-state.json');
 const BASHIR_HEARTBEAT_PATH = path.resolve(__dirname, 'state', 'bashir-heartbeat.json');
 const BASHIR_STDOUT_LOG = path.resolve(__dirname, 'state', 'bashir-stdout.log');
 const BASHIR_PROMPT_TEMPLATE = path.resolve(__dirname, 'templates', 'bashir-prompt.md');
@@ -7971,11 +8242,6 @@ function abortGate() {
 // Squash slice → dev (slice 266)
 // ---------------------------------------------------------------------------
 
-// The two DERIVED files the integrity gates (j-coverage-map-integrity,
-// j-ac-manifest-integrity) require to equal a fresh regeneration at every commit.
-// Nobody hand-edits them; the pipeline owns them (slice 387).
-const LOCK_FILES = ['regression/COVERAGE.lock', 'regression/AC-MANIFEST.lock'];
-
 /**
  * isLockDeriverInput(p)
  *
@@ -8829,4 +9095,4 @@ function mergeDevToMain() {
 // Exports — for use by helper scripts (e.g. bridge/next-id.js)
 // ---------------------------------------------------------------------------
 
-module.exports = { resolveLane, laneEventFields, applyLaneArgs, romSpawnArgs, registerCommissioned, sessionTelemetry, fillDoneMetrics, validateDoneMetrics, extractRomTelemetry, buildDoneTemplate, buildHashLines, regenerateLocksAtLanding, newestDoneEvent, isLockDeriverInput, LOCK_FILES, checkDispatchProvenance, parkUnprovenancedSlice, hasPreCutoverHistory, fileIsPreCutover, provenanceRootId, parseFrontmatter, handleNogReturn, startGate, abortGate, buildBashirPrompt, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, recordArchivedQueueRename, validateIntakeMeta, ensureIntegrationIsFresh, ensureMainIsFresh: ensureIntegrationIsFresh, fastForwardIntegrationRef, branchNamesFrom, INTEGRATION_BRANCH, TRUNK_BRANCH, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, provisionWorkspaceDeps, _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted, hasTerminalLandedEvent, countUnreadableVerdicts, unreadableBackoffMs, retryBackoffElapsed, MAX_UNREADABLE_ATTEMPTS, UNREADABLE_BACKOFF_MS, porcelainPaths, isVolatileRuntimePath, recoverRuntimeStateAfterGit, stageablePathsFrom, shQuote, _testResetRefusalEmitted: () => { _refusalEmitted.clear(); }, _testGetRefusalEmitted: () => _refusalEmitted };
+module.exports = { resolveLane, laneEventFields, applyLaneArgs, romSpawnArgs, registerCommissioned, sessionTelemetry, fillDoneMetrics, validateDoneMetrics, extractRomTelemetry, buildDoneTemplate, buildHashLines, regenerateLocksAtLanding, newestDoneEvent, isLockDeriverInput, LOCK_FILES, checkDispatchProvenance, parkUnprovenancedSlice, hasPreCutoverHistory, fileIsPreCutover, provenanceRootId, parseFrontmatter, handleNogReturn, startGate, abortGate, buildBashirPrompt, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, classifyHonestNonProduct, doneSummarySection, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, recordArchivedQueueRename, validateIntakeMeta, ensureIntegrationIsFresh, ensureMainIsFresh: ensureIntegrationIsFresh, fastForwardIntegrationRef, branchNamesFrom, INTEGRATION_BRANCH, TRUNK_BRANCH, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, provisionWorkspaceDeps, releaseDispatch, _testSetHeartbeatFile: (p) => { HEARTBEAT_FILE = p; }, _testGetDispatchState: () => ({ processing, heartbeat: { ...heartbeatState } }), _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted, hasTerminalLandedEvent, crashRecovery, trashEntryRecordsStaging, STAGING_TRASH_SUFFIXES, countUnreadableVerdicts, unreadableBackoffMs, retryBackoffElapsed, MAX_UNREADABLE_ATTEMPTS, UNREADABLE_BACKOFF_MS, porcelainPaths, isVolatileRuntimePath, recoverRuntimeStateAfterGit, stageablePathsFrom, shQuote, _testResetRefusalEmitted: () => { _refusalEmitted.clear(); }, _testGetRefusalEmitted: () => _refusalEmitted };

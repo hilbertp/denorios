@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 674,
+  "guardCount": 678,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -509,6 +509,26 @@
         "tag": "slice-391-ac-2",
         "file": "regression/dispatch-execution/j-untracked-runtime-state.test.js",
         "guardAcHash": "sha256:68e7ab63970fce4a81c5c30dce79fc4532b1aef6efe0dd3c57cbb81a8d71cac9"
+      },
+      {
+        "tag": "slice-393-ac-1",
+        "file": "regression/dispatch-execution/j-daemon-survives-recovery.test.js",
+        "guardAcHash": "sha256:fce4b2a465a9140d721df2ad76755a2ef2a61c6a69979c907dadc40c3875071b"
+      },
+      {
+        "tag": "slice-393-ac-2",
+        "file": "regression/dispatch-execution/j-daemon-survives-recovery.test.js",
+        "guardAcHash": "sha256:bbdf9e9908d0230d1d80f0763bae9f1e73b016d60bee9c7c55cf3e4646ea39ce"
+      },
+      {
+        "tag": "slice-393-ac-3",
+        "file": "regression/dispatch-execution/j-daemon-survives-recovery.test.js",
+        "guardAcHash": "sha256:78239759404e5d166039d3093a63abdf347dadcab5fe42a3da6bbb02f35e1f12"
+      },
+      {
+        "tag": "slice-393-ac-4",
+        "file": "regression/dispatch-execution/j-daemon-survives-recovery.test.js",
+        "guardAcHash": "sha256:12eb4590fb3bbbadb14765437c3bad9e19cc3e8846c55cd9ac449d0c1d6dd667"
       },
       {
         "tag": "slice-99777-ac-1",
@@ -2732,6 +2752,28 @@
         "tag": "slice-381-ac-5",
         "file": "regression/dispatch-execution/j-archive-rename-recorded.test.js",
         "guardAcHash": "sha256:042403c9c5d6477b98df8e42269b27fd58ed7d312fb4de3f144167ff46067951"
+      }
+    ],
+    "regression/dispatch-execution/j-daemon-survives-recovery.test.js": [
+      {
+        "tag": "slice-393-ac-1",
+        "file": "regression/dispatch-execution/j-daemon-survives-recovery.test.js",
+        "guardAcHash": "sha256:fce4b2a465a9140d721df2ad76755a2ef2a61c6a69979c907dadc40c3875071b"
+      },
+      {
+        "tag": "slice-393-ac-2",
+        "file": "regression/dispatch-execution/j-daemon-survives-recovery.test.js",
+        "guardAcHash": "sha256:bbdf9e9908d0230d1d80f0763bae9f1e73b016d60bee9c7c55cf3e4646ea39ce"
+      },
+      {
+        "tag": "slice-393-ac-3",
+        "file": "regression/dispatch-execution/j-daemon-survives-recovery.test.js",
+        "guardAcHash": "sha256:78239759404e5d166039d3093a63abdf347dadcab5fe42a3da6bbb02f35e1f12"
+      },
+      {
+        "tag": "slice-393-ac-4",
+        "file": "regression/dispatch-execution/j-daemon-survives-recovery.test.js",
+        "guardAcHash": "sha256:12eb4590fb3bbbadb14765437c3bad9e19cc3e8846c55cd9ac449d0c1d6dd667"
       }
     ],
     "regression/dispatch-execution/j-finished-slice-not-redispatched.test.js": [
