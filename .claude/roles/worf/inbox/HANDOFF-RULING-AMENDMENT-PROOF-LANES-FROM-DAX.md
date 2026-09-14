@@ -73,6 +73,20 @@ Three things, all yours:
   dashboard/server.js`, new pid in `bridge/.run.pid`) so 388's red-dev routing is live; the
   orchestrator is a launchd job, the dashboard is not, and `scripts/start.sh` refuses to start one
   without the other. One launchd job for the dashboard would end that.
+- **2026-09-14 21:44Z: both services died of a full disk (`ENOSPC`), not of a code fault.** The
+  data volume hit 100% (187 GB of 228, Philipp's own files); the orchestrator's log write stream
+  threw an unhandled `error` event and the process exited 1, launchd restarted it, and the dashboard
+  process died outright with nothing to restart it. Philipp freed 30 GB; I restarted the dashboard
+  by hand and re-queued 359, whose rework session was cut off mid-round (its commit `7e5841c`
+  survived on the branch; the startup recovery skipped it because the `-NOG.md.return` trash copy
+  reads as a completion, so add `.return` to the staging-suffix exclusion 393 introduced). Three
+  hardening items, yours: (1) `bridge/bridge.log` is 3.3 GB and never rotates (the last 50 MB is
+  272k `state` lines and 47k `sweep` lines); rotate it daily or by size and drop the per-cycle
+  sweep chatter. (2) The dashboard is a bare `node dashboard/server.js` with no supervisor; give it
+  a launchd job like the orchestrator's so it comes back on its own. (3) Handle `error` on the log
+  write stream so a full disk degrades to "not logging" instead of killing the daemon, and have the
+  host-health check (which already writes `bridge/host-health.json`) surface free disk in Ops
+  before it reaches zero.
 - **2026-09-14 evening, three more for the fix list, in priority order.** (1) The verdict-fence
   fault has now cost a round three times in two days (390 twice, 358 once, an ACCEPTED verdict
   lost the third time): `parseFrontmatter` returns nothing when Jordan's heredoc omits the closing
