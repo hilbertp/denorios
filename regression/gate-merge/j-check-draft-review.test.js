@@ -133,7 +133,14 @@ test('J-check-draft-review slice-356-ac-3 — the endpoint serves only regressio
   assert.ok(!/CREW_ARTIFACTS[\s\S]{0,4000}?\.drafts/.test(SERVER), 'no crew artifact may point into .drafts/');
 });
 
-test('J-check-draft-review slice-356-ac-4 — the slice adds no route or control that modifies, moves or deletes a file', () => {
+// Moved by slice 358, which was commissioned to add the apply control this test was
+// written to forbid. What 356-ac-4 was protecting — that READING a draft cannot write, and
+// that nothing moves or deletes one — is still true and is still asserted here. What is no
+// longer true is "no control writes at all": the write now exists, and the assertion moves
+// to what makes it safe rather than pretending it is absent.
+//   Declared as: Test-Loosen-OK: slice-356-ac-4 reworded
+// The AC's own TEXT is Philipp's to restate; this file only follows the spec change.
+test('J-check-draft-review slice-356-ac-4 — reading a draft still writes nothing, and the write that exists is a separate, gated route', () => {
   // Every route that can reach a draft is GET.
   const routes = SERVER.match(/if \(pathname === '[^']*draft[^']*'[^)]*\)/g) || [];
   assert.ok(routes.length >= 1, 'the draft route must exist');
@@ -147,10 +154,24 @@ test('J-check-draft-review slice-356-ac-4 — the slice adds no route or control
   const routeAt = SERVER.indexOf("if (pathname === '/api/check-test-updates/draft'");
   assert.ok(!MUTATORS.test(SERVER.slice(routeAt, SERVER.indexOf('\n  }\n', routeAt))), 'the route body must not mutate');
 
-  // And the overlay's new control only reads: no apply/move/delete button was added.
-  assert.ok(!/utc-btn-apply|_applyDraft|_moveDraft|_deleteDraft/.test(HTML), 'no apply/move/delete control may exist');
+  // Reading a draft in the overlay is still a GET, and still the whole of what the READ
+  // control does.
   const toggle = HTML.slice(HTML.indexOf('async function _toggleDraft'), HTML.indexOf('function _draftCode'));
   assert.ok(!/method:\s*'(POST|PUT|PATCH|DELETE)'/.test(toggle), 'reading a draft must be a GET');
+
+  // A draft is still never moved or deleted from the UI — applying one COPIES its source
+  // to the declared target and leaves regression/.drafts/ byte-identical (trap 3, below).
+  assert.ok(!/_moveDraft|_deleteDraft/.test(HTML), 'no control may move or delete a draft');
+
+  // The write that slice 358 added is a SEPARATE route from the read, it is a POST, and it
+  // is refused unless it can show it came from the dashboard. Those three facts are what
+  // replaced "there is no write at all".
+  const write = SERVER.indexOf("if (pathname === '/api/check-test-updates/apply' && req.method === 'POST')");
+  assert.notEqual(write, -1, 'the apply is its own POST route, not a mode of the draft route');
+  assert.match(SERVER.slice(write, write + 700), /classifyApprovalOrigin\(req\)/,
+    'and it refuses a request that cannot show it came from the dashboard UI');
+  assert.ok(!/pathname === '[^']*draft[^']*'[^)]*req\.method === 'POST'/.test(SERVER),
+    'no route whose path names a draft may write — the write route is named for what it does');
 });
 
 test('J-check-draft-review slice-356-trap-1 — an unmatched draft says so; it never claims to be a new file', () => {

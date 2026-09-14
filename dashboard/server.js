@@ -1344,6 +1344,37 @@ function draftDetailFor(tag) {
   };
 }
 
+// ── Applying a draft — plan, confirm, act (slice 358) ─────────────────────────
+// Slice 356 made a draft readable; this is the step that moves one into the suite. It is
+// deliberately TWO calls: applyPlanFor() computes what the apply would do and changes
+// nothing the repo keeps, and applyDraftFor() acts only on a plan the operator confirmed by
+// echoing its token back. The rules live in lib/apply-draft.js — this is the server's half,
+// and both routes are origin-gated: neither runs on a request that cannot show it came
+// from the dashboard.
+//
+// Both halves are SYNCHRONOUS, and that — not a lock — is what serialises them. planApply
+// and applyDraft spawnSync the guard, so this single-threaded server cannot dispatch a
+// second request until the first has returned; a busy flag here could never be read as
+// true and would only claim a safety it does not provide. The real price is stated rather
+// than hidden: while a guard runs, every other route, the poll and the heartbeat are
+// blocked. That is why the runner caps in lib/apply-draft.js are short, why a confirm is
+// the only call that runs a guard twice, and why the overlay never re-fetches a plan on
+// the poll.
+function _applyDraftLib() { return require(path.join(__dirname, '..', 'lib', 'apply-draft')); }
+
+function applyPlanFor(tag) {
+  const { planApply, publicPlan } = _applyDraftLib();
+  return publicPlan(planApply({ repoRoot: REPO_ROOT, tag }));
+}
+
+// `provenance` is decided by classifyApprovalOrigin() on the server, exactly as an approval
+// is — the request never asserts it. It is stamped into the commit, so the guard that
+// landed can always say who authorized it.
+function applyDraftFor(tag, { planToken, provenance } = {}) {
+  const { applyDraft } = _applyDraftLib();
+  return applyDraft({ repoRoot: REPO_ROOT, tag, planToken, provenance });
+}
+
 
 // The three gate phases promote.yml runs, in order, before main moves. Matched by
 // step name so renaming a step's prose doesn't silently drop a phase (the match is
@@ -3919,6 +3950,71 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Step one of applying a draft: what WOULD happen. It changes nothing the repo keeps —
+  // the coverage map is rebuilt against a scratch mirror outside the repo, and the guard
+  // runs from one dot-prefixed scratch file that is removed in a finally — so the operator
+  // can read the consequences before authorizing them.
+  //
+  // Origin-gated all the same, and not for custody: planning SPAWNS a test runner and
+  // blocks this single-threaded server while it runs. A GET any open page could issue
+  // would be a way to make the dashboard stop answering. The nonce header is what makes
+  // this a preflighted request rather than a simple cross-origin one.
+  if (pathname === '/api/check-test-updates/apply-plan' && req.method === 'GET') {
+    const planOrigin = classifyApprovalOrigin(req);
+    if (!planOrigin.ok) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, stage: 'origin', reason: planOrigin.reason,
+        refusals: [{ code: 'E_NOT_UI', message: 'planning an apply must originate from the dashboard UI' }] }));
+      return;
+    }
+    try {
+      const u = new URL(req.url, `http://${req.headers.host}`);
+      const plan = applyPlanFor(u.searchParams.get('tag') || '');
+      const first = (plan.refusals || [])[0];
+      const code = first && first.code === 'E_BAD_TAG' ? 400
+                 : first && first.code === 'E_NO_DRAFT' ? 404 : 200;
+      res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify(plan));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: String(err) }));
+    }
+    return;
+  }
+
+  // Step two: apply the plan the operator confirmed. The token they echo back can only
+  // ever ADD a refusal — the plan is recomputed here and the token is compared to THAT,
+  // so a token is a way to be turned back when the draft moved, never a way to be let
+  // through. A request with no live UI nonce is refused before anything is computed: a
+  // write into the test suite is not something a script performs on its own initiative.
+  if (pathname === '/api/check-test-updates/apply' && req.method === 'POST') {
+    const origin = classifyApprovalOrigin(req);
+    if (!origin.ok) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, stage: 'origin', reason: origin.reason,
+        refusals: [{ code: 'E_NOT_UI', message: 'applying a guard must originate from the dashboard UI' }] }));
+      return;
+    }
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const { tag, plan_token: planToken } = JSON.parse(body || '{}');
+        if (!tag || typeof tag !== 'string') throw new Error('tag required');
+        const out = applyDraftFor(tag, { planToken, provenance: origin.provenance });
+        // AC-6: the overlay re-checks off the same response, so what it shows after an
+        // apply is the freshly derived triage, never a client-side guess that it worked.
+        if (out.ok) out.check = getCheckTestUpdates();
+        res.writeHead(out.ok ? 200 : 409, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify(out));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: err.message }));
+      }
+    });
+    return;
+  }
+
   // CHECK FOR TEST UPDATES → drain the flagged ACs AND kick Julian off (autonomous,
   // adversarial QA) to author the guarding test for each. Returns immediately; the drafts
   // land asynchronously in regression/.drafts/ and surface on the next GET (poll).
@@ -4452,4 +4548,4 @@ if (require.main === module) {
   startDevSuiteRouting();
 }
 
-module.exports = { QUEUE_SUFFIX_STATE, QUEUE_SIDECAR_SUFFIXES, queueStateOf, isQueueSidecar, readQaStage, sliceIdOfSubject, routeDevSuiteRun, startDevSuiteRouting, withDevSuiteFixRequest, readDevSuiteState, DEV_SUITE_STATE, getPinnedClassification, getTestChanges, getTestsNeeded, mergeLockRefusal, buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, STALE_DONE_DAYS, deriveHistoryOutcome, deriveReviewStatus, authoringStateFor, draftDetailFor, lineDiff, liveGuardsForTag, kickOffAuthoring, createRevertCommit, resolveSquashSha, mapPromotePhases, parseGateFailures, isFreshPromoteCompletion, isReconciling, _promoteTtlMs };
+module.exports = { QUEUE_SUFFIX_STATE, QUEUE_SIDECAR_SUFFIXES, queueStateOf, isQueueSidecar, readQaStage, sliceIdOfSubject, routeDevSuiteRun, startDevSuiteRouting, withDevSuiteFixRequest, readDevSuiteState, DEV_SUITE_STATE, getPinnedClassification, getTestChanges, getTestsNeeded, mergeLockRefusal, buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, STALE_DONE_DAYS, deriveHistoryOutcome, deriveReviewStatus, authoringStateFor, draftDetailFor, lineDiff, liveGuardsForTag, kickOffAuthoring, applyPlanFor, applyDraftFor, createRevertCommit, resolveSquashSha, mapPromotePhases, parseGateFailures, isFreshPromoteCompletion, isReconciling, _promoteTtlMs };

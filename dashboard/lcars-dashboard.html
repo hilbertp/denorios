@@ -5826,15 +5826,59 @@ button:disabled,
 }
 .utc-draft-more:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
 .utc-draft-err { font-size: var(--text-sm); color: var(--warn); }
+/* ── Applying a draft (slice 358) ──────────────────────────────────────────────
+   The consequential half of this panel is the PLAN, not the button, so the plan reads as
+   a short list of facts with a verdict glyph each — lands where, runs green, gets counted,
+   what it writes — and the confirm control only exists when every one of them is yes. */
+.utc-btn-apply { background: var(--bg-panel); color: var(--info); border-color: var(--info); }
+.utc-btn-apply:hover { background: #eef2ff; }
+.utc-btn-confirm { background: var(--ok); color: #ffffff; border-color: var(--ok); }
+.utc-btn-confirm:hover { filter: brightness(.96); }
+.utc-btn[disabled] { opacity: .55; cursor: default; }
+.utc-apply { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-strong); }
+.utc-apply-head { font-size: var(--text-sm); font-weight: 600; color: var(--ink); margin: 0 0 6px; }
+.utc-plan-row {
+  display: flex; gap: 8px; align-items: flex-start; padding: 2px 0;
+  font-size: var(--text-sm); line-height: var(--leading-normal); color: var(--ink-2);
+}
+.utc-plan-glyph { flex: 0 0 auto; width: 14px; text-align: center; font-weight: 700; }
+.utc-plan-yes .utc-plan-glyph { color: var(--ok); }
+.utc-plan-no .utc-plan-glyph { color: var(--err); }
+.utc-plan-neutral .utc-plan-glyph { color: var(--ink-muted); }
+.utc-plan-row code { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--ink); }
+/* The tail of a failed run goes here, so newlines have to survive. */
+.utc-plan-sub {
+  display: block; color: var(--ink-muted); font-size: var(--text-xs); margin-top: 2px;
+  white-space: pre-wrap; overflow-x: auto;
+}
+.utc-refusals {
+  margin: 9px 0 0; padding: 9px 11px; border: 1px solid var(--err-border);
+  background: var(--err-bg); border-radius: var(--radius-sm);
+}
+.utc-refusal { font-size: var(--text-sm); line-height: var(--leading-normal); color: var(--err); margin: 0 0 5px; }
+.utc-refusal:last-child { margin-bottom: 0; }
+.utc-apply-confirm { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.utc-apply-note { flex: 1 1 100%; font-size: var(--text-xs); color: var(--ink-muted); line-height: var(--leading-normal); }
+.utc-applied { margin-top: 8px; font-size: var(--text-sm); color: var(--ok); line-height: var(--leading-normal); }
+.utc-applied code { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--ink); }
 /* The decision overlay reuses the (light) .rollback-card modal, which stays light even
    in LCARS. Pin its content to the light ramp so it matches the white modal instead of
    flipping to dark-on-white. Scoped to this overlay only. */
 body.lcars-mode #test-updates-overlay {
   --ink: #0f172a; --ink-2: #1f2937; --ink-muted: #5b6678;
   --warn: #b45309; --warn-bg: #fffbeb; --warn-border: #fde68a;
+  --err: #b91c1c; --err-bg: #fef2f2; --err-border: #fecaca;
   --info: #1d4ed8; --ok: #15803d;
   --bg-panel: #ffffff; --bg-hover: #eef1f6; --border-strong: #cdd4e0;
 }
+/* Two blanket LCARS rules carry !important and so survive that pin: every <p> is forced to
+   --ink-2, and every code/pre to the dark amber chip. Inside a modal that has deliberately
+   opted into the light ramp they read as a bug — and on this panel one of them is worse
+   than cosmetic, because it drains the colour out of a REFUSAL. Scoped back, for this
+   overlay only. */
+body.lcars-mode #test-updates-overlay .utc-refusal { color: var(--err) !important; }
+body.lcars-mode #test-updates-overlay code,
+body.lcars-mode #test-updates-overlay pre { background: var(--bg-panel) !important; color: var(--ink) !important; }
 .utc-clear { display: flex; align-items: flex-start; gap: 10px; padding: 4px 0; }
 .utc-clear-glyph { color: var(--ok); font-size: 18px; line-height: 1.35; }
 .utc-clear-head { font-weight: 600; color: var(--ink); }
@@ -10974,6 +11018,9 @@ body:not(.lcars-mode) .staged-details-body pre code {
   let _promoteErrTimeout = null;
   // Which drafts the operator has open, so a poll re-render doesn't close one mid-read.
   const _openDrafts = new Set();
+  // True once an apply has written to the suite in this overlay session (slice 358) — the
+  // "ready to gate" state then stops auto-dismissing, so what landed stays readable.
+  let _applyLanded = false;
 
   function _promoteEsc(s) {
     return String(s == null ? '' : s)
@@ -11359,6 +11406,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
 
   function openTestUpdatesOverlay(rep) {
     closeTestUpdatesOverlay();
+    _applyLanded = false;
     const overlay = document.createElement('div');
     overlay.className = 'rollback-overlay';
     overlay.id = 'test-updates-overlay';
@@ -11383,7 +11431,10 @@ body:not(.lcars-mode) .staged-details-body pre code {
         + '<div class="utc-clear-sub">Every acceptance criterion on dev is accounted for. RUN GATE &amp; MERGE is unlocked.</div></div></div>';
       _testUpdatesReady = true;
       if (_lastBranchState) renderPromoteAction(_lastBranchState);
-      setTimeout(closeTestUpdatesOverlay, 1100);
+      // …unless this "ready" is the result of an apply that just wrote two files. The one
+      // record of what landed is on this card; dismissing it after a second would make the
+      // write the least visible thing that happened. The operator closes it (slice 358).
+      if (!_applyLanded) setTimeout(closeTestUpdatesOverlay, 1100);
       return;
     }
     // Beat ① — the scan. High-confidence ACs (already covered / auto-updated) are trusted
@@ -11404,7 +11455,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
       if (a.state === 'drafted') {
         act = '<div class="utc-authored utc-authored-done"><span class="utc-authored-glyph">&#10003;</span> '
           + `Julian drafted the guard &middot; <code>regression/.drafts/${_esc(a.draft || '')}</code>`
-          + '<div class="utc-authored-sub">Read it here first &mdash; nothing on this panel changes a file.</div></div>';
+          + '<div class="utc-authored-sub">Read it, then apply it &mdash; applying shows you the plan first, and nothing is written until you confirm it.</div></div>';
       } else if (a.state === 'question') {
         act = '<div class="utc-authored utc-authored-q"><strong>&#9888; Julian needs a product call:</strong>'
           + `<pre class="utc-q">${_esc((a.question || '').trim())}</pre></div>`;
@@ -11423,9 +11474,11 @@ body:not(.lcars-mode) .staged-details-body pre code {
         + act
         + '<div class="utc-actions">'
         + (drafted ? `<button class="utc-btn utc-btn-update" id="utc-read-${_escAttr(it.tag)}" aria-expanded="false" aria-controls="utc-draft-${_escAttr(it.tag)}" onclick="_toggleDraft('${_escAttr(it.tag)}', this)">Read the draft</button>` : '')
+        + (drafted ? `<button class="utc-btn utc-btn-apply" id="utc-apply-btn-${_escAttr(it.tag)}" aria-expanded="false" aria-controls="utc-apply-${_escAttr(it.tag)}" onclick="_toggleApply('${_escAttr(it.tag)}', this)">Apply this guard&hellip;</button>` : '')
         + `<button class="utc-btn utc-btn-keep" onclick="_decideTestUpdate('${_escAttr(it.tag)}','keep')">No test needed for this AC</button>`
         + '</div>'
         + (drafted ? `<div class="utc-draft" id="utc-draft-${_escAttr(it.tag)}" hidden></div>` : '')
+        + (drafted ? `<div class="utc-apply" id="utc-apply-${_escAttr(it.tag)}" hidden></div>` : '')
         + '</div>';
     }
     body.innerHTML = html;
@@ -11436,6 +11489,19 @@ body:not(.lcars-mode) .staged-details-body pre code {
       const btn = document.getElementById('utc-read-' + it.tag);
       if (btn) { _openDrafts.delete(it.tag); _toggleDraft(it.tag, btn); }
       else _openDrafts.delete(it.tag);
+    }
+    // Same for an open apply plan — but re-rendered from the plan the operator is ALREADY
+    // looking at, never re-fetched. A plan runs the guard; re-computing it under them on a
+    // 4-second poll would both burn the machine and swap the facts mid-decision.
+    for (const it of flagged) {
+      if (!_plans.has(it.tag)) continue;
+      const panel = document.getElementById('utc-apply-' + it.tag);
+      const btn = document.getElementById('utc-apply-btn-' + it.tag);
+      if (!panel || !btn) { _plans.delete(it.tag); continue; }
+      panel.hidden = false;
+      btn.setAttribute('aria-expanded', 'true');
+      btn.textContent = 'Hide the plan';
+      _renderApplyPlan(panel, it.tag, _plans.get(it.tag));
     }
   }
 
@@ -11594,6 +11660,192 @@ body:not(.lcars-mode) .staged-details-body pre code {
       }
       panel.appendChild(_draftCode(src));
     }
+  }
+
+  // ── Applying a draft (slice 358) ───────────────────────────────────────────────────
+  // Two steps, always. The first computes what applying WOULD do — where the guard lands,
+  // whether it runs green there, whether the rebuilt coverage map actually counts it — and
+  // writes nothing at all. The second acts on exactly that plan: the confirm posts the
+  // plan's token back, the server recomputes the plan and compares, and a plan whose facts
+  // have moved is refused rather than applied. There is no third path by which a file is
+  // written, and none at all by which an acceptance criterion is changed.
+  const _plans = new Map();                 // tag → the plan the operator is looking at
+
+  async function _toggleApply(tag, btn) {
+    const panel = document.getElementById('utc-apply-' + tag);
+    if (!panel) return;
+    if (btn.getAttribute('aria-expanded') === 'true') {
+      btn.setAttribute('aria-expanded', 'false');
+      btn.textContent = 'Apply this guard…';
+      panel.hidden = true;
+      _plans.delete(tag);
+      return;
+    }
+    btn.setAttribute('aria-expanded', 'true');
+    btn.textContent = 'Hide the plan';
+    panel.hidden = false;
+    panel.textContent = 'Working out what applying this would do…';
+    let plan;
+    try {
+      // uiFetch, not fetch: planning spawns a test runner and blocks the server while it
+      // runs, so it is nonce-gated exactly as the apply is. The custom header also makes
+      // this a preflighted request, which a page that merely has the dashboard open
+      // cannot forge.
+      const r = await uiFetch('/api/check-test-updates/apply-plan?tag=' + encodeURIComponent(tag), { cache: 'no-store' });
+      plan = await r.json();
+    } catch (_) {
+      plan = { ok: false, refusals: [{ message: 'Could not reach the server to work out the plan. Nothing was written.' }] };
+    }
+    _plans.set(tag, plan);
+    _renderApplyPlan(panel, tag, plan);
+  }
+
+  // One fact of the plan. Every fragment is a text node or a <code>; a target path and a
+  // command line are strings from disk and never reach the DOM as markup.
+  function _planRow(kind, glyph, parts) {
+    const row = document.createElement('div');
+    row.className = 'utc-plan-row utc-plan-' + kind;
+    const g = document.createElement('span');
+    g.className = 'utc-plan-glyph';
+    g.textContent = glyph;
+    row.appendChild(g);
+    const body = document.createElement('span');
+    for (const p of parts) {
+      if (p == null || p === '') continue;
+      // Type first, shape second. A plain string answers to `.sub` — String.prototype.sub
+      // is a real (legacy) method — so a shape test alone renders every sentence in this
+      // panel as "function sub() { [native code] }".
+      if (typeof p !== 'object') { body.appendChild(document.createTextNode(String(p))); continue; }
+      if (p.code != null) { const c = document.createElement('code'); c.textContent = p.code; body.appendChild(c); }
+      else if (p.sub != null) { const s = document.createElement('span'); s.className = 'utc-plan-sub'; s.textContent = p.sub; body.appendChild(s); }
+    }
+    row.appendChild(body);
+    return row;
+  }
+
+  function _renderApplyPlan(panel, tag, plan) {
+    panel.textContent = '';
+    const head = document.createElement('p');
+    head.className = 'utc-apply-head';
+    head.textContent = plan.ok
+      ? 'If you confirm, this is exactly what happens:'
+      : 'This draft cannot be applied as it stands:';
+    panel.appendChild(head);
+
+    const t = plan.target, c = plan.coverage, r = plan.run;
+    if (t) {
+      panel.appendChild(_planRow('neutral', '→', [
+        t.mode === 'replaces' ? 'Overwrites the guard at ' : 'Lands as a new guard at ',
+        { code: t.path }, '.',
+      ]));
+    }
+    if (r) {
+      panel.appendChild(_planRow(r.ok ? 'yes' : 'no', r.ok ? '✓' : '✗', [
+        r.ok ? 'It runs green where it will land — ' : 'It does not run green where it will land — ',
+        { code: r.command || 'the guard could not be run at all' },
+        r.ms ? ' (' + (r.ms / 1000).toFixed(1) + 's)' : '',
+        r.ok ? '' : { sub: (r.output || '').split('\n').slice(-6).join('\n') },
+      ]));
+    }
+    if (c) {
+      panel.appendChild(_planRow(c.tagInMap ? 'yes' : 'no', c.tagInMap ? '✓' : '✗', [
+        c.tagInMap ? 'The rebuilt coverage map counts it: ' : 'The rebuilt coverage map does not count it: ',
+        { code: tag },
+        c.tagInMap ? ' is credited to that file.' : ' is nowhere in it, so this guard would pass and clear nothing.',
+      ]));
+      const d = c.guardCount || { before: 0, after: 0, delta: 0 };
+      panel.appendChild(_planRow(d.delta < 0 ? 'no' : 'neutral', d.delta < 0 ? '✗' : '·', [
+        'Read-corroborated guard count ' + d.before + ' → ' + d.after,
+        d.delta === 0 ? ' (unchanged).' : d.delta > 0 ? ' (+' + d.delta + ').' : ' (' + d.delta + ' — the suite would cover less than it does now).',
+        { sub: 'A guard declared by its @ac-hash annotation is a classification signal, not corroboration, so this number is expected to hold still.' },
+      ]));
+    }
+    if (plan.writes && plan.writes.length) {
+      const parts = ['Writes ' + plan.writes.length + ' files, in one commit: '];
+      plan.writes.forEach((w, i) => { if (i) parts.push(' and '); parts.push({ code: w }); });
+      parts.push('. Nothing else is touched.');
+      panel.appendChild(_planRow('neutral', '✎', parts));
+    }
+
+    const refusals = plan.refusals || [];
+    if (refusals.length) {
+      const box = document.createElement('div');
+      box.className = 'utc-refusals';
+      for (const f of refusals) {
+        const p = document.createElement('p');
+        p.className = 'utc-refusal';
+        p.textContent = f.message || f.code || 'refused';
+        box.appendChild(p);
+      }
+      panel.appendChild(box);
+    }
+
+    // The confirm control exists only when every fact above is a yes. A refused plan has
+    // no button to press — the operator is never one click away from a half-apply.
+    if (plan.ok && plan.token) {
+      const wrap = document.createElement('div');
+      wrap.className = 'utc-apply-confirm';
+      const go = document.createElement('button');
+      go.className = 'utc-btn utc-btn-confirm';
+      go.type = 'button';
+      go.textContent = 'Confirm and apply';
+      go.onclick = () => _confirmApply(tag, plan.token, go);
+      wrap.appendChild(go);
+      const note = document.createElement('span');
+      note.className = 'utc-apply-note';
+      note.textContent = 'Your confirmation is what writes those two files and commits them, stamped with how it was authorized. '
+        + 'No acceptance criterion is touched and no ruling is recorded on your behalf.';
+      wrap.appendChild(note);
+      panel.appendChild(wrap);
+    }
+  }
+
+  async function _confirmApply(tag, token, btn) {
+    btn.disabled = true;
+    btn.textContent = 'Applying…';
+    let out;
+    try {
+      const r = await uiFetch('/api/check-test-updates/apply', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tag, plan_token: token }) });
+      out = await r.json();
+    } catch (_) {
+      out = { ok: false, refusals: [{ message: 'Could not reach the server. Nothing was applied.' }] };
+    }
+    if (!out.ok) {
+      const panel = document.getElementById('utc-apply-' + tag);
+      const refused = Object.assign({}, out.plan || {}, { ok: false, refusals: out.refusals || [{ message: out.error || 'The apply was refused.' }] });
+      _plans.set(tag, refused);
+      if (panel) _renderApplyPlan(panel, tag, refused);
+      return;
+    }
+    _plans.delete(tag);
+    _applyLanded = true;
+    // AC-6 — what the overlay shows next is the server's freshly derived triage, never a
+    // local guess that it worked. The applied AC drops out of the flagged list here or not
+    // at all.
+    if (out.check) _renderTestUpdatesBody(out.check);
+    _showApplied(out.commit);
+  }
+
+  // The record of what was written, pinned to the card rather than the body so a later
+  // re-render (or the "ready to gate" state) cannot wipe it before it has been read.
+  function _showApplied(commit) {
+    const card = document.querySelector('#test-updates-overlay .rollback-card');
+    if (!card) return;
+    const line = document.createElement('div');
+    line.className = 'utc-applied';
+    line.appendChild(document.createTextNode('✓ Applied — '));
+    const files = document.createElement('code');
+    files.textContent = (commit && commit.files || []).join(' + ');
+    line.appendChild(files);
+    line.appendChild(document.createTextNode(' committed together as '));
+    const sha = document.createElement('code');
+    sha.textContent = (commit && commit.short) || '';
+    line.appendChild(sha);
+    line.appendChild(document.createTextNode('. It is on this checkout only — push it with the rest of the slice before the gate runs.'));
+    const h = card.querySelector('h3');
+    if (h && h.nextSibling) card.insertBefore(line, h.nextSibling); else card.appendChild(line);
   }
 
   // One CHECK press kicks Julian off to author the flagged tests (autonomous, adversarial

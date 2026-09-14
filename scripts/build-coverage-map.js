@@ -215,6 +215,9 @@ function main() {
   console.log(`Wrote regression/COVERAGE.lock — ${map.guardCount} guards over ${Object.keys(map.bySource).length} sources.`);
 }
 
-module.exports = { buildCoverageMap, sourcesReadBy, tagsIn, acHashesIn, walkTests, serialize };
+// walkSpecs joins the exports for lib/apply-draft.js: the apply path mirrors the suite into
+// a scratch root to predict what applying a guard would do, and a mirror assembled from
+// anything but the deriver's OWN walkers could quietly disagree with the map it predicts.
+module.exports = { buildCoverageMap, sourcesReadBy, tagsIn, acHashesIn, walkTests, walkSpecs, serialize };
 
 if (require.main === module) main();

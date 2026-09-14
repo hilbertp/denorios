@@ -113,3 +113,11 @@ regression/AC-DECISIONS.json
 
 # Test-authoring drafts (proposals for human review, not committed)
 regression/.drafts/
+
+# The apply path's scratch RUN file (slice 358). Before a drafted guard is applied it is
+# executed at a throwaway name inside its LANDING directory — a guard resolves the repo
+# with path.resolve(__dirname, '..', '..'), so running it at any other depth makes it read
+# a repo that isn't there. It is removed in a finally; ignored so that a run killed
+# mid-flight leaves untracked debris rather than a file the next `git add -A` commits.
+**/.apply-scratch.test.js
+**/.apply-scratch.spec.js
