@@ -73,6 +73,18 @@ Three things, all yours:
   dashboard/server.js`, new pid in `bridge/.run.pid`) so 388's red-dev routing is live; the
   orchestrator is a launchd job, the dashboard is not, and `scripts/start.sh` refuses to start one
   without the other. One launchd job for the dashboard would end that.
+- **2026-09-14 afternoon: two builds killed by the output buffer, hotfix on dev, restart done.**
+  Slices 358 (28 min, 30 edits) and 363 (24 min, 688 lines) were both terminated by `execFile`'s
+  10 MB `maxBuffer` once they read dashboard screenshots into the session
+  (`ERR_CHILD_PROCESS_STDIO_MAXBUFFER`), work left uncommitted. The crash classifier then matched
+  the CLI's mid-session "approaching your limit" warning (13 of them in 363's log) and paused
+  dispatch for eight hours. Hotfix `a8da61f` on dev: 256 MB cap and rate limit only on a rejected
+  event; I restarted the daemon at 17:00Z, committed both builds' uncommitted work on their
+  branches as "(recovered)" commits with a recovery note in the re-queued briefs, and 363 resumed
+  at 17:01Z. Slice 396 (staged) removes the buffer: the session is streamed line by line. Two
+  things for you: the daemon must be restarted after every orchestrator slice lands (393, 395 and
+  392 landed overnight and it was running the pre-393 code until 03:04 local), and the startup
+  recovery walk now takes 42 seconds because it visits all 1,600 historical slices.
 - **2026-09-13 late, slice 390 (finished by hand; all six lane slices are now on dev).** Jordan's
   round-2 verdict was correct and readable to a human but the daemon filed it `verdict_unreadable`
   three times: his heredoc ended without the closing `---` fence, and `parseFrontmatter` returns
