@@ -49,6 +49,7 @@ const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const SERVER_SRC = path.join(REPO_ROOT, 'dashboard', 'server.js');
 const HTML_SRC = path.join(REPO_ROOT, 'dashboard', 'lcars-dashboard.html');
 const AUTHOR_SRC = path.join(REPO_ROOT, 'scripts', 'author-ac-test.js');
+const SANDBOX_SRC = path.join(REPO_ROOT, 'lib', 'author-sandbox.js');
 const SERVER = fs.readFileSync(SERVER_SRC, 'utf8');
 const HTML = fs.readFileSync(HTML_SRC, 'utf8');
 const AUTHOR = fs.readFileSync(AUTHOR_SRC, 'utf8');
@@ -157,6 +158,17 @@ test('J-authoring-containment slice-359-ac-1 — one AC can be authored on its o
 });
 
 // ── slice-359-ac-2 ────────────────────────────────────────────────────────────────────
+// Source-shape check — also the static read that registers this file's guards against
+// lib/author-sandbox.js in COVERAGE.lock. The gate credits reads, not requires; the
+// behavioural tests below (which require and drive the module) are what prove the ACs.
+test('J-authoring-containment slice-359-ac-2 — the sandbox module exposes the containment seams the tests drive', () => {
+  const src = fs.readFileSync(SANDBOX_SRC, 'utf8');
+  for (const seam of ['runContained', 'isPoliced', 'formatBreaches', 'POLICED_DIRS', 'createSandbox', 'newBreaches']) {
+    assert.match(src, new RegExp('\\b' + seam + '\\b'), `lib/author-sandbox.js exposes ${seam}`);
+  }
+  assert.match(src, /module\.exports\s*=\s*\{/, 'the module has a single explicit export surface');
+});
+
 test('J-authoring-containment slice-359-ac-2 — the agent runs in a throwaway worktree, so it cannot write the live suite', () => {
   const { root, drafts } = fixtureRepo();
   const live = path.join(root, 'regression', 'gate-merge', 'j-live.test.js');

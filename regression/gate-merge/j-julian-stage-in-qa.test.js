@@ -64,6 +64,7 @@ const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const ORCH_SRC = path.join(REPO_ROOT, 'bridge', 'orchestrator.js');
 const DASH_HTML = path.join(REPO_ROOT, 'dashboard', 'lcars-dashboard.html');
 const AUTHOR_SCRIPT = path.join(REPO_ROOT, 'scripts', 'author-ac-test.js');
+const QA_STAGE_SRC = path.join(REPO_ROOT, 'bridge', 'qa-stage.js');
 
 // Far outside the live slice range, so no fixture file can collide with a real slice and
 // no worktree path under /tmp/ds9-worktrees/ that archival prunes can ever exist.
@@ -220,6 +221,17 @@ async function serverFixture(label) {
 }
 
 // ── AC-1 ─────────────────────────────────────────────────────────────────────
+// Source-shape check — also the static read that registers this file's guards against
+// bridge/qa-stage.js in COVERAGE.lock. The stage is driven through the orchestrator
+// below (which requires qa-stage), so the gate could not otherwise see the coverage.
+test('J-julian-stage-in-qa slice-363-ac-3 — the stage module declares the in-QA and question suffixes and the packet builders', () => {
+  const src = fs.readFileSync(QA_STAGE_SRC, 'utf8');
+  for (const seam of ['IN_QA_SUFFIX', 'QA_QUESTION_SUFFIX', 'PACKET_ITEM_HEADINGS', 'redactCode', 'splitFrontmatter']) {
+    assert.match(src, new RegExp('\\b' + seam + '\\b'), `bridge/qa-stage.js exposes ${seam}`);
+  }
+  assert.match(src, /module\.exports\s*=\s*\{/, 'the module has a single explicit export surface');
+});
+
 test('J-julian-stage-in-qa slice-363-ac-1 — a landing starts the stage by itself, and the merge button no longer starts it', async () => {
   const fx = orchFixture('j-qa-ac1-');
   try {
