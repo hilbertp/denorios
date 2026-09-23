@@ -7,7 +7,7 @@
 		<key>HOME</key>
 		<string>/Users/phillyvanilly</string>
 		<key>PATH</key>
-		<string>/Users/phillyvanilly/.local/bin:/usr/local/bin:/Users/phillyvanilly/.nvm/versions/node/v24.11.1/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+		<string>/Users/phillyvanilly/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
 	</dict>
 	<key>KeepAlive</key>
 	<true/>
@@ -15,7 +15,7 @@
 	<string>dev.denorios.orchestrator</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/Users/phillyvanilly/.nvm/versions/node/v24.11.1/bin/node</string>
+		<string>/opt/homebrew/bin/node</string>
 		<string>--env-file=/Users/phillyvanilly/denorios/repo/.env</string>
 		<string>/Users/phillyvanilly/denorios/repo/bridge/orchestrator.js</string>
 	</array>
