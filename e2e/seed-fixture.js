@@ -99,6 +99,50 @@ function seedRolledBackableSlice(id = '8200') {
   bumpHeartbeat();
 }
 
+// Four finished slices for the verdict-recovery journey (slice 400). The register is
+// the data layer behind the History/Logbook row, so the NOG_DECISION shape is what this
+// seeds: three slices whose verdict was readable — one per `verdict_source` value that
+// slice-400-ac-4 enumerates — and one carrying the shape the bug produced before the fix
+// (Jordan's ACCEPTED filed as REJECTED/verdict_unreadable, then a second round).
+//
+// Real-register shapes, copied from bridge/register.jsonl: the row key is `slice_id`
+// (not `id`), and NOG_DECISION carries `cycle` and `round` alongside the verdict.
+function seedVerdictSourceSlices() {
+  const commissioned = (id, title) =>
+    ({ ts: '2026-09-23T10:00:00.000Z', slice_id: id, event: 'COMMISSIONED', title,
+       goal: "Jordan's verdict is read whatever shape the file arrived in." });
+  const done = (id, mm) =>
+    ({ ts: `2026-09-23T10:${mm}:00.000Z`, slice_id: id, event: 'DONE',
+       durationMs: 600000, tokensIn: 100, tokensOut: 5000, costUsd: 1.5 });
+  const accepted = (id, mm, round, source) => {
+    const ev = { ts: `2026-09-23T10:${mm}:00.000Z`, slice_id: id, event: 'NOG_DECISION',
+                 verdict: 'ACCEPTED', reason: 'All criteria met.', cycle: 1, round };
+    if (source) ev.verdict_source = source;   // omitted on the pre-fix shape
+    return ev;
+  };
+  const unreadable = (id, mm, round) =>
+    ({ ts: `2026-09-23T10:${mm}:00.000Z`, slice_id: id, event: 'NOG_DECISION',
+       verdict: 'REJECTED', reason: 'verdict_unreadable', cycle: 1, round });
+
+  const events = [
+    // Read straight out of a well-formed frontmatter block.
+    commissioned('7401', 'Verdict read from a closed frontmatter'),
+    done('7401', 11), accepted('7401', 12, 1, 'frontmatter'),
+    // Recovered from a file whose closing `---` was missing.
+    commissioned('7402', 'Verdict recovered from an unfenced file'),
+    done('7402', 13), accepted('7402', 14, 1, 'unfenced'),
+    // Recovered from the Verdict line in Jordan's review section.
+    commissioned('7403', 'Verdict recovered from the review section'),
+    done('7403', 15), accepted('7403', 16, 1, 'review_section'),
+    // The world before slice 400: the same ACCEPTED, lost, and a round spent to get it back.
+    commissioned('7404', 'Verdict lost to an unreadable file'),
+    done('7404', 17), unreadable('7404', 18, 1),
+    done('7404', 19), accepted('7404', 20, 2, null),
+  ];
+  w(path.join(ROOT, 'bridge', 'register.jsonl'), events.map(e => JSON.stringify(e)).join('\n') + '\n');
+  bumpHeartbeat();
+}
+
 // Cost data for Quark's Ledger: a Rom DONE event with real token/cost numbers
 // (the ledger always lists every role zeroed; this gives Rom a non-zero row + a total).
 function seedCostEvents() {
@@ -224,3 +268,4 @@ module.exports.seedCostEvents = seedCostEvents;
 module.exports.seedQueuedPair = seedQueuedPair;
 module.exports.seedReorderableSections = seedReorderableSections;
 module.exports.seedRolledBackableSlice = seedRolledBackableSlice;
+module.exports.seedVerdictSourceSlices = seedVerdictSourceSlices;
