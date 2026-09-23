@@ -3102,6 +3102,23 @@
         "guardAcHash": "sha256:e88e5111d0f9835d7f3ca13a31d855588575e3c02a78a2eca07824b733f880fe"
       }
     ],
+    "regression/authoring-staging/j-reviewer-runs-nothing.test.js": [
+      {
+        "tag": "slice-399-ac-1",
+        "file": "regression/authoring-staging/j-reviewer-runs-nothing.test.js",
+        "guardAcHash": "sha256:7628965f66c659e9f03fe9a50bf96950328ea7f16ea2111dd491021217bd2b28"
+      },
+      {
+        "tag": "slice-399-ac-2",
+        "file": "regression/authoring-staging/j-reviewer-runs-nothing.test.js",
+        "guardAcHash": "sha256:d045735e98e402d25512f2ab735fb7e71fb2fa5d0c2ee70ba5db862a28551839"
+      },
+      {
+        "tag": "slice-399-ac-3",
+        "file": "regression/authoring-staging/j-reviewer-runs-nothing.test.js",
+        "guardAcHash": "sha256:40f2dd3ec915ce9caea7fb3a6c7b7c66ca417133b51730e6b87d81f3f9793895"
+      }
+    ],
     "regression/authoring-staging/j-ten-rows-a-page.test.js": [
       {
         "tag": "slice-385-ac-1",

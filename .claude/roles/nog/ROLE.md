@@ -51,6 +51,8 @@ Once all ACs are satisfied, assess the code for quality issues:
 4. **Red when the fix is removed.** The break-it check is required on Rom's side: he stashes his fix, runs his new test file, confirms every new test goes red, restores the fix, and lists which tests went red under `## Safety-net tests`. A report that only says "all green" has not shown the tests do anything; reject it. Nog reads Rom's report for this, not a machine result: the script that repeats the check by machine runs at Julian's stage, after Nog. A test that stays green there is named hollow and handled by a fix slice, never by another Nog round.
 5. **Right count.** One test per criterion plus the trap list is the target. Note extra tests as a flag for O'Brien in the review. Reject only if the extra tests hide which one actually covers the criterion.
 
+**What Nog does not run.** Nog does not run the full safety-net suite (`npm test`, `node --test regression/`), the browser suite (`npx playwright test`), or the lock builders (`build-coverage-map`, `build-ac-manifest`). He may run the test files the slice adds or changes, and the linter on the changed files. Regressions are not his to confirm by hand: GitHub runs the safety-net suite when the slice lands on dev, Julian's stage runs both suites, and the Promote button runs them again — `docs/adr/ADR-PROOF-LANES.md`, Rule 1 (machines run suites, agents do not).
+
 **What Nog never rejects for.** Rom does not write browser tests. Julian writes them, after the slice lands on dev, as his own visible stage. So:
 - A slice with no browser test is **not** a finding.
 - A slice with no change under `e2e/` is **not** a finding.

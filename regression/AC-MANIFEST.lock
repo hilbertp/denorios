@@ -1,7 +1,7 @@
 {
   "generator": "scripts/build-ac-manifest.js",
-  "acCount": 349,
-  "legacyCount": 304,
+  "acCount": 352,
+  "legacyCount": 307,
   "byTag": {
     "slice-042-ac-1": {
       "slice": "042",
@@ -1940,6 +1940,33 @@
     },
     "slice-395-ac-4": {
       "slice": "395",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true,
+      "lane": "core"
+    },
+    "slice-399-ac-1": {
+      "slice": "399",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true,
+      "lane": "core"
+    },
+    "slice-399-ac-2": {
+      "slice": "399",
+      "text": null,
+      "acHash": null,
+      "source": "legacy-backfill",
+      "status": "active",
+      "legacy": true,
+      "lane": "core"
+    },
+    "slice-399-ac-3": {
+      "slice": "399",
       "text": null,
       "acHash": null,
       "source": "legacy-backfill",
