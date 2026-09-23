@@ -4774,11 +4774,15 @@ function archiveAcceptedSlice(id, branchName, opts) {
 }
 
 /**
- * handleAccepted(id, reason, cycle, branchName, evaluatingPath, durationMs)
+ * handleAccepted(id, reason, cycle, branchName, evaluatingPath, durationMs, verdictSource)
  *
  * ACCEPTED verdict: register event, rename EVALUATING → ACCEPTED, merge branch to main directly.
+ *
+ * verdictSource is where readNogVerdict found the verdict ('frontmatter',
+ * 'unfenced' or 'review_section'); it rides along on NOG_DECISION so the
+ * register says which read decided the round. Absent means it is not recorded.
  */
-function handleAccepted(id, reason, cycle, branchName, evaluatingPath, durationMs) {
+function handleAccepted(id, reason, cycle, branchName, evaluatingPath, durationMs, verdictSource) {
   // Read title from parked slice file for the merge commit message.
   const parkedPath = path.join(QUEUE_DIR, `${id}-PARKED.md`);
   const legacyParkedPath = path.join(QUEUE_DIR, `${id}-ARCHIVED.md`);
@@ -4795,7 +4799,9 @@ function handleAccepted(id, reason, cycle, branchName, evaluatingPath, durationM
   const lane = readSliceMeta(id).lane;
 
   // Canonical: NOG_DECISION (verdict) → rename → merge → MERGED
-  registerEvent(id, 'NOG_DECISION', { verdict: 'ACCEPTED', reason, cycle, round: cycle });
+  const acceptedDecision = { verdict: 'ACCEPTED', reason, cycle, round: cycle };
+  if (verdictSource) acceptedDecision.verdict_source = verdictSource;
+  registerEvent(id, 'NOG_DECISION', acceptedDecision);
   log('info', 'evaluator', { id, verdict: 'ACCEPTED', cycle, durationMs });
 
   // timesheet write point 2 — update orchestrator row at terminal state
@@ -4853,6 +4859,106 @@ function handleAccepted(id, reason, cycle, branchName, evaluatingPath, durationM
 function countNogRounds(sliceContent) {
   const matches = sliceContent.match(/^## Nog Review — Round \d+/gm);
   return matches ? matches.length : 0;
+}
+
+// The four verdicts Nog may return. Anything else is not a verdict.
+const NOG_VERDICTS = ['ACCEPTED', 'REJECTED', 'ESCALATE', 'OVERSIZED'];
+
+/**
+ * readNogVerdict(verdictFileContent, sliceFileContent, round)
+ *
+ * Reads Nog's verdict by what it says, not by whether its punctuation survived.
+ *
+ * `${id}-NOG.md` is meant to be exactly a closed frontmatter block (`---`,
+ * `verdict:`, `summary:`, `---`). When Nog drops the closing `---`,
+ * parseFrontmatter returns null, the round is filed as verdict_unreadable —
+ * a REJECTED — and the slice is sent round again. That cost a round three
+ * times in two days (390 twice, 358 once) and on 388 threw away an ACCEPTED.
+ * The `**Verdict:**` line Nog appends to the slice file was intact every time.
+ *
+ * So: tolerate what a headless writer actually emits (a byte-order mark,
+ * leading blank lines, CRLF endings, no closing fence), and when the file
+ * still yields nothing, read the `**Verdict:**` line from Nog's review
+ * section for THIS round. Only when both are empty is the round unreadable,
+ * exactly as before.
+ *
+ * Returns { verdict, summary, source } where source is:
+ *   'frontmatter'    — the closing fence was there
+ *   'unfenced'       — no closing fence; frontmatter read to end of file
+ *   'review_section' — taken from the slice file's section for `round`
+ *   null             — nothing readable; verdict is null and the caller files
+ *                      the round as verdict_unreadable
+ *
+ * parseFrontmatter is deliberately untouched — about 30 other callers depend
+ * on its exact behaviour. Only invokeNog reads a verdict through here.
+ *
+ * Operational note: the daemon runs the code it loaded at start, so this does
+ * nothing for the live pipeline until the orchestrator is restarted
+ * (`launchctl kickstart -k gui/$(id -u)/dev.denorios.orchestrator`).
+ */
+function readNogVerdict(verdictFileContent, sliceFileContent, round) {
+  const nothing = { verdict: null, summary: '', source: null };
+
+  // ── 1. The verdict file ──────────────────────────────────────────────────
+  if (typeof verdictFileContent === 'string' && verdictFileContent.length > 0) {
+    const text = verdictFileContent.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+    const lines = text.split('\n');
+
+    // Blank lines before the opening fence are noise, not content.
+    let open = 0;
+    while (open < lines.length && lines[open].trim() === '') open++;
+
+    if (open < lines.length && lines[open].trim() === '---') {
+      let close = -1;
+      for (let i = open + 1; i < lines.length; i++) {
+        if (lines[i].trim() === '---') { close = i; break; }
+      }
+      // No closing fence — the frontmatter is the rest of the file.
+      const body = lines.slice(open + 1, close === -1 ? lines.length : close);
+
+      const meta = {};
+      body.forEach(line => {
+        const colonIdx = line.indexOf(':');
+        if (colonIdx === -1) return;
+        const key = line.slice(0, colonIdx).trim();
+        const val = line.slice(colonIdx + 1).trim().replace(/^["']|["']$/g, '');
+        if (key) meta[key] = val;
+      });
+
+      const declared = meta.verdict ? translateVerdict(String(meta.verdict).toUpperCase()) : null;
+      if (declared && NOG_VERDICTS.includes(declared)) {
+        return {
+          verdict: declared,
+          summary: meta.summary || '',
+          source: close === -1 ? 'unfenced' : 'frontmatter',
+        };
+      }
+    }
+  }
+
+  // ── 2. Nog's review section for THIS round ───────────────────────────────
+  // This round's section only. Earlier rounds' Verdict lines are still in the
+  // file; letting one of those decide would either rework accepted work or
+  // land work nobody reviewed.
+  const roundNum = String(round === undefined || round === null ? '' : round).trim();
+  if (typeof sliceFileContent !== 'string' || !/^\d+$/.test(roundNum)) return nothing;
+
+  const slice = sliceFileContent.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+  const start = slice.search(new RegExp(`^## Nog Review — Round ${roundNum}(?!\\d)[^\\n]*$`, 'm'));
+  if (start === -1) return nothing;
+
+  // The section ends at the next `## ` heading — never read past it.
+  const rest = slice.slice(start);
+  const nextHeading = rest.slice(1).search(/^## /m);
+  const section = nextHeading === -1 ? rest : rest.slice(0, nextHeading + 1);
+
+  const line = section.match(/^\s*\*\*Verdict:\*\*\s*\**\s*([A-Za-z][A-Za-z_-]*)/m);
+  if (!line) return nothing;
+
+  const declared = translateVerdict(line[1].toUpperCase());
+  if (!NOG_VERDICTS.includes(declared)) return nothing;
+
+  return { verdict: declared, summary: '', source: 'review_section' };
 }
 
 /**
@@ -5113,24 +5219,6 @@ function invokeNog(id) {
         }
       } catch (_) {}
 
-      let verdict = null;
-      let summary = '';
-
-      if (!err) {
-        try {
-          const nogContent = fs.readFileSync(nogVerdictPath, 'utf-8');
-          const nogMeta = parseFrontmatter(nogContent);
-          if (nogMeta) {
-            verdict = nogMeta.verdict ? translateVerdict(nogMeta.verdict.toUpperCase()) : null;
-            summary = nogMeta.summary || '';
-          }
-        } catch (readErr) {
-          log('warn', 'nog', { id, msg: 'Failed to read NOG.md verdict', error: readErr.message });
-        }
-      } else {
-        log('error', 'nog', { id, msg: 'claude -p Nog review failed', error: err.message, durationMs });
-      }
-
       // Copy updated slice file from worktree if Nog appended to it.
       const worktreeParkedPath = path.join(nogWorktreePath, 'bridge', 'queue', `${id}-PARKED.md`);
       const worktreeLegacyPath = path.join(nogWorktreePath, 'bridge', 'queue', `${id}-ARCHIVED.md`);
@@ -5143,10 +5231,38 @@ function invokeNog(id) {
 
       // Re-read the PARKED file after worktree copy so the apendment includes
       // Nog's appended review (the closure's sliceContent is the pre-Nog version).
+      // The verdict read below needs it too: its fallback is the `**Verdict:**`
+      // line in Nog's review section, which does not exist until this copy has
+      // happened. Read the slice first, then the verdict.
       let updatedSliceContent = sliceContent;
       try {
         updatedSliceContent = fs.readFileSync(resolvedParkedPath, 'utf-8');
       } catch (_) {}
+
+      let verdict = null;
+      let summary = '';
+      let verdictSource = null;
+
+      if (!err) {
+        let nogContent = '';
+        try {
+          nogContent = fs.readFileSync(nogVerdictPath, 'utf-8');
+        } catch (readErr) {
+          log('warn', 'nog', { id, msg: 'Failed to read NOG.md verdict', error: readErr.message });
+        }
+        // A missing closing fence, a byte-order mark or CRLF endings no longer
+        // throw the verdict away; nor does a verdict file that never appeared,
+        // as long as Nog's review section names a verdict for this round.
+        const read = readNogVerdict(nogContent, updatedSliceContent, round);
+        verdict = read.verdict;
+        summary = read.summary;
+        verdictSource = read.source;
+        if (verdictSource && verdictSource !== 'frontmatter') {
+          log('info', 'nog', { id, round, verdict, verdict_source: verdictSource, msg: `Nog verdict recovered from ${verdictSource}` });
+        }
+      } else {
+        log('error', 'nog', { id, msg: 'claude -p Nog review failed', error: err.message, durationMs });
+      }
 
       if (!verdict || !['ACCEPTED', 'REJECTED', 'ESCALATE', 'OVERSIZED'].includes(verdict)) {
         // Missing or unparseable verdict — treat as REJECTED.
@@ -5412,7 +5528,7 @@ function invokeNog(id) {
         print('');
 
         // Single-pass: Nog ACCEPTED → merge directly (no second evaluator call).
-        handleAccepted(id, summary || '', round, branchName, donePath, durationMs);
+        handleAccepted(id, summary || '', round, branchName, donePath, durationMs, verdictSource);
 
         processing = false;
         heartbeatState.status = 'idle';
@@ -5426,7 +5542,9 @@ function invokeNog(id) {
 
       // REJECTED verdict (translated from RETURN if legacy) → NOG_DECISION{verdict: REJECTED}
       log('info', 'nog', { id, verdict: 'REJECTED', round, durationMs, summary });
-      registerEvent(id, 'NOG_DECISION', { round, verdict: 'REJECTED', reason: summary || 'Nog review findings — see slice file', apendment_cycle: round });
+      const rejectedDecision = { round, verdict: 'REJECTED', reason: summary || 'Nog review findings — see slice file', apendment_cycle: round };
+      if (verdictSource) rejectedDecision.verdict_source = verdictSource;
+      registerEvent(id, 'NOG_DECISION', rejectedDecision);
 
       // Append round entry to PARKED file before handleNogReturn rewrites it.
       const romTelemetryReturn = extractRomTelemetry(doneReportContents);
@@ -9731,4 +9849,4 @@ function mergeDevToMain() {
 // Exports — for use by helper scripts (e.g. bridge/next-id.js)
 // ---------------------------------------------------------------------------
 
-module.exports = { resolveLane, laneEventFields, applyLaneArgs, romSpawnArgs, registerCommissioned, sessionTelemetry, recordBuildTiming, fillDoneMetrics, validateDoneMetrics, extractRomTelemetry, buildDoneTemplate, buildHashLines, regenerateLocksAtLanding, newestDoneEvent, isLockDeriverInput, LOCK_FILES, checkDispatchProvenance, parkUnprovenancedSlice, hasPreCutoverHistory, fileIsPreCutover, provenanceRootId, parseFrontmatter, handleNogReturn, startGate, abortGate, buildBashirPrompt, startQaStage, finishQaStage, startQaStageOrArchive, recoverOrphanedQaStages, qaStageSourceDoc, qaStageResultPath, setQaStageInBranchState, QA_STAGE_TIMEOUT_MS, qaStage, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, classifyHonestNonProduct, doneSummarySection, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, recordArchivedQueueRename, validateIntakeMeta, ensureIntegrationIsFresh, ensureMainIsFresh: ensureIntegrationIsFresh, fastForwardIntegrationRef, branchNamesFrom, INTEGRATION_BRANCH, TRUNK_BRANCH, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, provisionWorkspaceDeps, releaseDispatch, _testSetHeartbeatFile: (p) => { HEARTBEAT_FILE = p; }, _testGetDispatchState: () => ({ processing, heartbeat: { ...heartbeatState } }), _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted, hasTerminalLandedEvent, crashRecovery, trashEntryRecordsStaging, STAGING_TRASH_SUFFIXES, countUnreadableVerdicts, unreadableBackoffMs, retryBackoffElapsed, MAX_UNREADABLE_ATTEMPTS, UNREADABLE_BACKOFF_MS, porcelainPaths, isVolatileRuntimePath, isPipelineOwnedPath, recoverRuntimeStateAfterGit, stageablePathsFrom, autoCommitDirtyTree, shQuote, stageQueueArchiveForLanding, revertQueueArchiveStaging, hasArchivedEvent, pipelineCommitSubject: gitFinalizer.pipelineCommitSubject, refillLandedDoneReport, _testResetRefusalEmitted: () => { _refusalEmitted.clear(); }, _testGetRefusalEmitted: () => _refusalEmitted };
+module.exports = { resolveLane, laneEventFields, applyLaneArgs, romSpawnArgs, registerCommissioned, sessionTelemetry, recordBuildTiming, fillDoneMetrics, validateDoneMetrics, extractRomTelemetry, buildDoneTemplate, buildHashLines, regenerateLocksAtLanding, newestDoneEvent, isLockDeriverInput, LOCK_FILES, checkDispatchProvenance, parkUnprovenancedSlice, hasPreCutoverHistory, fileIsPreCutover, provenanceRootId, parseFrontmatter, readNogVerdict, NOG_VERDICTS, handleNogReturn, startGate, abortGate, buildBashirPrompt, startQaStage, finishQaStage, startQaStageOrArchive, recoverOrphanedQaStages, qaStageSourceDoc, qaStageResultPath, setQaStageInBranchState, QA_STAGE_TIMEOUT_MS, qaStage, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, classifyHonestNonProduct, doneSummarySection, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, recordArchivedQueueRename, validateIntakeMeta, ensureIntegrationIsFresh, ensureMainIsFresh: ensureIntegrationIsFresh, fastForwardIntegrationRef, branchNamesFrom, INTEGRATION_BRANCH, TRUNK_BRANCH, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, provisionWorkspaceDeps, releaseDispatch, _testSetHeartbeatFile: (p) => { HEARTBEAT_FILE = p; }, _testGetDispatchState: () => ({ processing, heartbeat: { ...heartbeatState } }), _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted, hasTerminalLandedEvent, crashRecovery, trashEntryRecordsStaging, STAGING_TRASH_SUFFIXES, countUnreadableVerdicts, unreadableBackoffMs, retryBackoffElapsed, MAX_UNREADABLE_ATTEMPTS, UNREADABLE_BACKOFF_MS, porcelainPaths, isVolatileRuntimePath, isPipelineOwnedPath, recoverRuntimeStateAfterGit, stageablePathsFrom, autoCommitDirtyTree, shQuote, stageQueueArchiveForLanding, revertQueueArchiveStaging, hasArchivedEvent, pipelineCommitSubject: gitFinalizer.pipelineCommitSubject, refillLandedDoneReport, _testResetRefusalEmitted: () => { _refusalEmitted.clear(); }, _testGetRefusalEmitted: () => _refusalEmitted };

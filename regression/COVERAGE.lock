@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 786,
+  "guardCount": 792,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -609,6 +609,36 @@
         "tag": "slice-395-ac-4",
         "file": "regression/dispatch-execution/j-no-nameless-commits.test.js",
         "guardAcHash": "sha256:ba711619a1ecb1458369da07f61887d0360046b02a4a631e9a5b642983ca301e"
+      },
+      {
+        "tag": "slice-400-ac-1",
+        "file": "regression/review-verdict/j-verdict-read-fallback.test.js",
+        "guardAcHash": "sha256:d50d21b23e25aea243f4da18a46e773dd9ca646b38442fae5a1f5c7cb47d1475"
+      },
+      {
+        "tag": "slice-400-ac-2",
+        "file": "regression/review-verdict/j-verdict-read-fallback.test.js",
+        "guardAcHash": "sha256:cc30987fe368a1736a2e5dc0863e5144b4554fe0045dbd650cad12a92dd0cf4b"
+      },
+      {
+        "tag": "slice-400-ac-3",
+        "file": "regression/review-verdict/j-verdict-read-fallback.test.js",
+        "guardAcHash": "sha256:9f55424fafbd16f92698ac42ccb08dee7af4ce6632cc1f7573c5b520870a62e7"
+      },
+      {
+        "tag": "slice-400-ac-4",
+        "file": "regression/review-verdict/j-verdict-read-fallback.test.js",
+        "guardAcHash": "sha256:e3eadd348da52460cffcacc5108641ea24bd5a44f4254c696bfa7245330f0926"
+      },
+      {
+        "tag": "slice-400-ac-5",
+        "file": "regression/review-verdict/j-verdict-read-fallback.test.js",
+        "guardAcHash": "sha256:7392540d0a2d76ad690d6cd0d6e5f8d66678afaa995c0296b233907fea0df110"
+      },
+      {
+        "tag": "slice-400-ac-6",
+        "file": "regression/review-verdict/j-verdict-read-fallback.test.js",
+        "guardAcHash": "sha256:be1581dd4149ab3f1d313a2398ae9605a644df34c63a6eee500687f13b2242b2"
       },
       {
         "tag": "slice-99777-ac-1",
@@ -2076,6 +2106,13 @@
         "tag": "slice-348-ac-1",
         "file": "e2e/lcars-mode.spec.js",
         "guardAcHash": "sha256:d26b9f47d07ddd4b2106766f0a8a2038870624e6cc7af1bb3af2c683318da052"
+      }
+    ],
+    "e2e/nog-role-no-suites.spec.js": [
+      {
+        "tag": "slice-399-ac-4",
+        "file": "e2e/nog-role-no-suites.spec.js",
+        "guardAcHash": "sha256:7152367162643a19875738cd8f52828c54274657fc7a27e722ca845571a532b1"
       }
     ],
     "e2e/s-numbering.spec.js": [
@@ -3900,6 +3937,38 @@
         "tag": "slice-372-ac-5",
         "file": "regression/review-verdict/j-unreadable-verdict-retry-cap.test.js",
         "guardAcHash": "sha256:6276c065d9da3c28eb0b51fde8079fac09359383ff99bc4a911c4b9a9430c941"
+      }
+    ],
+    "regression/review-verdict/j-verdict-read-fallback.test.js": [
+      {
+        "tag": "slice-400-ac-1",
+        "file": "regression/review-verdict/j-verdict-read-fallback.test.js",
+        "guardAcHash": "sha256:d50d21b23e25aea243f4da18a46e773dd9ca646b38442fae5a1f5c7cb47d1475"
+      },
+      {
+        "tag": "slice-400-ac-2",
+        "file": "regression/review-verdict/j-verdict-read-fallback.test.js",
+        "guardAcHash": "sha256:cc30987fe368a1736a2e5dc0863e5144b4554fe0045dbd650cad12a92dd0cf4b"
+      },
+      {
+        "tag": "slice-400-ac-3",
+        "file": "regression/review-verdict/j-verdict-read-fallback.test.js",
+        "guardAcHash": "sha256:9f55424fafbd16f92698ac42ccb08dee7af4ce6632cc1f7573c5b520870a62e7"
+      },
+      {
+        "tag": "slice-400-ac-4",
+        "file": "regression/review-verdict/j-verdict-read-fallback.test.js",
+        "guardAcHash": "sha256:e3eadd348da52460cffcacc5108641ea24bd5a44f4254c696bfa7245330f0926"
+      },
+      {
+        "tag": "slice-400-ac-5",
+        "file": "regression/review-verdict/j-verdict-read-fallback.test.js",
+        "guardAcHash": "sha256:7392540d0a2d76ad690d6cd0d6e5f8d66678afaa995c0296b233907fea0df110"
+      },
+      {
+        "tag": "slice-400-ac-6",
+        "file": "regression/review-verdict/j-verdict-read-fallback.test.js",
+        "guardAcHash": "sha256:be1581dd4149ab3f1d313a2398ae9605a644df34c63a6eee500687f13b2242b2"
       }
     ],
     "scripts/ac-reconcile.js": [
