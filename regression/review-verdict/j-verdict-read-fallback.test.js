@@ -157,6 +157,14 @@ test('slice-400-ac-3 with nothing readable in the verdict file the current round
   assert.equal(readNogVerdict(WELL_FORMED, sliceWithRounds([[1, 'REJECTED']]), 1).source, 'frontmatter');
 });
 
+// The shape the accepted path has to have: `verdictSource` among the arguments
+// handleAccepted is called with, wherever in the list it sits. Slice 402 appended
+// `reviewUsage` after it, and a pattern that demanded the source be the LAST
+// argument read that as the source having been dropped — a green orchestrator
+// with a red suite. Named rather than inlined because the two slice-404 tests at
+// the end of this file check this very pattern, not a copy of it.
+const HANDLE_ACCEPTED_TAKES_VERDICT_SOURCE = /handleAccepted\([^)]*\bverdictSource\b[^)]*\)/;
+
 // ---------------------------------------------------------------------------
 // slice-400-ac-4 — the register says which read decided the round
 // ---------------------------------------------------------------------------
@@ -193,7 +201,7 @@ test('slice-400-ac-4 every NOG_DECISION invokeNog emits with a readable verdict 
 
   // The ACCEPTED decision is emitted by handleAccepted on invokeNog's behalf,
   // so the source has to be handed across the call.
-  assert.match(INVOKE_NOG, /handleAccepted\([^)]*verdictSource\)/,
+  assert.match(INVOKE_NOG, HANDLE_ACCEPTED_TAKES_VERDICT_SOURCE,
     'the accepted path must pass the source through to handleAccepted');
   assert.match(HANDLE_ACCEPTED, /if \(verdictSource\) acceptedDecision\.verdict_source = verdictSource;/,
     'handleAccepted must put the source on its NOG_DECISION when it has one');
@@ -362,4 +370,50 @@ test('J-verdict-read-fallback slice-400-trap-4 the restart this fix needs is wri
   assert.match(doc, /restart/i, 'the doc comment must say the daemon needs a restart');
   assert.ok(doc.includes('launchctl kickstart -k gui/$(id -u)/dev.denorios.orchestrator'),
     'and must give the exact command, so nobody has to go looking for it');
+});
+
+// ---------------------------------------------------------------------------
+// slice-404-ac-1 — an argument added after the source is not a dropped source
+// ---------------------------------------------------------------------------
+// @ac-hash: slice-404-ac-1 sha256:f394a8317e72e8e2ffbf27f86bab9d03aff68cec61ef2381ce701f9f1312b69e
+
+test('slice-404-ac-1 the handleAccepted assertion passes against the orchestrator as it stands, reviewUsage and all', () => {
+  assert.match(INVOKE_NOG, HANDLE_ACCEPTED_TAKES_VERDICT_SOURCE,
+    'the accepted path does pass the source; the assertion above must read it that way');
+
+  // Not an accident of today's argument order. The pattern has to tolerate
+  // anything AFTER the source — that is exactly what slice 402 added.
+  assert.match(
+    "        handleAccepted(id, summary || '', round, branchName, donePath, durationMs, verdictSource, reviewUsage);",
+    HANDLE_ACCEPTED_TAKES_VERDICT_SOURCE,
+    'a trailing argument after verdictSource is allowed');
+  assert.match(
+    "        handleAccepted(id, summary || '', round, branchName, donePath, durationMs, verdictSource);",
+    HANDLE_ACCEPTED_TAKES_VERDICT_SOURCE,
+    'and so is the older call, where the source was last');
+});
+
+// ---------------------------------------------------------------------------
+// slice-404-ac-2 — dropping the source is still caught
+// ---------------------------------------------------------------------------
+// @ac-hash: slice-404-ac-2 sha256:aa68d7bd69d8475763120bed359b85ebc3aabe0d56aa9eec46870ba16b3d5f0f
+
+test('slice-404-ac-2 the same assertion fails when invokeNog stops passing verdictSource to handleAccepted', () => {
+  // The real function with the source taken out of the call — the regression the
+  // assertion exists to catch. Loosening it to tolerate trailing arguments must
+  // not loosen it into tolerating this.
+  const withoutSource = INVOKE_NOG.replace(/(handleAccepted\([^)]*?),\s*verdictSource\b/, '$1');
+  assert.notEqual(withoutSource, INVOKE_NOG, 'the mutation must actually remove the argument');
+  assert.ok(!HANDLE_ACCEPTED_TAKES_VERDICT_SOURCE.test(withoutSource),
+    'a handleAccepted call that does not pass the source must not satisfy the assertion');
+
+  // And it must stay red even though the name is still all over invokeNog: the
+  // rejected path below the call reads it. Being mentioned is not being passed.
+  assert.match(withoutSource, /\bverdictSource\b/,
+    'the name is still in the function, just not in that call');
+
+  // The tempting one-line fix — stop looking at the arguments at all — would
+  // have swallowed the mutation above. This is the line between the two.
+  assert.match(withoutSource, /handleAccepted\(/,
+    'the call is still there; only the argument went missing');
 });

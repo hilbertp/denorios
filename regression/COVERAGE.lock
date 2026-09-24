@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 829,
+  "guardCount": 831,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -674,6 +674,16 @@
         "tag": "slice-402-ac-7",
         "file": "regression/observability/j-history-cost-includes-jordan.test.js",
         "guardAcHash": "sha256:6335e3ba0ec2ae55b1eeb482870ba08e7ef2dc13b68607b71ef92d19ff8a2b68"
+      },
+      {
+        "tag": "slice-404-ac-1",
+        "file": "regression/review-verdict/j-verdict-read-fallback.test.js",
+        "guardAcHash": "sha256:f394a8317e72e8e2ffbf27f86bab9d03aff68cec61ef2381ce701f9f1312b69e"
+      },
+      {
+        "tag": "slice-404-ac-2",
+        "file": "regression/review-verdict/j-verdict-read-fallback.test.js",
+        "guardAcHash": "sha256:aa68d7bd69d8475763120bed359b85ebc3aabe0d56aa9eec46870ba16b3d5f0f"
       },
       {
         "tag": "slice-99777-ac-1",
@@ -4233,6 +4243,16 @@
         "tag": "slice-400-ac-6",
         "file": "regression/review-verdict/j-verdict-read-fallback.test.js",
         "guardAcHash": "sha256:be1581dd4149ab3f1d313a2398ae9605a644df34c63a6eee500687f13b2242b2"
+      },
+      {
+        "tag": "slice-404-ac-1",
+        "file": "regression/review-verdict/j-verdict-read-fallback.test.js",
+        "guardAcHash": "sha256:f394a8317e72e8e2ffbf27f86bab9d03aff68cec61ef2381ce701f9f1312b69e"
+      },
+      {
+        "tag": "slice-404-ac-2",
+        "file": "regression/review-verdict/j-verdict-read-fallback.test.js",
+        "guardAcHash": "sha256:aa68d7bd69d8475763120bed359b85ebc3aabe0d56aa9eec46870ba16b3d5f0f"
       }
     ],
     "scripts/ac-reconcile.js": [
