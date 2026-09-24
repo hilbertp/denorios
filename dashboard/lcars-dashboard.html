@@ -3968,7 +3968,7 @@ body.lcars-mode .gate-flow-foot { border-color:#33334d; color:#b6a4e0; }
 .utc-add-titles { margin-top:6px; }
 body.lcars-mode .utc-add-file { background:rgba(22,163,74,.15); color:#7be388; }
 .utc-none { padding:11px 13px; border:1px solid #a7f3d0; background:#ecfdf5; color:#065f46; border-radius:8px; font-size:12.5px; }
-/* Test-Update Gate verdict chip + second-reviewer acknowledgement (Slice D) */
+/* Test-Update Gate verdict chip + RED-FLAG confirmation (Slice D) */
 .utc-verdict { display:flex; flex-wrap:wrap; align-items:baseline; gap:8px; margin:2px 0 10px; }
 .utc-verdict-chip { display:inline-block; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.05em;
   padding:3px 9px; border-radius:999px; border:1px solid currentColor; }
@@ -12297,7 +12297,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
   }
 
   // The Test-Update Gate verdict bands (ADR-TEST-UPDATE-GATE, Slice D). RED defaults
-  // the checkpoint to STOP and demands a second acknowledgement before Approve unlocks.
+  // the checkpoint to STOP and demands one confirmation before Approve unlocks.
   const UTC_VERDICTS = {
     clear:        { glyph: '✓', label: 'CLEAR',        color: '#15803d', bg: 'rgba(22,163,74,.12)',  blurb: '' },
     needs_review: { glyph: '●', label: 'NEEDS REVIEW', color: '#b45309', bg: 'rgba(217,119,6,.12)',  blurb: 'a source changed but no test moved — check the diff.' },
@@ -12306,11 +12306,11 @@ body:not(.lcars-mode) .staged-details-body pre code {
     unknown:      { glyph: '?', label: 'NO VERDICT',   color: 'var(--ink-muted)', bg: 'rgba(107,114,128,.12)', blurb: '' },
   };
 
-  // Render the verdict chip + pinned SHA. On RED, wire the non-author second-ack that
+  // Render the verdict chip + pinned SHA. On RED, wire the one confirmation that
   // gates the Approve button; otherwise leave Approve enabled.
   function _utcApplyVerdict(tn) {
     const slot = document.getElementById('utc-verdict');
-    const ackSlot = document.getElementById('utc-secondack');
+    const ackSlot = document.getElementById('utc-confirm');
     const approve = document.getElementById('utc-approve-btn');
     if (!slot) return;
     const dec = (tn && tn.decision) || 'unknown';
@@ -12323,27 +12323,27 @@ body:not(.lcars-mode) .staged-details-body pre code {
       const list = items.length
         ? `<ul class="utc-ack-list">${items.map(b => `<li><strong style="text-transform:uppercase;font-size:9px;letter-spacing:.04em">${_esc(b.kind)}</strong> ${_esc(b.name)}</li>`).join('')}</ul>`
         : '';
-      ackSlot.innerHTML = `<div class="utc-ack" role="group" aria-label="second reviewer acknowledgement">`
-        + `<div class="utc-ack-head">A second reviewer (not the author of these changes) must confirm each item below is the intended result of a feature — not a check disabled to go green:</div>`
+      ackSlot.innerHTML = `<div class="utc-ack" role="group" aria-label="Confirm the RED FLAG items">`
+        + `<div class="utc-ack-head">Confirm each item below is the intended result of a feature — not a check disabled to go green:</div>`
         + list
-        + `<label class="utc-ack-check"><input type="checkbox" id="utc-ack-box" onchange="utcToggleSecondAck()"> I am not the author, and I’ve confirmed every item above is intentional.</label>`
+        + `<label class="utc-ack-check"><input type="checkbox" id="utc-ack-box" onchange="utcToggleConfirm()"> I have confirmed every item above is intentional.</label>`
         + `</div>`;
-      if (approve) { approve.disabled = true; approve.setAttribute('aria-disabled', 'true'); approve.title = 'Blocked: a second reviewer must acknowledge the RED-FLAG items first.'; }
+      if (approve) { approve.disabled = true; approve.setAttribute('aria-disabled', 'true'); approve.title = 'Blocked: confirm the RED FLAG items first.'; }
     } else {
       if (ackSlot) ackSlot.innerHTML = '';
       if (approve) { approve.disabled = false; approve.removeAttribute('aria-disabled'); approve.title = ''; }
     }
   }
 
-  // Approve unlocks only when the second-ack box is checked (RED path).
-  function utcToggleSecondAck() {
+  // Approve unlocks only when the confirmation box is checked (RED path).
+  function utcToggleConfirm() {
     const box = document.getElementById('utc-ack-box');
     const approve = document.getElementById('utc-approve-btn');
     if (!approve) return;
     const ok = !!(box && box.checked);
     approve.disabled = !ok;
     if (ok) approve.removeAttribute('aria-disabled'); else approve.setAttribute('aria-disabled', 'true');
-    approve.title = ok ? '' : 'Blocked: a second reviewer must acknowledge the RED-FLAG items first.';
+    approve.title = ok ? '' : 'Blocked: confirm the RED FLAG items first.';
   }
 
   function confirmUpdateTests() {
@@ -12358,7 +12358,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
       <h3>Run the gate?</h3>
       <div id="utc-verdict" class="utc-verdict"><span class="null-val">Checking…</span></div>
       <div id="update-tests-body" class="utc-body"><span class="null-val">Checking test changes…</span></div>
-      <div id="utc-secondack"></div>
+      <div id="utc-confirm"></div>
       <div class="rollback-actions">
         <a class="rb-btn rb-btn-cancel" href="${compareUrl}" target="_blank" rel="noopener">See diff ↗</a>
         <button class="rb-btn rb-btn-cancel" onclick="closeUpdateTestsOverlay()">Cancel</button>
@@ -12374,7 +12374,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
       if (body) body.innerHTML = '<p class="rb-sub" style="color:#9ca3af">Couldn\'t read the test changes — review the diff before approving.</p>';
     });
     // The verdict (clear/needs_review/overridden/red_flag) decides whether Approve is
-    // unlocked immediately or only after a second reviewer acknowledges the RED items.
+    // unlocked immediately or only after the RED items are confirmed.
     fetch('/api/tests-needed').then(r => r.json()).then(_utcApplyVerdict).catch(() => _utcApplyVerdict({ decision: 'unknown' }));
   }
 

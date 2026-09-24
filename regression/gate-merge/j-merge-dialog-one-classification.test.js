@@ -240,7 +240,7 @@ test('J-merge-dialog-one-classification slice-367-ac-4 — the gate still stops 
     assert.ok(apply, '_utcApplyVerdict must exist');
     assert.match(apply[0], /red_flag/, 'the checkpoint still keys off red_flag');
     assert.match(apply[0], /approve\.disabled = true/, 'RED still disables Approve by default');
-    assert.match(html, /function utcToggleSecondAck\(\)/, 'the non-author second-ack still gates Approve');
+    assert.match(html, /function utcToggleConfirm\(\)/, 'the one confirmation still gates Approve');
 
     // See diff, and all three original groups, still on the screen — now fed by the
     // unified payload rather than by a second, independent classification.

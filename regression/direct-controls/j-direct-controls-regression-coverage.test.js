@@ -281,7 +281,7 @@ test('J-direct-controls-ops-ui slice-99811-ac-2 — the gate surfaces regression
 // Slice D: above the plain-language list sits the GATE VERDICT — the engine's
 // decision for the exact promoted changeset. The server pins the changeset and
 // classifies it; the dashboard shows a banded chip and, on RED, defaults to STOP
-// behind a second-reviewer acknowledgement.
+// behind one confirmation from the operator.
 test('J-direct-controls-ops-ui slice-99812-ac-1 — server exposes /api/tests-needed: the verdict for the pinned merge-base..dev changeset', () => {
   const server = fs.readFileSync(SERVER_SRC, 'utf8');
   assert.ok(server.includes('/api/tests-needed'), 'server exposes /api/tests-needed');
@@ -295,7 +295,7 @@ test('J-direct-controls-ops-ui slice-99812-ac-1 — server exposes /api/tests-ne
     'the verdict endpoint must be no-store');
 });
 
-test('J-direct-controls-ops-ui slice-99812-ac-2 — the checkpoint shows the banded verdict and defaults to STOP on RED behind a non-author second-ack', () => {
+test('J-direct-controls-ops-ui slice-99812-ac-2 — the checkpoint shows the banded verdict and defaults to STOP on RED behind one confirmation', () => {
   const html = fs.readFileSync(DASHBOARD_SRC, 'utf8');
 
   // The checkpoint fetches the verdict and renders a banded chip + pinned SHA.
@@ -306,14 +306,15 @@ test('J-direct-controls-ops-ui slice-99812-ac-2 — the checkpoint shows the ban
     assert.ok(html.includes(band), `verdict band "${band}" must be present`);
   }
 
-  // RED defaults to STOP: Approve is disabled until a second (non-author) reviewer acks.
+  // RED defaults to STOP: Approve is disabled until the operator confirms the RED-FLAG items.
   assert.match(html, /id="utc-approve-btn"/, 'the Approve button is addressable for gating');
   const apply = html.match(/function _utcApplyVerdict\([\s\S]*?\n  }/);
   assert.ok(apply, '_utcApplyVerdict must exist');
   assert.match(apply[0], /red_flag/, 'the verdict gate keys off red_flag');
   assert.match(apply[0], /approve\.disabled = true/, 'RED disables Approve by default');
-  assert.match(html, /function utcToggleSecondAck\(\)/, 'a second-ack toggle gates Approve');
-  assert.ok(html.includes('I am not the author'), 'the acknowledgement is explicitly non-author');
+  assert.match(html, /function utcToggleConfirm\(\)/, 'a confirmation toggle gates Approve');
+  assert.ok(html.includes('I have confirmed every item above is intentional.'),
+    'the confirmation is one operator confirming, naming nobody');
 });
 
 test('J-direct-controls-ops-ui slice-99810-ac-1 — branch-state enrichment: server exposes run recency, commit subjects/ages, and churn split for the topology panel', () => {

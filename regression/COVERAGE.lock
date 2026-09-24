@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 831,
+  "guardCount": 834,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -1003,6 +1003,21 @@
       {
         "tag": "slice-367-ac-4",
         "file": "regression/gate-merge/j-merge-dialog-one-classification.test.js"
+      },
+      {
+        "tag": "slice-368-ac-1",
+        "file": "regression/gate-merge/j-merge-dialog-one-human.test.js",
+        "guardAcHash": "sha256:cd7c4262ce4650e0c5950a1cb082576826fa7c7c12b8cbd6e3a2bdbd96ac3909"
+      },
+      {
+        "tag": "slice-368-ac-2",
+        "file": "regression/gate-merge/j-merge-dialog-one-human.test.js",
+        "guardAcHash": "sha256:1150fe5010a1eb9a623e1881ba0697d095788fec62b8e3b4d8b32e113d732f8e"
+      },
+      {
+        "tag": "slice-368-ac-3",
+        "file": "regression/gate-merge/j-merge-dialog-one-human.test.js",
+        "guardAcHash": "sha256:e59da76cef2236232b7a1c378ad08a2d3057839e443075fcbba2e8761fad8d2a"
       },
       {
         "tag": "slice-370-ac-1",
@@ -3815,6 +3830,23 @@
         "tag": "slice-363-ac-8",
         "file": "regression/gate-merge/j-julian-stage-in-qa.test.js",
         "guardAcHash": "sha256:8848de8b28af4dbe26236613fc470d1dd3113938f1c4b93b67c2c60eff051e1d"
+      }
+    ],
+    "regression/gate-merge/j-merge-dialog-one-human.test.js": [
+      {
+        "tag": "slice-368-ac-1",
+        "file": "regression/gate-merge/j-merge-dialog-one-human.test.js",
+        "guardAcHash": "sha256:cd7c4262ce4650e0c5950a1cb082576826fa7c7c12b8cbd6e3a2bdbd96ac3909"
+      },
+      {
+        "tag": "slice-368-ac-2",
+        "file": "regression/gate-merge/j-merge-dialog-one-human.test.js",
+        "guardAcHash": "sha256:1150fe5010a1eb9a623e1881ba0697d095788fec62b8e3b4d8b32e113d732f8e"
+      },
+      {
+        "tag": "slice-368-ac-3",
+        "file": "regression/gate-merge/j-merge-dialog-one-human.test.js",
+        "guardAcHash": "sha256:e59da76cef2236232b7a1c378ad08a2d3057839e443075fcbba2e8761fad8d2a"
       }
     ],
     "regression/gate-merge/j-merge-lock-server.test.js": [
