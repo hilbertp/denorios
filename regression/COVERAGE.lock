@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 808,
+  "guardCount": 829,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -641,6 +641,41 @@
         "guardAcHash": "sha256:be1581dd4149ab3f1d313a2398ae9605a644df34c63a6eee500687f13b2242b2"
       },
       {
+        "tag": "slice-402-ac-1",
+        "file": "regression/observability/j-history-cost-includes-jordan.test.js",
+        "guardAcHash": "sha256:893d7f947eb2730d141252cd0c76c7d88ddb533e3ddea8042ae05b0c7297ee44"
+      },
+      {
+        "tag": "slice-402-ac-2",
+        "file": "regression/observability/j-history-cost-includes-jordan.test.js",
+        "guardAcHash": "sha256:9288ad480f45353024e9be84de691d1a416932d1da8afceb244dc71f192fd8f9"
+      },
+      {
+        "tag": "slice-402-ac-3",
+        "file": "regression/observability/j-history-cost-includes-jordan.test.js",
+        "guardAcHash": "sha256:08446c74f55107f8587128f460696bd6b0f6dd91b427f001b7944817777ed3a3"
+      },
+      {
+        "tag": "slice-402-ac-4",
+        "file": "regression/observability/j-history-cost-includes-jordan.test.js",
+        "guardAcHash": "sha256:a3b6ea3e5de7e65f9eb17bb8a7a3aba980d71fdc53ed89ef7303580dbe3668d3"
+      },
+      {
+        "tag": "slice-402-ac-5",
+        "file": "regression/observability/j-history-cost-includes-jordan.test.js",
+        "guardAcHash": "sha256:1c844027f240b96a77df06a329f6efc353ecf2d85cc431aa4a3fb2cf4e035c9f"
+      },
+      {
+        "tag": "slice-402-ac-6",
+        "file": "regression/observability/j-history-cost-includes-jordan.test.js",
+        "guardAcHash": "sha256:6c0c08013cb039969e9ac2f39db443a98f6a8a1c42ee2f2c6c5899e2ac709d36"
+      },
+      {
+        "tag": "slice-402-ac-7",
+        "file": "regression/observability/j-history-cost-includes-jordan.test.js",
+        "guardAcHash": "sha256:6335e3ba0ec2ae55b1eeb482870ba08e7ef2dc13b68607b71ef92d19ff8a2b68"
+      },
+      {
         "tag": "slice-99777-ac-1",
         "file": "regression/observability/j-watch-slice-live-log.test.js"
       },
@@ -1224,6 +1259,41 @@
         "tag": "slice-401-ac-7",
         "file": "regression/observability/j-history-tells-the-truth.test.js",
         "guardAcHash": "sha256:875cc3b24adfc0f57f110a881ded42f4acc8af5048d7973ced8a54504130a9b3"
+      },
+      {
+        "tag": "slice-402-ac-1",
+        "file": "regression/observability/j-history-cost-includes-jordan.test.js",
+        "guardAcHash": "sha256:893d7f947eb2730d141252cd0c76c7d88ddb533e3ddea8042ae05b0c7297ee44"
+      },
+      {
+        "tag": "slice-402-ac-2",
+        "file": "regression/observability/j-history-cost-includes-jordan.test.js",
+        "guardAcHash": "sha256:9288ad480f45353024e9be84de691d1a416932d1da8afceb244dc71f192fd8f9"
+      },
+      {
+        "tag": "slice-402-ac-3",
+        "file": "regression/observability/j-history-cost-includes-jordan.test.js",
+        "guardAcHash": "sha256:08446c74f55107f8587128f460696bd6b0f6dd91b427f001b7944817777ed3a3"
+      },
+      {
+        "tag": "slice-402-ac-4",
+        "file": "regression/observability/j-history-cost-includes-jordan.test.js",
+        "guardAcHash": "sha256:a3b6ea3e5de7e65f9eb17bb8a7a3aba980d71fdc53ed89ef7303580dbe3668d3"
+      },
+      {
+        "tag": "slice-402-ac-5",
+        "file": "regression/observability/j-history-cost-includes-jordan.test.js",
+        "guardAcHash": "sha256:1c844027f240b96a77df06a329f6efc353ecf2d85cc431aa4a3fb2cf4e035c9f"
+      },
+      {
+        "tag": "slice-402-ac-6",
+        "file": "regression/observability/j-history-cost-includes-jordan.test.js",
+        "guardAcHash": "sha256:6c0c08013cb039969e9ac2f39db443a98f6a8a1c42ee2f2c6c5899e2ac709d36"
+      },
+      {
+        "tag": "slice-402-ac-7",
+        "file": "regression/observability/j-history-cost-includes-jordan.test.js",
+        "guardAcHash": "sha256:6335e3ba0ec2ae55b1eeb482870ba08e7ef2dc13b68607b71ef92d19ff8a2b68"
       },
       {
         "tag": "slice-901-ac-8",
@@ -1923,6 +1993,41 @@
         "tag": "slice-401-ac-7",
         "file": "regression/observability/j-history-tells-the-truth.test.js",
         "guardAcHash": "sha256:875cc3b24adfc0f57f110a881ded42f4acc8af5048d7973ced8a54504130a9b3"
+      },
+      {
+        "tag": "slice-402-ac-1",
+        "file": "regression/observability/j-history-cost-includes-jordan.test.js",
+        "guardAcHash": "sha256:893d7f947eb2730d141252cd0c76c7d88ddb533e3ddea8042ae05b0c7297ee44"
+      },
+      {
+        "tag": "slice-402-ac-2",
+        "file": "regression/observability/j-history-cost-includes-jordan.test.js",
+        "guardAcHash": "sha256:9288ad480f45353024e9be84de691d1a416932d1da8afceb244dc71f192fd8f9"
+      },
+      {
+        "tag": "slice-402-ac-3",
+        "file": "regression/observability/j-history-cost-includes-jordan.test.js",
+        "guardAcHash": "sha256:08446c74f55107f8587128f460696bd6b0f6dd91b427f001b7944817777ed3a3"
+      },
+      {
+        "tag": "slice-402-ac-4",
+        "file": "regression/observability/j-history-cost-includes-jordan.test.js",
+        "guardAcHash": "sha256:a3b6ea3e5de7e65f9eb17bb8a7a3aba980d71fdc53ed89ef7303580dbe3668d3"
+      },
+      {
+        "tag": "slice-402-ac-5",
+        "file": "regression/observability/j-history-cost-includes-jordan.test.js",
+        "guardAcHash": "sha256:1c844027f240b96a77df06a329f6efc353ecf2d85cc431aa4a3fb2cf4e035c9f"
+      },
+      {
+        "tag": "slice-402-ac-6",
+        "file": "regression/observability/j-history-cost-includes-jordan.test.js",
+        "guardAcHash": "sha256:6c0c08013cb039969e9ac2f39db443a98f6a8a1c42ee2f2c6c5899e2ac709d36"
+      },
+      {
+        "tag": "slice-402-ac-7",
+        "file": "regression/observability/j-history-cost-includes-jordan.test.js",
+        "guardAcHash": "sha256:6335e3ba0ec2ae55b1eeb482870ba08e7ef2dc13b68607b71ef92d19ff8a2b68"
       },
       {
         "tag": "slice-901-ac-1",
@@ -3812,6 +3917,43 @@
         "tag": "slice-392-ac-4",
         "file": "regression/observability/j-build-timing.test.js",
         "guardAcHash": "sha256:b65a2435afed2c31dc55424550351017f3d0a9e3b20e5699aad5710c48aee480"
+      }
+    ],
+    "regression/observability/j-history-cost-includes-jordan.test.js": [
+      {
+        "tag": "slice-402-ac-1",
+        "file": "regression/observability/j-history-cost-includes-jordan.test.js",
+        "guardAcHash": "sha256:893d7f947eb2730d141252cd0c76c7d88ddb533e3ddea8042ae05b0c7297ee44"
+      },
+      {
+        "tag": "slice-402-ac-2",
+        "file": "regression/observability/j-history-cost-includes-jordan.test.js",
+        "guardAcHash": "sha256:9288ad480f45353024e9be84de691d1a416932d1da8afceb244dc71f192fd8f9"
+      },
+      {
+        "tag": "slice-402-ac-3",
+        "file": "regression/observability/j-history-cost-includes-jordan.test.js",
+        "guardAcHash": "sha256:08446c74f55107f8587128f460696bd6b0f6dd91b427f001b7944817777ed3a3"
+      },
+      {
+        "tag": "slice-402-ac-4",
+        "file": "regression/observability/j-history-cost-includes-jordan.test.js",
+        "guardAcHash": "sha256:a3b6ea3e5de7e65f9eb17bb8a7a3aba980d71fdc53ed89ef7303580dbe3668d3"
+      },
+      {
+        "tag": "slice-402-ac-5",
+        "file": "regression/observability/j-history-cost-includes-jordan.test.js",
+        "guardAcHash": "sha256:1c844027f240b96a77df06a329f6efc353ecf2d85cc431aa4a3fb2cf4e035c9f"
+      },
+      {
+        "tag": "slice-402-ac-6",
+        "file": "regression/observability/j-history-cost-includes-jordan.test.js",
+        "guardAcHash": "sha256:6c0c08013cb039969e9ac2f39db443a98f6a8a1c42ee2f2c6c5899e2ac709d36"
+      },
+      {
+        "tag": "slice-402-ac-7",
+        "file": "regression/observability/j-history-cost-includes-jordan.test.js",
+        "guardAcHash": "sha256:6335e3ba0ec2ae55b1eeb482870ba08e7ef2dc13b68607b71ef92d19ff8a2b68"
       }
     ],
     "regression/observability/j-history-tells-the-truth.test.js": [

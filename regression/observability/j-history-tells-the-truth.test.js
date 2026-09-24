@@ -385,8 +385,12 @@ test('slice-401-ac-3 — a value whose events are missing is null, never 0 or ne
   }
 
   // A role with a stage but no recorded numbers is named, and one with numbers
-  // is not. 399 has all three stages; only Sam's usage was captured.
-  assert.deepEqual(rowOf('399').stages.totals.missing, ['Jordan', 'Julian']);
+  // is not. 399 has all three stages; only Sam's usage was captured here.
+  // Julian left the list in slice 402 (Philipp: "include Jordan but not
+  // Julian") — his suite is not a metered session, so his absence is not
+  // missing data and must not mark the row. Jordan's own numbers are covered
+  // by regression/observability/j-history-cost-includes-jordan.test.js.
+  assert.deepEqual(rowOf('399').stages.totals.missing, ['Jordan']);
   assert.deepEqual(s911.totals.missing, ['Jordan'],
     'no QA stage means Julian is not owed a number, so he is not listed');
   assert.deepEqual(rowOf('912').stages.totals.missing, [],
@@ -406,11 +410,12 @@ test('slice-401-ac-4 — the History row shows working time in minutes and secon
   assert.equal(spanText(row, 'col-tokens'), '540k',
     'TOKENS is the sum of every recorded token, cache reads included — not the 24 uncached input tokens');
   assert.equal(spanText(row, 'col-cost'), '$1.07 partial',
-    'COST is the recorded sum, marked partial because two roles recorded nothing');
+    'COST is the recorded sum, marked partial because Jordan recorded nothing');
 
   const title = (row.match(/<span class="cost-partial" title="([^"]*)"/) || [])[1] || '';
   assert.match(title, /Jordan/, 'the partial marker names Jordan');
-  assert.match(title, /Julian/, 'the partial marker names Julian');
+  assert.doesNotMatch(title, /Julian/,
+    'and never Julian — since slice 402 his unrecorded numbers are not owed');
 
   // No invented number anywhere on the row: the estimator prints "est." and a
   // tilde, and neither may appear.

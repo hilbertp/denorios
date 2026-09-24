@@ -2688,7 +2688,7 @@ function deriveReviewStatus({ verdict, mergedToMain }) {
 // are different facts.
 const STAGE_ROLE_BUILD  = 'Sam';
 const STAGE_ROLE_REVIEW = 'Jordan';
-const STAGE_ROLE_QA     = 'Julian';
+// There is no STAGE_ROLE_QA: Julian is never named among the missing (slice 402).
 
 // Only these events carry stage timing; everything else in the register (the
 // lock chatter is most of it) is skipped before the per-slice grouping.
@@ -2797,11 +2797,12 @@ function stagesForSlice(evs) {
       startedAt:  inv.ts ?? null,
       durationMs: dec ? stageSpan(inv.ts, dec.ts) : null,
       verdict:    dec ? (dec.verdict ?? null) : null,
-      // The orchestrator does not capture Jordan's or Julian's usage yet; a
-      // follow-up slice records it. Until then these stay null and the totals
-      // say so rather than quietly reading as zero.
-      tokens:     null,
-      costUsd:    null,
+      // What the review itself cost, off its own NOG_DECISION (slice 402). A
+      // review that recorded nothing — killed, timed out, or decided before the
+      // orchestrator started reading Jordan's session — stays null, and the
+      // totals say "partial" rather than quietly reading it as zero.
+      tokens:     dec ? stageTokens(dec) : null,
+      costUsd:    dec ? stageNum(dec.costUsd) : null,
     };
   });
 
@@ -2854,8 +2855,8 @@ function stagesForSlice(evs) {
 
   // Totals sum what is RECORDED, and name whoever has a stage but no numbers on
   // it. Written over the stage objects rather than over the DONE events, so the
-  // day Jordan's and Julian's usage is captured the sums pick it up and the
-  // "partial" mark goes away on its own.
+  // day a role's usage is captured the sums pick it up and the "partial" mark
+  // goes away on its own — which is exactly what happened to Jordan in 402.
   const builds     = rounds.map(r => r.build).filter(Boolean);
   const revStages  = rounds.map(r => r.review).filter(Boolean);
   const all        = [...builds, ...revStages, ...(qa ? [qa] : [])];
@@ -2867,7 +2868,11 @@ function stagesForSlice(evs) {
   const missing = [];
   if (builds.length    && !builds.some(recorded))    missing.push(STAGE_ROLE_BUILD);
   if (revStages.length && !revStages.some(recorded)) missing.push(STAGE_ROLE_REVIEW);
-  if (qa               && !recorded(qa))             missing.push(STAGE_ROLE_QA);
+  // Julian is deliberately absent from this list (slice 402 — Philipp: "include
+  // Jordan but not Julian"). His suite is not a metered session the orchestrator
+  // can read a bill from, so his numbers are not late data waiting to arrive:
+  // listing him marked every finished row "partial" forever, for a figure nobody
+  // intends to record. His stage still shows its minutes; it just owes no money.
 
   return {
     approvedAt,

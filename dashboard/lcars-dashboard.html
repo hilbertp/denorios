@@ -8308,6 +8308,10 @@ body:not(.lcars-mode) .staged-details-body pre code {
       const verdict = v.verdict
         ? ` <span class="history-stage-verdict">${escHtml(String(v.verdict).toLowerCase())}</span>`
         : '';
+      // Jordan's tokens and cost are his review's own, off the NOG_DECISION the
+      // orchestrator writes (slice 402). Before that they were always null and
+      // this line always drew two em dashes; it draws them now only when a
+      // review really recorded nothing, and never a $0.00 in their place.
       parts.push(line(`review-${n}`, `Review · Jordan${suffix}${verdict}`,
         fmtWorkTime(v.durationMs ?? null), fmtTokens(v.tokens ?? null, 0), fmtStageCost(v.costUsd ?? null, [])));
     });

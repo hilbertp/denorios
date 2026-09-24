@@ -510,6 +510,44 @@ function sessionTelemetry(stdout, durationMs) {
 }
 
 /**
+ * reviewTelemetry(stdout)
+ *
+ * What one Jordan review cost, read from his own session's `result` event
+ * (slice 402). His session has always ended with one — nog-399-round1.log says
+ * $1.7242135 — and nothing read it, so the History row summed Sam alone and
+ * called the difference "partial".
+ *
+ * Deliberately NOT sessionTelemetry. That one falls back to computeCost when a
+ * session carries no total_cost_usd, because Sam's report must always show a
+ * figure and the CLI once shipped without the field. Here there is no fallback:
+ * a review that was killed, timed out or rate-limited spent something nobody
+ * measured, and a list price is not a measurement. A price computed from
+ * INPUT_COST_PER_M would also be wrong twice over — it cannot see cache reads,
+ * which are 1,045,779 of that review's 1,063,545 tokens.
+ *
+ * Only the `result` event counts. extractResultObject falls back to the last
+ * JSON object on the stream when no result arrived, and on a killed session
+ * that is an assistant message — which carries a usage block of its own. Taking
+ * it would write one turn's tokens as the whole review's.
+ *
+ * Returns an object to SPREAD onto the events the round writes: `{}` when the
+ * session wrote no result, so those events are written exactly as they were
+ * before rather than carrying four nulls that read as "recorded, and zero".
+ */
+function reviewTelemetry(stdout) {
+  const result = extractResultObject(stdout);
+  if (!result || result.type !== 'result') return {};
+  const usage = result.usage || {};
+  const out = {};
+  const keep = (key, value) => { if (typeof value === 'number' && isFinite(value)) out[key] = value; };
+  keep('tokensIn', usage.input_tokens);
+  keep('tokensOut', usage.output_tokens);
+  keep('tokensCacheRead', usage.cache_read_input_tokens);
+  keep('costUsd', result.total_cost_usd);
+  return out;
+}
+
+/**
  * recordBuildTiming(stdout, id, logsDir)
  *
  * The other half of the session's numbers (slice 392). sessionTelemetry says
@@ -4774,15 +4812,20 @@ function archiveAcceptedSlice(id, branchName, opts) {
 }
 
 /**
- * handleAccepted(id, reason, cycle, branchName, evaluatingPath, durationMs, verdictSource)
+ * handleAccepted(id, reason, cycle, branchName, evaluatingPath, durationMs, verdictSource, reviewUsage)
  *
  * ACCEPTED verdict: register event, rename EVALUATING → ACCEPTED, merge branch to main directly.
  *
  * verdictSource is where readNogVerdict found the verdict ('frontmatter',
  * 'unfenced' or 'review_section'); it rides along on NOG_DECISION so the
  * register says which read decided the round. Absent means it is not recorded.
+ *
+ * reviewUsage is what the review itself cost, from reviewTelemetry — spread onto
+ * the decision so the History row can add Jordan to the slice's bill (slice
+ * 402). Undefined or empty when his session recorded nothing; the event is then
+ * written exactly as it was before.
  */
-function handleAccepted(id, reason, cycle, branchName, evaluatingPath, durationMs, verdictSource) {
+function handleAccepted(id, reason, cycle, branchName, evaluatingPath, durationMs, verdictSource, reviewUsage) {
   // Read title from parked slice file for the merge commit message.
   const parkedPath = path.join(QUEUE_DIR, `${id}-PARKED.md`);
   const legacyParkedPath = path.join(QUEUE_DIR, `${id}-ARCHIVED.md`);
@@ -4799,7 +4842,7 @@ function handleAccepted(id, reason, cycle, branchName, evaluatingPath, durationM
   const lane = readSliceMeta(id).lane;
 
   // Canonical: NOG_DECISION (verdict) → rename → merge → MERGED
-  const acceptedDecision = { verdict: 'ACCEPTED', reason, cycle, round: cycle };
+  const acceptedDecision = { verdict: 'ACCEPTED', reason, cycle, round: cycle, ...reviewUsage };
   if (verdictSource) acceptedDecision.verdict_source = verdictSource;
   registerEvent(id, 'NOG_DECISION', acceptedDecision);
   log('info', 'evaluator', { id, verdict: 'ACCEPTED', cycle, durationMs });
@@ -5200,6 +5243,11 @@ function invokeNog(id) {
       try { fs.renameSync(NOG_ACTIVE_FILE, path.join(TRASH_DIR, 'nog-active.json.done')); } catch (_) {}
       const durationMs = Date.now() - pickupTime;
 
+      // What this review cost, read once from Jordan's own session and spread
+      // onto whatever event the round ends up writing (slice 402). `{}` when
+      // the session recorded nothing — no verdict path estimates in its place.
+      const reviewUsage = reviewTelemetry(stdout);
+
       // Write Nog's output to log file.
       try {
         fs.writeFileSync(nogLogPath, (stdout || '') + '\n--- stderr ---\n' + (stderr || ''));
@@ -5283,7 +5331,7 @@ function invokeNog(id) {
           nog_reason: 'verdict_unreadable',
         });
 
-        registerEvent(id, 'NOG_DECISION', { round, verdict: 'REJECTED', reason: 'verdict_unreadable', apendment_cycle: round });
+        registerEvent(id, 'NOG_DECISION', { round, verdict: 'REJECTED', reason: 'verdict_unreadable', apendment_cycle: round, ...reviewUsage });
         appendOperationalEvent({
           event: 'NOG_ESCALATION',
           slice_id: id,
@@ -5417,6 +5465,9 @@ function invokeNog(id) {
         registerEvent(id, 'ESCALATED_TO_OBRIEN', {
           round,
           reason: summary || 'Nog determined acceptance criteria cannot be satisfied as written',
+          // ESCALATE and OVERSIZED write no NOG_DECISION — this is the event the
+          // round ends on, so this is where its numbers go (slice 402).
+          ...reviewUsage,
         });
 
         appendOperationalEvent({
@@ -5528,7 +5579,7 @@ function invokeNog(id) {
         print('');
 
         // Single-pass: Nog ACCEPTED → merge directly (no second evaluator call).
-        handleAccepted(id, summary || '', round, branchName, donePath, durationMs, verdictSource);
+        handleAccepted(id, summary || '', round, branchName, donePath, durationMs, verdictSource, reviewUsage);
 
         processing = false;
         heartbeatState.status = 'idle';
@@ -5542,7 +5593,7 @@ function invokeNog(id) {
 
       // REJECTED verdict (translated from RETURN if legacy) → NOG_DECISION{verdict: REJECTED}
       log('info', 'nog', { id, verdict: 'REJECTED', round, durationMs, summary });
-      const rejectedDecision = { round, verdict: 'REJECTED', reason: summary || 'Nog review findings — see slice file', apendment_cycle: round };
+      const rejectedDecision = { round, verdict: 'REJECTED', reason: summary || 'Nog review findings — see slice file', apendment_cycle: round, ...reviewUsage };
       if (verdictSource) rejectedDecision.verdict_source = verdictSource;
       registerEvent(id, 'NOG_DECISION', rejectedDecision);
 
@@ -9849,4 +9900,4 @@ function mergeDevToMain() {
 // Exports — for use by helper scripts (e.g. bridge/next-id.js)
 // ---------------------------------------------------------------------------
 
-module.exports = { resolveLane, laneEventFields, applyLaneArgs, romSpawnArgs, registerCommissioned, sessionTelemetry, recordBuildTiming, fillDoneMetrics, validateDoneMetrics, extractRomTelemetry, buildDoneTemplate, buildHashLines, regenerateLocksAtLanding, newestDoneEvent, isLockDeriverInput, LOCK_FILES, checkDispatchProvenance, parkUnprovenancedSlice, hasPreCutoverHistory, fileIsPreCutover, provenanceRootId, parseFrontmatter, readNogVerdict, NOG_VERDICTS, handleNogReturn, startGate, abortGate, buildBashirPrompt, startQaStage, finishQaStage, startQaStageOrArchive, recoverOrphanedQaStages, qaStageSourceDoc, qaStageResultPath, setQaStageInBranchState, QA_STAGE_TIMEOUT_MS, qaStage, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, classifyHonestNonProduct, doneSummarySection, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, recordArchivedQueueRename, validateIntakeMeta, ensureIntegrationIsFresh, ensureMainIsFresh: ensureIntegrationIsFresh, fastForwardIntegrationRef, branchNamesFrom, INTEGRATION_BRANCH, TRUNK_BRANCH, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, provisionWorkspaceDeps, releaseDispatch, _testSetHeartbeatFile: (p) => { HEARTBEAT_FILE = p; }, _testGetDispatchState: () => ({ processing, heartbeat: { ...heartbeatState } }), _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted, hasTerminalLandedEvent, crashRecovery, trashEntryRecordsStaging, STAGING_TRASH_SUFFIXES, countUnreadableVerdicts, unreadableBackoffMs, retryBackoffElapsed, MAX_UNREADABLE_ATTEMPTS, UNREADABLE_BACKOFF_MS, porcelainPaths, isVolatileRuntimePath, isPipelineOwnedPath, recoverRuntimeStateAfterGit, stageablePathsFrom, autoCommitDirtyTree, shQuote, stageQueueArchiveForLanding, revertQueueArchiveStaging, hasArchivedEvent, pipelineCommitSubject: gitFinalizer.pipelineCommitSubject, refillLandedDoneReport, _testResetRefusalEmitted: () => { _refusalEmitted.clear(); }, _testGetRefusalEmitted: () => _refusalEmitted };
+module.exports = { resolveLane, laneEventFields, applyLaneArgs, romSpawnArgs, registerCommissioned, sessionTelemetry, reviewTelemetry, recordBuildTiming, fillDoneMetrics, validateDoneMetrics, extractRomTelemetry, buildDoneTemplate, buildHashLines, regenerateLocksAtLanding, newestDoneEvent, isLockDeriverInput, LOCK_FILES, checkDispatchProvenance, parkUnprovenancedSlice, hasPreCutoverHistory, fileIsPreCutover, provenanceRootId, parseFrontmatter, readNogVerdict, NOG_VERDICTS, handleNogReturn, startGate, abortGate, buildBashirPrompt, startQaStage, finishQaStage, startQaStageOrArchive, recoverOrphanedQaStages, qaStageSourceDoc, qaStageResultPath, setQaStageInBranchState, QA_STAGE_TIMEOUT_MS, qaStage, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, classifyHonestNonProduct, doneSummarySection, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, recordArchivedQueueRename, validateIntakeMeta, ensureIntegrationIsFresh, ensureMainIsFresh: ensureIntegrationIsFresh, fastForwardIntegrationRef, branchNamesFrom, INTEGRATION_BRANCH, TRUNK_BRANCH, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, provisionWorkspaceDeps, releaseDispatch, _testSetHeartbeatFile: (p) => { HEARTBEAT_FILE = p; }, _testGetDispatchState: () => ({ processing, heartbeat: { ...heartbeatState } }), _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted, hasTerminalLandedEvent, crashRecovery, trashEntryRecordsStaging, STAGING_TRASH_SUFFIXES, countUnreadableVerdicts, unreadableBackoffMs, retryBackoffElapsed, MAX_UNREADABLE_ATTEMPTS, UNREADABLE_BACKOFF_MS, porcelainPaths, isVolatileRuntimePath, isPipelineOwnedPath, recoverRuntimeStateAfterGit, stageablePathsFrom, autoCommitDirtyTree, shQuote, stageQueueArchiveForLanding, revertQueueArchiveStaging, hasArchivedEvent, pipelineCommitSubject: gitFinalizer.pipelineCommitSubject, refillLandedDoneReport, _testResetRefusalEmitted: () => { _refusalEmitted.clear(); }, _testGetRefusalEmitted: () => _refusalEmitted };
