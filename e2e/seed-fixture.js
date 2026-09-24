@@ -143,6 +143,70 @@ function seedVerdictSourceSlices() {
   bumpHeartbeat();
 }
 
+// Four finished slices for the history-truth journey (slice 401). Slice 401 made the
+// History row answer "how long did this slice take, and what did it cost" honestly, so
+// what this seeds is the EVENT SPANS the answer is derived from, not a rendered number.
+//
+// Real-register shapes: every event key is `slice_id` (the live register writes
+// `slice_id` on all 379 of its rows and `id` on none), so these go through the same
+// lifecycle-translate normalization the product uses in production.
+//
+//  8401  slice 399's ground truth, event for event, from the brief's evidence table.
+//  8402  reworked once: two builds, two reviews, round 1 rejected then round 2 accepted.
+//  8403  the 2026-09-17 register wipe: a lone round-2 review, no approval, no build,
+//        never landed — every span it needs is gone.
+//  8404  a build whose tokens were recorded but whose cost was not, and which landed.
+function seedHistoryTruthSlices() {
+  const events = [
+    // ── 8401 — slice 399 to the millisecond. Build 143982 ms, review 218853 ms
+    //    accepted, QA 569327 ms, queued 1714 ms, Sam start → landed 373572 ms. ──
+    { ts: '2026-09-23T22:33:23.886Z', slice_id: '8401', event: 'HUMAN_APPROVAL' },
+    { ts: '2026-09-23T22:33:25.600Z', slice_id: '8401', event: 'COMMISSIONED',
+      title: 'Measured slice', goal: 'The slice whose real numbers the brief recorded.' },
+    { ts: '2026-09-23T22:35:49.582Z', slice_id: '8401', event: 'DONE', durationMs: 143982,
+      tokensIn: 24, tokensOut: 12753, tokensCacheRead: 527411, costUsd: 1.0700555 },
+    { ts: '2026-09-23T22:35:55.622Z', slice_id: '8401', event: 'NOG_INVOKED', round: 1 },
+    { ts: '2026-09-23T22:39:34.475Z', slice_id: '8401', event: 'NOG_DECISION', verdict: 'ACCEPTED', round: 1 },
+    { ts: '2026-09-23T22:40:39.172Z', slice_id: '8401', event: 'SLICE_SQUASHED_TO_DEV', squash_sha: 'aa11223' },
+    { ts: '2026-09-23T22:39:39.443Z', slice_id: '8401', event: 'IN_QA' },
+    { ts: '2026-09-23T22:49:08.770Z', slice_id: '8401', event: 'QA_STAGE_RECORDED',
+      ended_ts: '2026-09-23T22:49:08.770Z' },
+
+    // ── 8402 — sent back once. Builds 2m and 1m, reviews 1m rejected and 30s accepted. ──
+    { ts: '2026-09-23T20:00:00.000Z', slice_id: '8402', event: 'HUMAN_APPROVAL' },
+    { ts: '2026-09-23T20:00:10.000Z', slice_id: '8402', event: 'COMMISSIONED',
+      title: 'Reworked slice', goal: 'Rejected once, then accepted.' },
+    { ts: '2026-09-23T20:02:10.000Z', slice_id: '8402', event: 'DONE', durationMs: 120000,
+      tokensIn: 10, tokensOut: 1000, tokensCacheRead: 99000, costUsd: 2 },
+    { ts: '2026-09-23T20:02:20.000Z', slice_id: '8402', event: 'NOG_INVOKED', round: 1 },
+    { ts: '2026-09-23T20:03:20.000Z', slice_id: '8402', event: 'NOG_DECISION', verdict: 'REJECTED', round: 1 },
+    { ts: '2026-09-23T20:06:20.000Z', slice_id: '8402', event: 'DONE', durationMs: 60000,
+      tokensIn: 5, tokensOut: 500, tokensCacheRead: 49495, costUsd: 1 },
+    { ts: '2026-09-23T20:06:30.000Z', slice_id: '8402', event: 'NOG_INVOKED', round: 2 },
+    { ts: '2026-09-23T20:07:00.000Z', slice_id: '8402', event: 'NOG_DECISION', verdict: 'ACCEPTED', round: 2 },
+    { ts: '2026-09-23T20:08:00.000Z', slice_id: '8402', event: 'SLICE_SQUASHED_TO_DEV', squash_sha: 'bb22334' },
+
+    // ── 8403 — the wipe. Its round 1 is gone; what survives is a round-2 review. ──
+    { ts: '2026-09-23T19:00:00.000Z', slice_id: '8403', event: 'COMMISSIONED',
+      title: 'Wiped slice', goal: 'Its earlier rounds predate the register wipe.' },
+    { ts: '2026-09-23T19:01:00.000Z', slice_id: '8403', event: 'NOG_INVOKED', round: 2 },
+    { ts: '2026-09-23T19:02:00.000Z', slice_id: '8403', event: 'NOG_DECISION', verdict: 'ACCEPTED', round: 2 },
+    { ts: '2026-09-23T19:03:00.000Z', slice_id: '8403', event: 'ERROR', reason: 'events lost to the wipe' },
+
+    // ── 8404 — tokens recorded, cost not. The shape a cost estimator would guess at. ──
+    { ts: '2026-09-23T18:00:00.000Z', slice_id: '8404', event: 'HUMAN_APPROVAL' },
+    { ts: '2026-09-23T18:00:05.000Z', slice_id: '8404', event: 'COMMISSIONED',
+      title: 'Uncosted slice', goal: 'Its tokens were recorded; its cost never was.' },
+    { ts: '2026-09-23T18:04:05.000Z', slice_id: '8404', event: 'DONE', durationMs: 240000,
+      tokensIn: 1000, tokensOut: 2000, tokensCacheRead: 97000 },
+    { ts: '2026-09-23T18:05:00.000Z', slice_id: '8404', event: 'SLICE_SQUASHED_TO_DEV', squash_sha: 'cc33445' },
+  ];
+  // One write, not an append: the server rebuilds its cache off this file's mtime and a
+  // partial read mid-poll takes the whole /api/bridge response down with it.
+  w(path.join(ROOT, 'bridge', 'register.jsonl'), events.map(e => JSON.stringify(e)).join('\n') + '\n');
+  bumpHeartbeat();
+}
+
 // Cost data for Quark's Ledger: a Rom DONE event with real token/cost numbers
 // (the ledger always lists every role zeroed; this gives Rom a non-zero row + a total).
 function seedCostEvents() {
@@ -269,3 +333,4 @@ module.exports.seedQueuedPair = seedQueuedPair;
 module.exports.seedReorderableSections = seedReorderableSections;
 module.exports.seedRolledBackableSlice = seedRolledBackableSlice;
 module.exports.seedVerdictSourceSlices = seedVerdictSourceSlices;
+module.exports.seedHistoryTruthSlices = seedHistoryTruthSlices;
