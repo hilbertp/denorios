@@ -767,7 +767,43 @@
     padding: 4px 0 10px 28px;
   }
 
-  .history-expand.open { display: flex; align-items: center; gap: 10px; }
+  /* Wraps so the stage breakdown drops onto its own line under the description
+     row rather than squeezing the buttons. (Slice 401.) */
+  .history-expand.open { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+  .history-stages {
+    flex-basis: 100%;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid #f3f4f6;
+  }
+
+  .history-stage-line {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    font-size: 12px;
+    color: #6b7280;
+    line-height: 1.7;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .history-stage-role { flex: 1; min-width: 0; }
+  .history-stage-verdict { font-style: italic; }
+  .history-stage-time   { width: 76px; text-align: right; flex-shrink: 0; }
+  .history-stage-tokens { width: 56px; text-align: right; flex-shrink: 0; }
+  .history-stage-cost   { width: 92px; text-align: right; flex-shrink: 0; }
+
+  .history-stage-total {
+    font-weight: 600;
+    color: #374151;
+    border-top: 1px solid #f3f4f6;
+    margin-top: 2px;
+    padding-top: 2px;
+  }
+
+  /* A partial sum says so on the cell and names the missing roles on hover. */
+  .cost-partial { color: #b45309; }
 
   .history-expand-desc {
     font-size: 13px;
@@ -4977,6 +5013,20 @@ button:disabled,
   color: var(--ink-3);
 }
 
+/* Per-stage breakdown: same muted ink as the row metrics, so LCARS and light
+   mode both read it as secondary detail rather than a second table. */
+.history-stages { border-top: 1px solid var(--border); }
+.history-stage-line {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  color: var(--ink-3);
+}
+.history-stage-total {
+  color: var(--ink-2);
+  border-top: 1px solid var(--border);
+}
+.cost-partial { color: var(--warn, #b45309); }
+
 /* "Details" button — full state set, press feedback, focus ring */
 .history-details-btn {
   font-family: var(--font-sans);
@@ -8186,6 +8236,10 @@ body:not(.lcars-mode) .staged-details-body pre code {
   const INPUT_COST_PER_M = 3.00;
   const OUTPUT_COST_PER_M = 15.00;
 
+  // Kept, but no longer on the History row: since slice 401 the row shows the
+  // recorded sum and marks it partial rather than estimating a missing role at
+  // Sonnet prices. Two safety-net tests lift this function by name, so removing
+  // it is a test change and needs a second signature.
   function fmtCostWithFallback(costUsd, tokIn, tokOut) {
     if (costUsd != null && costUsd > 0) return '$' + costUsd.toFixed(2);
     if ((tokIn ?? 0) > 0 && (tokOut ?? 0) > 0) {
@@ -8193,6 +8247,81 @@ body:not(.lcars-mode) .staged-details-body pre code {
       return `<span class="cost-estimated">~$${est.toFixed(2)} est.</span>`;
     }
     return '\u2014';
+  }
+
+  // Minutes AND whole seconds. fmtDuration floors to the minute, which printed a
+  // 6m 13s slice as "6m" and Sam's 2m 24s build as "2m"; the operator was reading
+  // those as the slice's real time. Truncated, never rounded up: a slice that ran
+  // 6m 13.5s did not run 6m 14s. (Slice 401.)
+  function fmtWorkTime(ms) {
+    if (ms == null || ms < 0) return '—';
+    const s = Math.floor(ms / 1000);
+    if (s < 60) return `${s}s`;
+    return `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`;
+  }
+
+  // The row's cost is the sum of what was RECORDED. Where a role's numbers were
+  // never captured the sum is marked partial and names whose they are — no
+  // estimate is offered in their place. fmtCostWithFallback's estimate is priced
+  // at Sonnet rates while every role runs claude-opus-5, so an invented number
+  // here would be wrong AND look authoritative. (Slice 401.)
+  function fmtStageCost(usd, missingRoles) {
+    const miss = Array.isArray(missingRoles) ? missingRoles.filter(Boolean) : [];
+    const who = miss.join(' and ');
+    if (usd == null || usd < 0) {
+      return miss.length
+        ? `<span class="cost-partial" title="Nothing recorded for ${escHtml(who)}">—</span>`
+        : '—';
+    }
+    const money = '$' + usd.toFixed(2);
+    if (!miss.length) return money;
+    return `<span class="cost-partial" title="Recorded spend only — ${escHtml(who)} ${miss.length > 1 ? 'are' : 'is'} not recorded yet">${money} partial</span>`;
+  }
+
+  // The expanded row, in plain words: who spent which minutes, then the queue
+  // wait kept separate from the work, then the one total the TIME cell shows.
+  // Every value that was never recorded is an em dash, not a zero. (Slice 401.)
+  function historyStagesHtml(stages) {
+    if (!stages) return '';
+    const rounds = Array.isArray(stages.rounds) ? stages.rounds : [];
+    const totals = stages.totals || {};
+    // Label the round when there is more than one, and also when the only one
+    // is not round 1 — a slice whose earlier rounds were lost to the register
+    // wipe must not show its round 2 as if it were the first. (Slice 163.)
+    const many = rounds.length > 1 || (rounds.length === 1 && rounds[0].round !== 1);
+    const line = (key, label, time, tokens, cost, cls) =>
+      `<div class="history-stage-line${cls ? ' ' + cls : ''}" data-stage="${key}">`
+      + `<span class="history-stage-role">${label}</span>`
+      + `<span class="history-stage-time">${time}</span>`
+      + `<span class="history-stage-tokens">${tokens}</span>`
+      + `<span class="history-stage-cost">${cost}</span>`
+      + '</div>';
+
+    const parts = [];
+    rounds.forEach(r => {
+      const n = r.round;
+      const suffix = many ? ` · round ${n}` : '';
+      const b = r.build || {};
+      parts.push(line(`build-${n}`, `Build · Sam${suffix}`,
+        fmtWorkTime(b.durationMs ?? null), fmtTokens(b.tokens ?? null, 0), fmtStageCost(b.costUsd ?? null, [])));
+      const v = r.review || {};
+      const verdict = v.verdict
+        ? ` <span class="history-stage-verdict">${escHtml(String(v.verdict).toLowerCase())}</span>`
+        : '';
+      parts.push(line(`review-${n}`, `Review · Jordan${suffix}${verdict}`,
+        fmtWorkTime(v.durationMs ?? null), fmtTokens(v.tokens ?? null, 0), fmtStageCost(v.costUsd ?? null, [])));
+    });
+
+    const qa = stages.qa || {};
+    parts.push(line('qa', 'QA · Julian', fmtWorkTime(qa.durationMs ?? null),
+      fmtTokens(qa.tokens ?? null, 0), fmtStageCost(qa.costUsd ?? null, [])));
+    // Queue wait is not work: it is the time the slice sat approved while another
+    // slice held the orchestrator. Shown, but never inside the total.
+    parts.push(line('queued', 'Waited in queue', fmtWorkTime(stages.queuedMs ?? null), '', ''));
+    parts.push(line('total', 'Sam start → landed on dev', fmtWorkTime(totals.elapsedMs ?? null),
+      fmtTokens(totals.tokens ?? null, 0), fmtStageCost(totals.costUsd ?? null, totals.missing), 'history-stage-total'));
+
+    return `<div class="history-stages">${parts.join('')}</div>`;
   }
 
   // Dev \u2192 regression \u2192 main lifecycle chain. dev is always reached for a logged
@@ -8258,11 +8387,13 @@ body:not(.lcars-mode) .staged-details-body pre code {
       const outcome = c._terminalOutcome || 'ON_DEV';
       const isFail = isFailureOutcome(outcome);
 
-      // Use synthesized totals if available (legacy compat), otherwise direct fields
-      const durMs = c._synthDurationMs ?? c.durationMs;
-      const tokIn = c._synthTokensIn ?? c.tokensIn;
-      const tokOut = c._synthTokensOut ?? c.tokensOut;
-      const costUsd = c._synthCostUsd ?? c.costUsd;
+      // The three metric cells read the slice, not Sam. TIME is the working time
+      // from his start to the slice landing on dev; TOKENS and COST are the sums
+      // of what every role recorded, cache reads included. The row's own
+      // durationMs / tokensIn / tokensOut / costUsd are untouched and still feed
+      // the Details overlay, which reports Sam's session on its own. (Slice 401.)
+      const stages = c.stages || null;
+      const totals = (stages && stages.totals) || {};
 
       const roundDisplay = c._terminalRound ? `${c._terminalRound}` : '\u2014';
 
@@ -8302,9 +8433,9 @@ body:not(.lcars-mode) .staged-details-body pre code {
           <span class="col-title history-row-title">${escHtml(c.title || '')}</span>
           <span class="col-round">${escHtml(roundDisplay)}</span>
           <span class="col-outcome">${outcomeHtml(outcome, c)}</span>
-          <span class="col-duration">${fmtDuration(durMs)}</span>
-          <span class="col-tokens">${fmtTokens(tokIn, tokOut)}</span>
-          <span class="col-cost">${fmtCostWithFallback(costUsd, tokIn, tokOut)}</span>
+          <span class="col-duration" title="Working time: Sam start \u2192 landed on dev. Queue wait is listed separately in the expanded row.">${fmtWorkTime(totals.elapsedMs ?? null)}</span>
+          <span class="col-tokens" title="Every token recorded for this slice, cache reads included">${fmtTokens(totals.tokens ?? null, 0)}</span>
+          <span class="col-cost">${fmtStageCost(totals.costUsd ?? null, totals.missing)}</span>
         </div>
         <div class="history-expand ${isExpanded ? 'open' : ''}" id="history-expand-${eid}">
           <span class="history-expand-desc" ${isFail ? 'style="color:#dc2626"' : ''}>${escHtml(expandDesc)}</span>
@@ -8312,6 +8443,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
           <button class="history-details-btn" onclick="openHistoryDetail('${eid}')">Details \u203a</button>
           ${returnBtn}
           ${rollbackBtn}
+          ${historyStagesHtml(stages)}
         </div>
       </div>`;
     }).join('');
@@ -10726,14 +10858,14 @@ body:not(.lcars-mode) .staged-details-body pre code {
     document.getElementById('crew-roster-toggle').classList.toggle('collapsed', crewRosterCollapsed);
   }
 
-  function fmtTokens(v) {
+  function fmtTokenCount(v) {
     if (v == null) return '<span class="null-val">—</span>';
     if (v >= 1e6)  return (v / 1e6).toFixed(2).replace(/\.?0+$/, '') + 'M';
     if (v >= 1e3)  return Math.round(v / 1e3) + 'k';
     return String(v);
   }
 
-  function fmtCost(v) {
+  function fmtCostCell(v) {
     if (v == null) return '<span class="null-val">—</span>';
     return '$' + v.toFixed(2);
   }
@@ -10767,18 +10899,18 @@ body:not(.lcars-mode) .staged-details-body pre code {
         <td>${name}</td>
         <td>${row.model ?? '—'}</td>
         <td>${countLabel(row.role, row.count)}</td>
-        <td>${fmtTokens(row.input)}</td>
+        <td>${fmtTokenCount(row.input)}</td>
         <td class="ledger-pending" title="Cache-reuse (context) tokens — not captured yet">&mdash;</td>
         <td class="ledger-pending" title="Extended-thinking tokens — not captured yet">&mdash;</td>
-        <td>${fmtTokens(row.output)}</td>
-        <td>${fmtCost(row.cost_usd)}</td>
+        <td>${fmtTokenCount(row.output)}</td>
+        <td>${fmtCostCell(row.cost_usd)}</td>
       </tr>`;
     }
     // Total row
     rows += `<tr class="ledger-total">
       <td><strong>Total</strong></td>
       <td></td><td></td><td></td><td></td><td></td><td></td>
-      <td>${fmtCost(data.total_cost_usd)}</td>
+      <td>${fmtCostCell(data.total_cost_usd)}</td>
     </tr>`;
     tbody.innerHTML = rows;
   }
@@ -13095,7 +13227,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
         // Action buttons
         html += '<div class="gate-fail-actions">' +
           '<button class="btn" onclick="openInvestigatePanel()">Investigate</button>' +
-          '<button class="btn-stop" id="abort-gate-btn" onclick="showAbortConfirm(this.parentElement)">Abort gate</button>' +
+          '<button class="btn-stop" id="abort-gate-btn" onclick="showGateAbortConfirm(this.parentElement)">Abort gate</button>' +
           '</div>';
 
         s2b.innerHTML = html;
@@ -13290,7 +13422,7 @@ body:not(.lcars-mode) .staged-details-body pre code {
   }
 
   // ── Gate abort flow (slice 271) ────────────────────────────────────────────
-  function showAbortConfirm(containerEl) {
+  function showGateAbortConfirm(containerEl) {
     containerEl.innerHTML = '<span class="abort-confirm"><span style="font-size:11px;font-weight:600">Abort?</span> ' +
       '<button class="abort-confirm-pill yes" onclick="executeGateAbort()">Yes</button> ' +
       '<button class="abort-confirm-pill no" onclick="fetchBranchState()">No</button></span>';

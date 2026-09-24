@@ -92,6 +92,9 @@ function loadHistory() {
     ${extractFn('fmtTokens')}
     ${extractFn('fmtCost')}
     ${extractFn('fmtCostWithFallback')}
+    ${extractFn('fmtWorkTime')}
+    ${extractFn('fmtStageCost')}
+    ${extractFn('historyStagesHtml')}
     ${extractFn('isFailureOutcome')}
     ${extractFn('outcomeHtml')}
     ${extractFn('renderHistoryPage')}

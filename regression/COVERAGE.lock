@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 792,
+  "guardCount": 808,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -1191,6 +1191,45 @@
         "guardAcHash": "sha256:b65a2435afed2c31dc55424550351017f3d0a9e3b20e5699aad5710c48aee480"
       },
       {
+        "tag": "slice-401-ac-1",
+        "file": "regression/observability/j-history-tells-the-truth.test.js",
+        "guardAcHash": "sha256:3482fc7c2c40775db38a69d5eea4b20364e384693fe99d962b7b11970971e637"
+      },
+      {
+        "tag": "slice-401-ac-2",
+        "file": "regression/observability/j-history-tells-the-truth.test.js",
+        "guardAcHash": "sha256:0021c8b92e3f9760f7d4e7a3ac096844da91000794c55fea32eb744d7f15b96b"
+      },
+      {
+        "tag": "slice-401-ac-3",
+        "file": "regression/observability/j-history-tells-the-truth.test.js",
+        "guardAcHash": "sha256:765001c67e8817a68177db7e6dcb10e80751fd3bc3f142233b84464458a5e28c"
+      },
+      {
+        "tag": "slice-401-ac-4",
+        "file": "regression/observability/j-history-tells-the-truth.test.js",
+        "guardAcHash": "sha256:c8be73089e1ecd423690fcfd29f6d541d070dcb6cc8e6f18a613e4d06999a614"
+      },
+      {
+        "tag": "slice-401-ac-5",
+        "file": "regression/observability/j-history-tells-the-truth.test.js",
+        "guardAcHash": "sha256:45856a42f54b03d97cc26dddfc2236e7bdffd465df72da85725072cd9c65821e"
+      },
+      {
+        "tag": "slice-401-ac-6",
+        "file": "regression/observability/j-history-tells-the-truth.test.js",
+        "guardAcHash": "sha256:5a6cffb19303b8c8b22414731dc8f31f74efe0e5ad85b9e7f72823b798fda1dc"
+      },
+      {
+        "tag": "slice-401-ac-7",
+        "file": "regression/observability/j-history-tells-the-truth.test.js",
+        "guardAcHash": "sha256:875cc3b24adfc0f57f110a881ded42f4acc8af5048d7973ced8a54504130a9b3"
+      },
+      {
+        "tag": "slice-901-ac-8",
+        "file": "regression/observability/j-history-tells-the-truth.test.js"
+      },
+      {
         "tag": "slice-99777-ac-1",
         "file": "regression/observability/j-watch-slice-live-log.test.js"
       },
@@ -1851,12 +1890,51 @@
         "guardAcHash": "sha256:b65a2435afed2c31dc55424550351017f3d0a9e3b20e5699aad5710c48aee480"
       },
       {
+        "tag": "slice-401-ac-1",
+        "file": "regression/observability/j-history-tells-the-truth.test.js",
+        "guardAcHash": "sha256:3482fc7c2c40775db38a69d5eea4b20364e384693fe99d962b7b11970971e637"
+      },
+      {
+        "tag": "slice-401-ac-2",
+        "file": "regression/observability/j-history-tells-the-truth.test.js",
+        "guardAcHash": "sha256:0021c8b92e3f9760f7d4e7a3ac096844da91000794c55fea32eb744d7f15b96b"
+      },
+      {
+        "tag": "slice-401-ac-3",
+        "file": "regression/observability/j-history-tells-the-truth.test.js",
+        "guardAcHash": "sha256:765001c67e8817a68177db7e6dcb10e80751fd3bc3f142233b84464458a5e28c"
+      },
+      {
+        "tag": "slice-401-ac-4",
+        "file": "regression/observability/j-history-tells-the-truth.test.js",
+        "guardAcHash": "sha256:c8be73089e1ecd423690fcfd29f6d541d070dcb6cc8e6f18a613e4d06999a614"
+      },
+      {
+        "tag": "slice-401-ac-5",
+        "file": "regression/observability/j-history-tells-the-truth.test.js",
+        "guardAcHash": "sha256:45856a42f54b03d97cc26dddfc2236e7bdffd465df72da85725072cd9c65821e"
+      },
+      {
+        "tag": "slice-401-ac-6",
+        "file": "regression/observability/j-history-tells-the-truth.test.js",
+        "guardAcHash": "sha256:5a6cffb19303b8c8b22414731dc8f31f74efe0e5ad85b9e7f72823b798fda1dc"
+      },
+      {
+        "tag": "slice-401-ac-7",
+        "file": "regression/observability/j-history-tells-the-truth.test.js",
+        "guardAcHash": "sha256:875cc3b24adfc0f57f110a881ded42f4acc8af5048d7973ced8a54504130a9b3"
+      },
+      {
         "tag": "slice-901-ac-1",
         "file": "regression/observability/j-inspect-slice-history.test.js"
       },
       {
         "tag": "slice-901-ac-2",
         "file": "regression/observability/j-inspect-slice-history.test.js"
+      },
+      {
+        "tag": "slice-901-ac-8",
+        "file": "regression/observability/j-history-tells-the-truth.test.js"
       },
       {
         "tag": "slice-901-ac-8",
@@ -2157,6 +2235,13 @@
         "tag": "slice-371-ac-6",
         "file": "e2e/staged-reorder.spec.js",
         "guardAcHash": "sha256:e88e5111d0f9835d7f3ca13a31d855588575e3c02a78a2eca07824b733f880fe"
+      }
+    ],
+    "e2e/verdict-source-history.spec.js": [
+      {
+        "tag": "slice-400-ac-4",
+        "file": "e2e/verdict-source-history.spec.js",
+        "guardAcHash": "sha256:e3eadd348da52460cffcacc5108641ea24bd5a44f4254c696bfa7245330f0926"
       }
     ],
     "lib/ac-block.js": [
@@ -3727,6 +3812,43 @@
         "tag": "slice-392-ac-4",
         "file": "regression/observability/j-build-timing.test.js",
         "guardAcHash": "sha256:b65a2435afed2c31dc55424550351017f3d0a9e3b20e5699aad5710c48aee480"
+      }
+    ],
+    "regression/observability/j-history-tells-the-truth.test.js": [
+      {
+        "tag": "slice-401-ac-1",
+        "file": "regression/observability/j-history-tells-the-truth.test.js",
+        "guardAcHash": "sha256:3482fc7c2c40775db38a69d5eea4b20364e384693fe99d962b7b11970971e637"
+      },
+      {
+        "tag": "slice-401-ac-2",
+        "file": "regression/observability/j-history-tells-the-truth.test.js",
+        "guardAcHash": "sha256:0021c8b92e3f9760f7d4e7a3ac096844da91000794c55fea32eb744d7f15b96b"
+      },
+      {
+        "tag": "slice-401-ac-3",
+        "file": "regression/observability/j-history-tells-the-truth.test.js",
+        "guardAcHash": "sha256:765001c67e8817a68177db7e6dcb10e80751fd3bc3f142233b84464458a5e28c"
+      },
+      {
+        "tag": "slice-401-ac-4",
+        "file": "regression/observability/j-history-tells-the-truth.test.js",
+        "guardAcHash": "sha256:c8be73089e1ecd423690fcfd29f6d541d070dcb6cc8e6f18a613e4d06999a614"
+      },
+      {
+        "tag": "slice-401-ac-5",
+        "file": "regression/observability/j-history-tells-the-truth.test.js",
+        "guardAcHash": "sha256:45856a42f54b03d97cc26dddfc2236e7bdffd465df72da85725072cd9c65821e"
+      },
+      {
+        "tag": "slice-401-ac-6",
+        "file": "regression/observability/j-history-tells-the-truth.test.js",
+        "guardAcHash": "sha256:5a6cffb19303b8c8b22414731dc8f31f74efe0e5ad85b9e7f72823b798fda1dc"
+      },
+      {
+        "tag": "slice-401-ac-7",
+        "file": "regression/observability/j-history-tells-the-truth.test.js",
+        "guardAcHash": "sha256:875cc3b24adfc0f57f110a881ded42f4acc8af5048d7973ced8a54504130a9b3"
       }
     ],
     "regression/observability/j-red-dev-files-fix-request.test.js": [

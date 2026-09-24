@@ -2673,6 +2673,235 @@ function deriveReviewStatus({ verdict, mergedToMain }) {
   return 'waiting_for_review';
 }
 
+// ── Where a slice's minutes, tokens and money actually went (slice 401) ──────
+//
+// The History row used to show Sam's DONE event and call it the slice: his
+// 2m 24s as the slice's TIME, his $1.07 as the slice's COST. Jordan's review and
+// Julian's QA were nowhere, and the operator read the row as a total it never
+// was. `stages` is the honest breakdown, built from register events only.
+//
+// Two rules hold everywhere below. Nothing is estimated: a number that was never
+// recorded is not invented from a price list. And nothing missing is shown as
+// zero: the register was wiped on 2026-09-17, so a slice can carry a DONE with no
+// HUMAN_APPROVAL, or a NOG_INVOKED whose NOG_DECISION never arrived — those spans
+// are null, which the page draws as an em dash. "Not recorded" and "took no time"
+// are different facts.
+const STAGE_ROLE_BUILD  = 'Sam';
+const STAGE_ROLE_REVIEW = 'Jordan';
+const STAGE_ROLE_QA     = 'Julian';
+
+// Only these events carry stage timing; everything else in the register (the
+// lock chatter is most of it) is skipped before the per-slice grouping.
+const STAGE_EVENTS = new Set([
+  'HUMAN_APPROVAL', 'COMMISSIONED', 'DONE', 'ERROR', 'NOG_INVOKED',
+  'NOG_DECISION', 'SLICE_SQUASHED_TO_DEV', 'IN_QA', 'QA_STAGE_RECORDED',
+]);
+
+/** A register timestamp as epoch ms, or null when missing or unparseable. */
+function stageMs(ts) {
+  if (!ts) return null;
+  const n = new Date(ts).getTime();
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * The span between two register timestamps — null, never 0 and never negative,
+ * when either end is missing or when the clock runs backwards.
+ */
+function stageSpan(fromTs, toTs) {
+  const a = stageMs(fromTs);
+  const b = stageMs(toTs);
+  if (a == null || b == null) return null;
+  const d = b - a;
+  return d < 0 ? null : d;
+}
+
+/** A finite number, or null. Keeps a missing metric out of every sum. */
+function stageNum(v) {
+  return (typeof v === 'number' && Number.isFinite(v)) ? v : null;
+}
+
+/**
+ * Everything the model was billed for in one build: the uncached input, the
+ * output, and the cache reads. Cache reads are the bulk of a run (527,411 of
+ * slice 399's 540,188) and leaving them out is how the row came to print "24".
+ */
+function stageTokens(ev) {
+  const parts = [ev.tokensIn, ev.tokensOut, ev.tokensCacheRead].map(stageNum).filter(v => v != null);
+  return parts.length ? parts.reduce((a, b) => a + b, 0) : null;
+}
+
+/**
+ * stagesForSlice(evs) → the stages object for one slice, from that slice's
+ * register events in the order they were written.
+ */
+function stagesForSlice(evs) {
+  const of = name => evs.filter(e => e.event === name);
+  const dones = of('DONE');
+
+  // The attempt that produced this row. A slice can be commissioned, abandoned
+  // and re-dispatched; the COMMISSIONED that counts is the last one BEFORE the
+  // build finished, so an aborted attempt that never finished does not move the
+  // start backwards.
+  const finishEv = dones[0] || of('ERROR')[0] || null;
+  const finishMs = finishEv ? stageMs(finishEv.ts) : null;
+  const lastBefore = (list, cutoffMs) => {
+    const cands = cutoffMs == null
+      ? list
+      : list.filter(e => { const t = stageMs(e.ts); return t != null && t <= cutoffMs; });
+    return cands.length ? cands[cands.length - 1] : null;
+  };
+
+  const startedAt = lastBefore(of('COMMISSIONED'), finishMs)?.ts ?? null;
+  const startedMs = stageMs(startedAt);
+  const approvedAt = lastBefore(of('HUMAN_APPROVAL'), startedMs)?.ts ?? null;
+
+  // Landed = squashed onto dev (MERGED rides along at the same moment; main is a
+  // later, operator-pressed step). A squash from an earlier attempt is not this
+  // attempt's landing, so only squashes at or after the start count.
+  const squashes = of('SLICE_SQUASHED_TO_DEV')
+    .filter(e => { const t = stageMs(e.ts); return t != null && (startedMs == null || t >= startedMs); });
+  const landedAt = squashes.length ? (squashes[squashes.length - 1].ts ?? null) : null;
+
+  // Which round an invocation belongs to is the event's own `round` field, not
+  // its place in the list. Nog gets re-invoked for the same round when a review
+  // does not finish — slice 401 carries two NOG_INVOKED round=1 — and counting
+  // positions turned the second one into a round 2 that never happened. Round 0
+  // (the auto-accepted merge) and a missing field fall back to position.
+  const roundOf = (ev, i) => {
+    const n = stageNum(ev.round);
+    return (n != null && Number.isInteger(n) && n >= 1) ? n : (i + 1);
+  };
+
+  // Reviews: each NOG_INVOKED runs to the next NOG_DECISION after it, except
+  // that a decision belongs to the LATEST invocation preceding it. Once Nog is
+  // re-invoked, the run that was abandoned cannot claim the verdict its
+  // successor earned — on slice 401 that would have read Jordan's 7m as 21m.
+  const decisions = of('NOG_DECISION');
+  const invocations = of('NOG_INVOKED');
+  let cursor = 0;
+  const reviews = invocations.map((inv, i) => {
+    const invMs = stageMs(inv.ts);
+    const nextInvMs = i + 1 < invocations.length ? stageMs(invocations[i + 1].ts) : null;
+    let dec = null;
+    while (cursor < decisions.length) {
+      const t = stageMs(decisions[cursor].ts);
+      if (t == null) { cursor++; continue; }
+      if (invMs != null && t < invMs) { cursor++; continue; }     // predates this invocation
+      if (nextInvMs != null && t >= nextInvMs) break;             // belongs to a later one
+      dec = decisions[cursor++];
+      break;
+    }
+    return {
+      round:      roundOf(inv, i),
+      startedAt:  inv.ts ?? null,
+      durationMs: dec ? stageSpan(inv.ts, dec.ts) : null,
+      verdict:    dec ? (dec.verdict ?? null) : null,
+      // The orchestrator does not capture Jordan's or Julian's usage yet; a
+      // follow-up slice records it. Until then these stay null and the totals
+      // say so rather than quietly reading as zero.
+      tokens:     null,
+      costUsd:    null,
+    };
+  });
+
+  // Repeated invocations of one round are one review stage: the run that
+  // reached a verdict is the review that happened. An unfinished run is kept
+  // only while nothing closed that round, and is superseded by the next try.
+  const closed = rev => rev.verdict != null || rev.durationMs != null;
+  const reviewByRound = new Map();
+  for (const rev of reviews) {
+    const prev = reviewByRound.get(rev.round);
+    if (!prev || closed(rev) || !closed(prev)) reviewByRound.set(rev.round, rev);
+  }
+
+  // Build round n is the nth DONE. Its start is derived from the DONE's own
+  // durationMs — the orchestrator writes no start event for Sam's session. The
+  // array runs to the highest round anyone reached, and a round with neither a
+  // build nor a review is dropped rather than drawn as an empty line.
+  const highestReviewRound = reviews.reduce((m, r) => Math.max(m, r.round), 0);
+  const rounds = [];
+  for (let i = 0; i < Math.max(dones.length, highestReviewRound); i++) {
+    const done = dones[i] || null;
+    const doneMs = done ? stageMs(done.ts) : null;
+    const dur = done ? stageNum(done.durationMs) : null;
+    const build = done ? {
+      startedAt:  (doneMs != null && dur != null && dur >= 0) ? new Date(doneMs - dur).toISOString() : null,
+      durationMs: (dur != null && dur >= 0) ? dur : null,
+      tokens:     stageTokens(done),
+      costUsd:    stageNum(done.costUsd),
+    } : null;
+    const rev = reviewByRound.get(i + 1) || null;
+    if (!build && !rev) continue;
+    rounds.push({
+      round: i + 1,
+      build,
+      review: rev ? { startedAt: rev.startedAt, durationMs: rev.durationMs,
+                      verdict: rev.verdict, tokens: rev.tokens, costUsd: rev.costUsd } : null,
+    });
+  }
+
+  // Julian's stage: IN_QA to the ended_ts the QA recorder wrote.
+  const inQa = of('IN_QA');
+  const recs = of('QA_STAGE_RECORDED');
+  const rec = recs.length ? recs[recs.length - 1] : null;
+  const qaStartedAt = (inQa.length ? inQa[inQa.length - 1].ts : null) ?? (rec ? rec.started_ts ?? null : null);
+  const qaEndedAt = rec ? (rec.ended_ts ?? null) : null;
+  const qa = (qaStartedAt || qaEndedAt)
+    ? { startedAt: qaStartedAt ?? null, endedAt: qaEndedAt ?? null,
+        durationMs: stageSpan(qaStartedAt, qaEndedAt) }
+    : null;
+
+  // Totals sum what is RECORDED, and name whoever has a stage but no numbers on
+  // it. Written over the stage objects rather than over the DONE events, so the
+  // day Jordan's and Julian's usage is captured the sums pick it up and the
+  // "partial" mark goes away on its own.
+  const builds     = rounds.map(r => r.build).filter(Boolean);
+  const revStages  = rounds.map(r => r.review).filter(Boolean);
+  const all        = [...builds, ...revStages, ...(qa ? [qa] : [])];
+  const sumOf = key => {
+    const vals = all.map(s => stageNum(s[key])).filter(v => v != null);
+    return vals.length ? vals.reduce((a, b) => a + b, 0) : null;
+  };
+  const recorded = s => stageNum(s.tokens) != null || stageNum(s.costUsd) != null;
+  const missing = [];
+  if (builds.length    && !builds.some(recorded))    missing.push(STAGE_ROLE_BUILD);
+  if (revStages.length && !revStages.some(recorded)) missing.push(STAGE_ROLE_REVIEW);
+  if (qa               && !recorded(qa))             missing.push(STAGE_ROLE_QA);
+
+  return {
+    approvedAt,
+    startedAt,
+    landedAt,
+    queuedMs: stageSpan(approvedAt, startedAt),
+    rounds,
+    qa,
+    totals: {
+      // Working time, not wall-clock since approval: slice 400 was approved at
+      // 22:33:27 and started at 22:42:44 because 399 was still running. Counting
+      // the wait would have called a 17m slice 26m.
+      elapsedMs: stageSpan(startedAt, landedAt),
+      tokens:    sumOf('tokens'),
+      costUsd:   sumOf('costUsd'),
+      missing,
+    },
+  };
+}
+
+/** buildStagesById(events) → { [sliceId]: stages } for every slice in the register. */
+function buildStagesById(events) {
+  const byId = new Map();
+  for (const ev of events) {
+    if (!ev || !STAGE_EVENTS.has(ev.event) || ev.id == null) continue;
+    const id = String(ev.id);
+    if (!byId.has(id)) byId.set(id, []);
+    byId.get(id).push(ev);
+  }
+  const out = {};
+  for (const [id, evs] of byId) out[id] = stagesForSlice(evs);
+  return out;
+}
+
 // ── Bridge data builder ──────────────────────────────────────────────────────
 function buildBridgeData() {
   // Heartbeat
@@ -2789,6 +3018,10 @@ function buildBridgeData() {
   // Slices that were deferred but later squashed are not deferred any more
   for (const id of squashedToDevIds) deferredIds.delete(id);
 
+  // Per-slice stage timing (slice 401) — one pass over the register, shared by
+  // every row below.
+  const stagesById = buildStagesById(events);
+
   const recent = Object.values(completedMap)
     .sort((a, b) => {
       if (!a.completedAt) return 1;
@@ -2802,9 +3035,13 @@ function buildBridgeData() {
         { squashedToDevIds, deferredIds, acceptedSet });
       const reviewStatus = deriveReviewStatus({ verdict, mergedToMain: acceptedSet.has(entry.id) });
       const onMain = onMainIds.has(String(entry.id));
+      // stages is additive: durationMs, tokensIn, tokensOut and costUsd above stay
+      // exactly the DONE event's values, because a criterion pins them
+      // (regression/observability/j-inspect-slice-history.test.js, slice-901-ac-8).
       return { ...entry, outcome: finalOutcome, reviewStatus, sprint: getSprintForId(entry.id),
                onMain, regressionPassed: onMain,
-               squash_sha: squashShaById[String(entry.id)] || null };
+               squash_sha: squashShaById[String(entry.id)] || null,
+               stages: stagesById[String(entry.id)] || stagesForSlice([]) };
     });
 
   // Return-to-stage eligibility per row, read from where the slice's file sits
@@ -4695,4 +4932,4 @@ if (require.main === module) {
   startDevSuiteRouting();
 }
 
-module.exports = { QUEUE_SUFFIX_STATE, QUEUE_SIDECAR_SUFFIXES, queueStateOf, isQueueSidecar, readQaStage, sliceIdOfSubject, routeDevSuiteRun, startDevSuiteRouting, withDevSuiteFixRequest, readDevSuiteState, DEV_SUITE_STATE, getPinnedClassification, getTestChanges, getTestsNeeded, mergeLockRefusal, buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, STALE_DONE_DAYS, deriveHistoryOutcome, deriveReviewStatus, authoringStateFor, draftDetailFor, lineDiff, liveGuardsForTag, kickOffAuthoring, recordAuthoringDispatch, applyPlanFor, applyDraftFor, createRevertCommit, resolveSquashSha, mapPromotePhases, parseGateFailures, isFreshPromoteCompletion, isReconciling, _promoteTtlMs };
+module.exports = { QUEUE_SUFFIX_STATE, QUEUE_SIDECAR_SUFFIXES, queueStateOf, isQueueSidecar, readQaStage, sliceIdOfSubject, routeDevSuiteRun, startDevSuiteRouting, withDevSuiteFixRequest, readDevSuiteState, DEV_SUITE_STATE, getPinnedClassification, getTestChanges, getTestsNeeded, mergeLockRefusal, buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, buildStagesById, stagesForSlice, STALE_DONE_DAYS, deriveHistoryOutcome, deriveReviewStatus, authoringStateFor, draftDetailFor, lineDiff, liveGuardsForTag, kickOffAuthoring, recordAuthoringDispatch, applyPlanFor, applyDraftFor, createRevertCommit, resolveSquashSha, mapPromotePhases, parseGateFailures, isFreshPromoteCompletion, isReconciling, _promoteTtlMs };
