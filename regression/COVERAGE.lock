@@ -4206,6 +4206,23 @@
         "guardAcHash": "sha256:f1e26b876693915563ef11eae52ad25bea26d31e5a9e3851a9ff45c2500134dc"
       }
     ],
+    "regression/recovery/j-dashboard-service.test.js": [
+      {
+        "tag": "slice-403-ac-1",
+        "file": "regression/recovery/j-dashboard-service.test.js",
+        "guardAcHash": "sha256:14eaed2d27774f8e1551202271fa55d450aad983560260c9770e336df9b8904d"
+      },
+      {
+        "tag": "slice-403-ac-2",
+        "file": "regression/recovery/j-dashboard-service.test.js",
+        "guardAcHash": "sha256:b39cc1dfb209a9e1af871cf30f954cdc489850eda5c1030b198bbb7dc54fac50"
+      },
+      {
+        "tag": "slice-403-ac-3",
+        "file": "regression/recovery/j-dashboard-service.test.js",
+        "guardAcHash": "sha256:fc7ad4085f455cc8d1db2600366342f4eea631e2ef80f0b3e0e38e4e8999020f"
+      }
+    ],
     "regression/review-verdict/j-unreadable-verdict-retry-cap.test.js": [
       {
         "tag": "slice-372-ac-5",
