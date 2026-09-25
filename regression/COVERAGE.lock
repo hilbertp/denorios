@@ -4220,6 +4220,43 @@
         "guardAcHash": "sha256:587a2d199ffb987a33d15cbbdf3b7444fa975d64b6c0c11eb85adc5b2498cb1c"
       }
     ],
+    "regression/gate-merge/j-qa-leftovers-quarantined.test.js": [
+      {
+        "tag": "slice-407-ac-1",
+        "file": "regression/gate-merge/j-qa-leftovers-quarantined.test.js",
+        "guardAcHash": "sha256:06f81c8d71bfd14c395eecd2e16ab7343098b37687d4f7f72dc1d8652b3eeb13"
+      },
+      {
+        "tag": "slice-407-ac-2",
+        "file": "regression/gate-merge/j-qa-leftovers-quarantined.test.js",
+        "guardAcHash": "sha256:ee0f4dea83e0367ce1ec39f09352ca19909dc8bfb613d03fd26ce1367e6a605f"
+      },
+      {
+        "tag": "slice-407-ac-3",
+        "file": "regression/gate-merge/j-qa-leftovers-quarantined.test.js",
+        "guardAcHash": "sha256:a3e60dc78e9f1b8555fb7c085d6055160284f391fef58a667dc4889ee2776931"
+      },
+      {
+        "tag": "slice-407-ac-4",
+        "file": "regression/gate-merge/j-qa-leftovers-quarantined.test.js",
+        "guardAcHash": "sha256:4abbab64c7bc1c510c314f2ef4920bb9f54a9faade9b1c2d9c8ae9a2879fed95"
+      },
+      {
+        "tag": "slice-407-ac-5",
+        "file": "regression/gate-merge/j-qa-leftovers-quarantined.test.js",
+        "guardAcHash": "sha256:3764d6b11a8c14fcb3656d134483a12068dec58d492f93d0bcc142a60a0d44e6"
+      },
+      {
+        "tag": "slice-407-ac-6",
+        "file": "regression/gate-merge/j-qa-leftovers-quarantined.test.js",
+        "guardAcHash": "sha256:0fe8b53c8a77986636bbe0d5405e4fcb31908da41e4de373216e6b39b672028b"
+      },
+      {
+        "tag": "slice-407-ac-7",
+        "file": "regression/gate-merge/j-qa-leftovers-quarantined.test.js",
+        "guardAcHash": "sha256:ab20a53726a5b6a7ab9de9dea36962c299f85d57b0d8a282b5e1b677e03d5cd7"
+      }
+    ],
     "regression/gate-merge/j-s-numbering-legacy-resolve.test.js": [
       {
         "tag": "slice-350-ac-4",

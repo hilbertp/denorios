@@ -8324,6 +8324,12 @@ const QA_STAGE_TIMEOUT_MS = parseInt(process.env.DS9_QA_STAGE_TIMEOUT_S || '3600
 const QA_STAGE_HEARTBEAT_POLL_MS = BASHIR_HEARTBEAT_POLL_MS;
 const QA_STAGE_HEARTBEAT_STALE_MS = BASHIR_HEARTBEAT_STALE_MS;
 
+// How long the stage waits for Julian to actually be gone before it clears up after him.
+// SIGTERM is where the stage ends, not where his process does: he may still be mid-write,
+// and a file he creates in that window is exactly the one that blocks the next landing. So
+// the sweep runs on his exit, or after this grace if the exit never comes.
+const QA_LEFTOVER_GRACE_MS = 10 * 1000;
+
 /** Where one stage's run is recorded. Start, end and outcome — the measurement ac-19 wants. */
 function qaStageResultPath(id, opts) {
   const dir = (opts && opts.stateDir) || path.resolve(__dirname, 'state');
@@ -8363,6 +8369,117 @@ function setQaStageInBranchState(entry) {
 }
 
 /**
+ * dirtyLockDeriverInputs(cwd) → [{ rel, untracked }]
+ *
+ * Every uncommitted lock-deriver input in a working tree, the way the landing's own guard
+ * reads them (regenerateLocksAtLanding step 1): `-uall` because plain porcelain collapses
+ * an untracked DIRECTORY to one `?? dir/` line, `porcelainPaths` because a rename names
+ * two paths, `isLockDeriverInput` because runtime JSON under regression/ is not an input.
+ *
+ * `untracked` comes off the XY code: `??` is a file git has never seen, and it is the
+ * difference between "delete it" and "put the committed content back" below. The raw
+ * output is NOT trimmed — trimming eats the lead space off the first line and would read
+ * ' M x' as an untracked file.
+ */
+function dirtyLockDeriverInputs(cwd) {
+  const raw = execSync('git status --porcelain -uall', { cwd, encoding: 'utf-8' });
+  const found = [];
+  for (const line of raw.split('\n')) {
+    if (!line.trim()) continue;
+    const untracked = line.trim().startsWith('??');
+    for (const rel of porcelainPaths(line)) {
+      if (!isLockDeriverInput(rel)) continue;
+      if (found.some(f => f.rel === rel)) continue;
+      found.push({ rel, untracked });
+    }
+  }
+  return found;
+}
+
+/**
+ * quarantineQaLeftovers(id, startSet, opts) → { paths, dir }
+ *
+ * Julian runs in the live working tree, and three stages out of three since the 09-24
+ * restart ended stage_error with an untracked e2e/*.spec.js still sitting in it. The
+ * landing that came next refused — rightly: the lock derivers read the tree, so a stray
+ * test file would be written into a lock that is supposed to describe the committed suite.
+ * The guard stays; what was missing is anyone clearing up after the stage. Julian must
+ * never hold up a landing.
+ *
+ * So when the stage ends, whatever lock-deriver input Julian left uncommitted is MOVED to
+ * bridge/quarantine/qa-<id>/<path> — kept, never deleted, because it may be most of a
+ * browser test somebody wants — and the tree is left as the commit has it.
+ *
+ * `startSet` is the list of paths that were already uncommitted when the stage STARTED.
+ * The tree is shared (a person's edit, Sam's autocommit before a checkout), so only what
+ * was not already dirty is Julian's; a path in startSet is left exactly where it is,
+ * whether or not it changed during the stage. Moving one would delete somebody's work.
+ *
+ * No leftovers means no event: an ordinary stage leaves the register alone.
+ */
+function quarantineQaLeftovers(id, startSet, opts) {
+  opts = opts || {};
+  id = String(id);
+  const cwd = opts.repoRoot || PROJECT_DIR;
+  const relDir = path.join('bridge', 'quarantine', `qa-${id}`);
+  const quarantineDir = opts.quarantineDir || path.join(cwd, relDir);
+  const already = new Set(startSet || []);
+
+  let dirty;
+  try {
+    dirty = dirtyLockDeriverInputs(cwd);
+  } catch (err) {
+    // The sweep is a courtesy to the next landing, never a reason to fail a stage.
+    log('warn', 'qa_stage', { id, msg: 'Could not read the working tree for stage leftovers', error: err.message });
+    return { paths: [], dir: relDir };
+  }
+
+  const moved = [];
+  for (const { rel, untracked } of dirty) {
+    if (already.has(rel)) continue;
+    const from = path.join(cwd, rel);
+    // The OLD half of a rename names a path that is no longer on disk; the new half is
+    // the one carrying the content.
+    if (!fs.existsSync(from)) continue;
+    const to = path.join(quarantineDir, rel);
+    try {
+      fs.mkdirSync(path.dirname(to), { recursive: true });
+      // Copy first, then clear: if the clearing step fails the file is still both places
+      // and the next landing says so, rather than the content being gone.
+      fs.copyFileSync(from, to);
+      if (untracked) {
+        fs.rmSync(from);
+        // A file git has never seen may still have been `git add`ed by a session that
+        // then died. --ignore-unmatch makes this a no-op for the ordinary case and stops
+        // a staged phantom deletion reaching the landing's index.
+        try { execSync(`git rm --cached --quiet --ignore-unmatch -- ${shQuote(rel)}`, { cwd, stdio: 'pipe' }); } catch (_) {}
+      } else {
+        // Tracked: the committed content goes back in the tree (index and worktree both,
+        // so the path reads clean), and Julian's version lives on in the quarantine.
+        execSync(`git checkout HEAD -- ${shQuote(rel)}`, { cwd, stdio: 'pipe' });
+      }
+      moved.push(rel);
+    } catch (err) {
+      log('warn', 'qa_stage', { id, msg: 'Could not quarantine a stage leftover', path: rel, error: err.message });
+    }
+  }
+
+  if (moved.length) {
+    // `reason` says WHEN this pass ran — at the end of the stage, on Julian's exit, or after
+    // the grace ran out. Which pass caught a file is how you tell a stage that left litter
+    // from one that was still writing after it was told to stop.
+    registerEvent(id, 'QA_LEFTOVERS_QUARANTINED', {
+      slice_id: id, paths: moved, dir: relDir, reason: opts.reason || null,
+    });
+    log('warn', 'qa_stage', {
+      id, msg: `Moved ${moved.length} file(s) Julian left behind into ${relDir}`, paths: moved,
+      reason: opts.reason || null,
+    });
+  }
+  return { paths: moved, dir: relDir };
+}
+
+/**
  * startQaStage(id, opts) → { started, reason, inQaPath? }
  *
  * opts: { branchName, title, sha, queueDir, trashDir, stateDir, spawn }
@@ -8370,6 +8487,9 @@ function setQaStageInBranchState(entry) {
  * `opts.spawn(prompt, ctx)` is the seam that puts Julian on the end of this. It returns a
  * child (or null for "nothing spawned"); the default spawns `claude -p`. A stage with no
  * child still holds the mutex and still shows in Ops — finishQaStage is what ends it.
+ *
+ * `opts.leftoverGraceMs` is the other seam: how long the end of the stage waits for
+ * Julian's process to be gone before it clears up after him (QA_LEFTOVER_GRACE_MS).
  */
 function startQaStage(id, opts) {
   opts = opts || {};
@@ -8390,6 +8510,18 @@ function startQaStage(id, opts) {
   if (!mutex.ok) {
     log('warn', 'qa_stage', { id, msg: 'Stage not started — gate mutex already held', reason: mutex.reason });
     return { started: false, reason: 'mutex_held' };
+  }
+
+  // 1b. What is ALREADY dirty in the tree Julian is about to work in. The tree is shared,
+  //     so this is the line between his leftovers and somebody else's uncommitted work:
+  //     the sweep at the end of the stage moves only what is not in here. A read that
+  //     FAILS leaves this null and disables the sweep entirely — an empty baseline would
+  //     read a person's unfinished test as Julian's litter and move it.
+  let leftoverBaseline = null;
+  try {
+    leftoverBaseline = dirtyLockDeriverInputs(opts.repoRoot || PROJECT_DIR).map(f => f.rel);
+  } catch (err) {
+    log('warn', 'qa_stage', { id, msg: 'Could not record what was already dirty — leftover sweep disabled for this stage', error: err.message });
   }
 
   // 2. The packet, assembled while the brief and the verdict are still where they are.
@@ -8481,30 +8613,77 @@ function startQaStage(id, opts) {
     settled = true;
     clearInterval(heartbeatPoll);
     clearTimeout(absoluteTimeout);
+    // Clear up NOW, before the stage is recorded — finishQaStage ends by draining the
+    // slices that deferred behind this stage, and that drain squashes them in this same
+    // tick. A landing that runs before the clear-up is the landing this slice exists to
+    // stop failing. Then arm the second pass for whatever he writes on his way out.
+    sweepLeftovers('stage_ended');
+    armFinalSweep();
     finishQaStage(id, outcome, Object.assign({}, opts, { detail }));
   };
 
-  try { writeJsonAtomic(BASHIR_HEARTBEAT_PATH, { ts: new Date().toISOString() }); } catch (_) {}
+  // The clear-up. Two passes, because SIGTERM is where the stage ends and not where Julian
+  // does: one the moment the stage ends, so the next landing sees a clean tree, and one when
+  // he is actually gone, for the file he wrote while dying. Both are no-ops when there is
+  // nothing of his to move, and both refuse to run at all unless the baseline above could be
+  // read — a sweep without a baseline is a guess about whose work it is moving.
+  const graceMs = typeof opts.leftoverGraceMs === 'number' ? opts.leftoverGraceMs : QA_LEFTOVER_GRACE_MS;
+  let finalSwept = false;
+  let sweepTimer = null;
+  const sweepLeftovers = (reason) => {
+    if (!Array.isArray(leftoverBaseline)) return;
+    try {
+      quarantineQaLeftovers(id, leftoverBaseline, { repoRoot: opts.repoRoot || PROJECT_DIR, reason });
+    } catch (err) {
+      log('warn', 'qa_stage', { id, msg: 'Leftover sweep threw (non-fatal)', error: err.message, reason });
+    }
+  };
+  const finalSweep = (reason) => {
+    if (finalSwept) return;
+    finalSwept = true;
+    if (sweepTimer) clearTimeout(sweepTimer);
+    sweepLeftovers(reason);
+  };
+  const armFinalSweep = () => {
+    if (finalSwept || sweepTimer) return;
+    sweepTimer = setTimeout(() => finalSweep('grace_expired'), graceMs);
+    // A stage ending must not hold the process open for the grace on its own account.
+    if (typeof sweepTimer.unref === 'function') sweepTimer.unref();
+  };
+
+  // The heartbeat file and the two liveness clocks are seams for the same reason the mutex
+  // is: bridge/state/bashir-heartbeat.json is TRACKED live state whose mtime says whether a
+  // real Julian is alive, and a test that drove this stage against it would both dirty the
+  // tree and make a dead session look alive. Defaults are the live constants.
+  const heartbeatPath = opts.heartbeatPath || BASHIR_HEARTBEAT_PATH;
+  const staleMs = typeof opts.heartbeatStaleMs === 'number' ? opts.heartbeatStaleMs : QA_STAGE_HEARTBEAT_STALE_MS;
+  const pollMs = typeof opts.heartbeatPollMs === 'number' ? opts.heartbeatPollMs : QA_STAGE_HEARTBEAT_POLL_MS;
+  const capMs = typeof opts.timeoutMs === 'number' ? opts.timeoutMs : QA_STAGE_TIMEOUT_MS;
+
+  try { writeJsonAtomic(heartbeatPath, { ts: new Date().toISOString() }); } catch (_) {}
 
   const heartbeatPoll = setInterval(() => {
     try {
-      const age = Date.now() - fs.statSync(BASHIR_HEARTBEAT_PATH).mtimeMs;
-      if (age > QA_STAGE_HEARTBEAT_STALE_MS) {
+      const age = Date.now() - fs.statSync(heartbeatPath).mtimeMs;
+      if (age > staleMs) {
         log('warn', 'qa_stage', { id, msg: 'Julian heartbeat stale', age_ms: age });
         try { child.kill('SIGTERM'); } catch (_) {}
         settle('stage_error', 'heartbeat_stale');
       }
     } catch (_) { /* not written yet — the absolute cap is the backstop */ }
-  }, QA_STAGE_HEARTBEAT_POLL_MS);
+  }, pollMs);
 
   const absoluteTimeout = setTimeout(() => {
-    log('warn', 'qa_stage', { id, msg: 'Julian stage absolute timeout', timeout_ms: QA_STAGE_TIMEOUT_MS });
+    log('warn', 'qa_stage', { id, msg: 'Julian stage absolute timeout', timeout_ms: capMs });
     try { child.kill('SIGTERM'); } catch (_) {}
     settle('stage_error', 'timeout');
-  }, QA_STAGE_TIMEOUT_MS);
+  }, capMs);
 
   child.on('exit', (code) => {
     settle(code === 0 ? 'recorded' : 'stage_error', code === 0 ? null : `exit_${code}`);
+    // He is gone, whether this exit ended the stage or followed the SIGTERM that did.
+    // Nothing of his can appear after this, so clear up now instead of waiting the grace.
+    finalSweep('julian_exited');
   });
   child.on('error', (err) => settle('stage_error', `spawn_error: ${err.message}`));
 
@@ -9951,4 +10130,4 @@ function mergeDevToMain() {
 // Exports — for use by helper scripts (e.g. bridge/next-id.js)
 // ---------------------------------------------------------------------------
 
-module.exports = { invokeRom, invokeNog, resolveLane, laneEventFields, applyLaneArgs, romSpawnArgs, registerCommissioned, sessionTelemetry, reviewTelemetry, recordBuildTiming, fillDoneMetrics, validateDoneMetrics, extractRomTelemetry, buildDoneTemplate, buildHashLines, regenerateLocksAtLanding, newestDoneEvent, isLockDeriverInput, LOCK_FILES, checkDispatchProvenance, parkUnprovenancedSlice, hasPreCutoverHistory, fileIsPreCutover, provenanceRootId, parseFrontmatter, readNogVerdict, NOG_VERDICTS, handleNogReturn, startGate, abortGate, buildBashirPrompt, startQaStage, finishQaStage, startQaStageOrArchive, recoverOrphanedQaStages, qaStageSourceDoc, qaStageResultPath, setQaStageInBranchState, QA_STAGE_TIMEOUT_MS, qaStage, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, classifyHonestNonProduct, doneSummarySection, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, recordArchivedQueueRename, validateIntakeMeta, ensureIntegrationIsFresh, ensureMainIsFresh: ensureIntegrationIsFresh, fastForwardIntegrationRef, branchNamesFrom, INTEGRATION_BRANCH, TRUNK_BRANCH, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, provisionWorkspaceDeps, releaseDispatch, _testSetHeartbeatFile: (p) => { HEARTBEAT_FILE = p; }, _testGetDispatchState: () => ({ processing, heartbeat: { ...heartbeatState } }), _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted, hasTerminalLandedEvent, crashRecovery, trashEntryRecordsStaging, STAGING_TRASH_SUFFIXES, countUnreadableVerdicts, unreadableBackoffMs, retryBackoffElapsed, MAX_UNREADABLE_ATTEMPTS, UNREADABLE_BACKOFF_MS, porcelainPaths, isVolatileRuntimePath, isPipelineOwnedPath, recoverRuntimeStateAfterGit, stageablePathsFrom, autoCommitDirtyTree, shQuote, stageQueueArchiveForLanding, revertQueueArchiveStaging, hasArchivedEvent, pipelineCommitSubject: gitFinalizer.pipelineCommitSubject, refillLandedDoneReport, _testResetRefusalEmitted: () => { _refusalEmitted.clear(); }, _testGetRefusalEmitted: () => _refusalEmitted };
+module.exports = { invokeRom, invokeNog, resolveLane, laneEventFields, applyLaneArgs, romSpawnArgs, registerCommissioned, sessionTelemetry, reviewTelemetry, recordBuildTiming, fillDoneMetrics, validateDoneMetrics, extractRomTelemetry, buildDoneTemplate, buildHashLines, regenerateLocksAtLanding, newestDoneEvent, isLockDeriverInput, LOCK_FILES, checkDispatchProvenance, parkUnprovenancedSlice, hasPreCutoverHistory, fileIsPreCutover, provenanceRootId, parseFrontmatter, readNogVerdict, NOG_VERDICTS, handleNogReturn, startGate, abortGate, buildBashirPrompt, startQaStage, finishQaStage, startQaStageOrArchive, quarantineQaLeftovers, dirtyLockDeriverInputs, QA_LEFTOVER_GRACE_MS, recoverOrphanedQaStages, qaStageSourceDoc, qaStageResultPath, setQaStageInBranchState, QA_STAGE_TIMEOUT_MS, qaStage, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, classifyHonestNonProduct, doneSummarySection, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, recordArchivedQueueRename, validateIntakeMeta, ensureIntegrationIsFresh, ensureMainIsFresh: ensureIntegrationIsFresh, fastForwardIntegrationRef, branchNamesFrom, INTEGRATION_BRANCH, TRUNK_BRANCH, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, provisionWorkspaceDeps, releaseDispatch, _testSetHeartbeatFile: (p) => { HEARTBEAT_FILE = p; }, _testGetDispatchState: () => ({ processing, heartbeat: { ...heartbeatState } }), _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted, hasTerminalLandedEvent, crashRecovery, trashEntryRecordsStaging, STAGING_TRASH_SUFFIXES, countUnreadableVerdicts, unreadableBackoffMs, retryBackoffElapsed, MAX_UNREADABLE_ATTEMPTS, UNREADABLE_BACKOFF_MS, porcelainPaths, isVolatileRuntimePath, isPipelineOwnedPath, recoverRuntimeStateAfterGit, stageablePathsFrom, autoCommitDirtyTree, shQuote, stageQueueArchiveForLanding, revertQueueArchiveStaging, hasArchivedEvent, pipelineCommitSubject: gitFinalizer.pipelineCommitSubject, refillLandedDoneReport, _testResetRefusalEmitted: () => { _refusalEmitted.clear(); }, _testGetRefusalEmitted: () => _refusalEmitted };
