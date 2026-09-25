@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 851,
+  "guardCount": 869,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -729,6 +729,51 @@
         "tag": "slice-404-ac-2",
         "file": "regression/review-verdict/j-verdict-read-fallback.test.js",
         "guardAcHash": "sha256:aa68d7bd69d8475763120bed359b85ebc3aabe0d56aa9eec46870ba16b3d5f0f"
+      },
+      {
+        "tag": "slice-405-ac-1",
+        "file": "regression/dispatch-execution/j-commit-kind.test.js",
+        "guardAcHash": "sha256:9f3e6f95dd05adc203ceb793d0d9be3f9b014ea99905a98733dbeab4417a40ee"
+      },
+      {
+        "tag": "slice-405-ac-2",
+        "file": "regression/dispatch-execution/j-commit-kind.test.js",
+        "guardAcHash": "sha256:b1dcb2c595b4e52e78f1429ed45190f8fc09acb207674f70c3a69dc2c0cc1958"
+      },
+      {
+        "tag": "slice-405-ac-3",
+        "file": "regression/dispatch-execution/j-commit-kind.test.js",
+        "guardAcHash": "sha256:d912e76ad3392ae4a92fb0100409e5fe3fe47e4a1ed45480da6c8af02c3d82a9"
+      },
+      {
+        "tag": "slice-405-ac-4",
+        "file": "regression/dispatch-execution/j-commit-kind.test.js",
+        "guardAcHash": "sha256:598a689a09200b976c9a643e7dee3359ff1869559b597cdebdda25b6516c606d"
+      },
+      {
+        "tag": "slice-405-ac-5",
+        "file": "regression/dispatch-execution/j-commit-kind.test.js",
+        "guardAcHash": "sha256:7647cdd3f9f8ca3da0a4a4f0e27915aa211ad14e48800c63140aaa4082f39e7e"
+      },
+      {
+        "tag": "slice-405-ac-6",
+        "file": "regression/dispatch-execution/j-commit-kind.test.js",
+        "guardAcHash": "sha256:518aa3dfc06b69833c838a0a588c112061ecba576538922122bcfc3119979414"
+      },
+      {
+        "tag": "slice-405-ac-7",
+        "file": "regression/dispatch-execution/j-commit-kind.test.js",
+        "guardAcHash": "sha256:790377f6b77757ac12f7a43077e0a232fdb5ac627c49c53502574f466522c120"
+      },
+      {
+        "tag": "slice-405-ac-8",
+        "file": "regression/dispatch-execution/j-commit-kind.test.js",
+        "guardAcHash": "sha256:b5a52540d882a06d335049427d297fd0060f83a4da75562ce874ffa888e2b6d7"
+      },
+      {
+        "tag": "slice-405-ac-9",
+        "file": "regression/dispatch-execution/j-commit-kind.test.js",
+        "guardAcHash": "sha256:73edf0716baae4287256f2312347455d8d1838332744c320cb693fe02f431db3"
       },
       {
         "tag": "slice-99777-ac-1",
@@ -2108,6 +2153,51 @@
         "tag": "slice-402-ac-7",
         "file": "regression/observability/j-history-cost-includes-jordan.test.js",
         "guardAcHash": "sha256:6335e3ba0ec2ae55b1eeb482870ba08e7ef2dc13b68607b71ef92d19ff8a2b68"
+      },
+      {
+        "tag": "slice-405-ac-1",
+        "file": "regression/dispatch-execution/j-commit-kind.test.js",
+        "guardAcHash": "sha256:9f3e6f95dd05adc203ceb793d0d9be3f9b014ea99905a98733dbeab4417a40ee"
+      },
+      {
+        "tag": "slice-405-ac-2",
+        "file": "regression/dispatch-execution/j-commit-kind.test.js",
+        "guardAcHash": "sha256:b1dcb2c595b4e52e78f1429ed45190f8fc09acb207674f70c3a69dc2c0cc1958"
+      },
+      {
+        "tag": "slice-405-ac-3",
+        "file": "regression/dispatch-execution/j-commit-kind.test.js",
+        "guardAcHash": "sha256:d912e76ad3392ae4a92fb0100409e5fe3fe47e4a1ed45480da6c8af02c3d82a9"
+      },
+      {
+        "tag": "slice-405-ac-4",
+        "file": "regression/dispatch-execution/j-commit-kind.test.js",
+        "guardAcHash": "sha256:598a689a09200b976c9a643e7dee3359ff1869559b597cdebdda25b6516c606d"
+      },
+      {
+        "tag": "slice-405-ac-5",
+        "file": "regression/dispatch-execution/j-commit-kind.test.js",
+        "guardAcHash": "sha256:7647cdd3f9f8ca3da0a4a4f0e27915aa211ad14e48800c63140aaa4082f39e7e"
+      },
+      {
+        "tag": "slice-405-ac-6",
+        "file": "regression/dispatch-execution/j-commit-kind.test.js",
+        "guardAcHash": "sha256:518aa3dfc06b69833c838a0a588c112061ecba576538922122bcfc3119979414"
+      },
+      {
+        "tag": "slice-405-ac-7",
+        "file": "regression/dispatch-execution/j-commit-kind.test.js",
+        "guardAcHash": "sha256:790377f6b77757ac12f7a43077e0a232fdb5ac627c49c53502574f466522c120"
+      },
+      {
+        "tag": "slice-405-ac-8",
+        "file": "regression/dispatch-execution/j-commit-kind.test.js",
+        "guardAcHash": "sha256:b5a52540d882a06d335049427d297fd0060f83a4da75562ce874ffa888e2b6d7"
+      },
+      {
+        "tag": "slice-405-ac-9",
+        "file": "regression/dispatch-execution/j-commit-kind.test.js",
+        "guardAcHash": "sha256:73edf0716baae4287256f2312347455d8d1838332744c320cb693fe02f431db3"
       },
       {
         "tag": "slice-901-ac-1",
@@ -3597,6 +3687,53 @@
         "tag": "slice-381-ac-5",
         "file": "regression/dispatch-execution/j-archive-rename-recorded.test.js",
         "guardAcHash": "sha256:042403c9c5d6477b98df8e42269b27fd58ed7d312fb4de3f144167ff46067951"
+      }
+    ],
+    "regression/dispatch-execution/j-commit-kind.test.js": [
+      {
+        "tag": "slice-405-ac-1",
+        "file": "regression/dispatch-execution/j-commit-kind.test.js",
+        "guardAcHash": "sha256:9f3e6f95dd05adc203ceb793d0d9be3f9b014ea99905a98733dbeab4417a40ee"
+      },
+      {
+        "tag": "slice-405-ac-2",
+        "file": "regression/dispatch-execution/j-commit-kind.test.js",
+        "guardAcHash": "sha256:b1dcb2c595b4e52e78f1429ed45190f8fc09acb207674f70c3a69dc2c0cc1958"
+      },
+      {
+        "tag": "slice-405-ac-3",
+        "file": "regression/dispatch-execution/j-commit-kind.test.js",
+        "guardAcHash": "sha256:d912e76ad3392ae4a92fb0100409e5fe3fe47e4a1ed45480da6c8af02c3d82a9"
+      },
+      {
+        "tag": "slice-405-ac-4",
+        "file": "regression/dispatch-execution/j-commit-kind.test.js",
+        "guardAcHash": "sha256:598a689a09200b976c9a643e7dee3359ff1869559b597cdebdda25b6516c606d"
+      },
+      {
+        "tag": "slice-405-ac-5",
+        "file": "regression/dispatch-execution/j-commit-kind.test.js",
+        "guardAcHash": "sha256:7647cdd3f9f8ca3da0a4a4f0e27915aa211ad14e48800c63140aaa4082f39e7e"
+      },
+      {
+        "tag": "slice-405-ac-6",
+        "file": "regression/dispatch-execution/j-commit-kind.test.js",
+        "guardAcHash": "sha256:518aa3dfc06b69833c838a0a588c112061ecba576538922122bcfc3119979414"
+      },
+      {
+        "tag": "slice-405-ac-7",
+        "file": "regression/dispatch-execution/j-commit-kind.test.js",
+        "guardAcHash": "sha256:790377f6b77757ac12f7a43077e0a232fdb5ac627c49c53502574f466522c120"
+      },
+      {
+        "tag": "slice-405-ac-8",
+        "file": "regression/dispatch-execution/j-commit-kind.test.js",
+        "guardAcHash": "sha256:b5a52540d882a06d335049427d297fd0060f83a4da75562ce874ffa888e2b6d7"
+      },
+      {
+        "tag": "slice-405-ac-9",
+        "file": "regression/dispatch-execution/j-commit-kind.test.js",
+        "guardAcHash": "sha256:73edf0716baae4287256f2312347455d8d1838332744c320cb693fe02f431db3"
       }
     ],
     "regression/dispatch-execution/j-daemon-survives-recovery.test.js": [

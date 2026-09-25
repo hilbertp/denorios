@@ -1510,10 +1510,15 @@ function autoCommitDirtyTree(reason, sliceId) {
       `autocommit before checkout, ${stagePaths.length} source file(s) a person left uncommitted (${reason}, on ${branch})`);
     log('warn', 'git_safety', { msg, files: stagePaths.join(', ') });
 
+    // Kind: P — pipeline bookkeeping, not a slice landing (405). It rides the TRAILER
+    // block, never the subject, so `S<id>: ` reads exactly as before; the log above
+    // keeps the bare subject and only git gets the trailer.
+    const commitBody = `${msg}\n\nKind: P\n`;
+
     // `git add -u` still stages tracked modifications only — now against the named
     // paths, so the message and the commit agree and nothing volatile can slip in.
     gitFinalizer.runGit(`git add -u -- ${stagePaths.map(shQuote).join(' ')}`, { slice_id: '0', op: 'autoCommit_add', execOpts: { stdio: 'pipe' } });
-    gitFinalizer.runGit(`git commit -m "${msg.replace(/"/g, '\\"')}"`, { slice_id: '0', op: 'autoCommit_commit', execOpts: { stdio: 'pipe' } });
+    gitFinalizer.runGit(`git commit -m "${commitBody.replace(/"/g, '\\"')}"`, { slice_id: '0', op: 'autoCommit_commit', execOpts: { stdio: 'pipe' } });
     log('info', 'git_safety', { msg: `Auto-committed ${stagePaths.length} files to ${branch}` });
     return true;
   } catch (err) {
@@ -4724,7 +4729,10 @@ function recordArchivedQueueRename(id, opts) {
   const from = departed.length ? departed.map(rel => path.basename(rel)).join(', ') : '(nothing tracked)';
   // S<id>: — every commit the pipeline writes says which slice it belongs to, so the
   // topology can label it; a nameless commit on dev now means a person made it (395).
+  // `Kind: P` then says which KIND it is (405): bookkeeping, not a slice landing. It goes
+  // in the trailer block, so the subject the topology reads stays the one line it was.
   const msg = gitFinalizer.pipelineCommitSubject(id, `archive ${from} -> ${id}-ARCHIVED.md`);
+  const commitBody = `${msg}\n\nKind: P\n`;
 
   try {
     // -f because the queue is ignored and the new name would be invisible without
@@ -4734,7 +4742,7 @@ function recordArchivedQueueRename(id, opts) {
     });
     // Per-COMMAND, never process-wide: this commits in the MAIN working tree,
     // where the Layer-1 pre-commit hook only lets the watcher merge path through.
-    git(`git commit --only -m ${shQuote(msg)} -- ${quoted}`, {
+    git(`git commit --only -m ${shQuote(commitBody)} -- ${quoted}`, {
       slice_id: String(id), op: 'archiveRename_commit', cwd: repoRoot,
       execOpts: { stdio: 'pipe', env: Object.assign({}, process.env, { DS9_WATCHER_MERGE: '1' }) },
     });
@@ -9492,7 +9500,12 @@ function squashSliceToDev(sliceId, sliceTitle, sliceBranch, lane = 'core') {
   // One helper spells the S<id> prefix for every commit the pipeline writes (slice
   // 395); for the squash it produces exactly the `S<id>: <title>` subject that
   // j-s-numbering-squash-subject has pinned since slice 350.
-  const commitMsg = `${gitFinalizer.pipelineCommitSubject(sliceId, sliceTitle)}\n\nSlice-Id: ${sliceId}\nSlice-Branch: ${sliceBranch}\nLane: ${resolvedLane}\n${acTrailers}${moveTrailers}`;
+  // `Kind: S` says this node on dev is a slice LANDING (405), told apart from the
+  // pipeline's own bookkeeping (`Kind: P`) and from a person's commit (no trailer, read
+  // as H). It is deliberately NOT in the harvest above: the kind describes the commit
+  // being written here, so a branch commit's own `Kind: P` must stay on the branch —
+  // carrying it up would give the landing two Kind trailers and let the first one win.
+  const commitMsg = `${gitFinalizer.pipelineCommitSubject(sliceId, sliceTitle)}\n\nKind: S\nSlice-Id: ${sliceId}\nSlice-Branch: ${sliceBranch}\nLane: ${resolvedLane}\n${acTrailers}${moveTrailers}`;
   const commitMsgFile = path.join(PROJECT_DIR, '.squash-commit-msg');
   try {
     fs.writeFileSync(commitMsgFile, commitMsg);

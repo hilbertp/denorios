@@ -328,6 +328,75 @@ function sliceIdOfSubject(subject) {
   return m ? m[1] : null;
 }
 
+// ── One rule for "what KIND of commit is this?" (slice 405) ──────────────────
+// S = a slice landing, P = the pipeline's own bookkeeping, H = made by hand. The
+// pipeline declares its own kind in a `Kind:` trailer; everything older, and every
+// commit a person writes, is read from the subject instead and marked inferred.
+const COMMIT_KINDS = new Set(['S', 'P', 'H']);
+
+// The two control bytes `git log --format` is asked to emit between the fields and
+// records of the dev-ribbon read below. A trailer block is newline-separated text, so
+// newline cannot delimit a record that contains one.
+const GIT_LOG_RS = '\x1e';
+const GIT_LOG_FS = '\x1f';
+
+/**
+ * commitKindOfTrailers(values) → 'S' | 'P' | 'H' | null
+ *
+ * The declared kind, from the `Kind:` trailer values git handed us (in message
+ * order), or null when the commit declares none we understand.
+ *
+ * Deliberately tolerant about case (`kind: p` is a declaration too) and
+ * deliberately strict about vocabulary: a letter outside S/P/H — `Kind: T`, the T
+ * for Julian's test landings that ADR-JULIAN-ALONGSIDE has not accepted yet — is
+ * NOT a kind, so it is skipped rather than shown as an unknown badge. The FIRST
+ * value we understand wins, so a later correction cannot quietly override an
+ * earlier declaration.
+ */
+function commitKindOfTrailers(values) {
+  for (const raw of (Array.isArray(values) ? values : [])) {
+    const v = String(raw == null ? '' : raw).trim().toUpperCase();
+    if (COMMIT_KINDS.has(v)) return v;
+  }
+  return null;
+}
+
+/**
+ * commitKindOfSubject(subject) → 'S' | 'P' | 'H'
+ *
+ * The kind inferred from the subject alone, for a commit with no trailer to read:
+ * everything on dev before slice 405, and everything a person writes.
+ *
+ * Case-SENSITIVE on purpose, unlike sliceIdOfSubject. `S402: ...` is the prefix the
+ * pipeline writes and nothing else does; `s402: fix by hand` is a person typing in a
+ * hurry, and calling that a pipeline landing would be the panel inventing provenance.
+ * The two bookkeeping subjects the pipeline has ever written — `archive ` and
+ * `autocommit ` — are the P cases; any other labelled subject is a landing.
+ */
+function commitKindOfSubject(subject) {
+  const s = String(subject == null ? '' : subject);
+  const m = s.match(/^S\d+: /);
+  if (!m) return 'H';
+  const rest = s.slice(m[0].length);
+  if (rest.startsWith('archive ') || rest.startsWith('autocommit ')) return 'P';
+  return 'S';
+}
+
+/**
+ * commitKindEntry(subject, kindTrailers) → { kind, slice_id, label, inferred }
+ *
+ * What one commit on dev says about itself. `label` is the letter followed by the
+ * slice it belongs to (`S402`, `P404`) or the bare letter when it belongs to none
+ * (`H`) — the string the graph node carries. `inferred` is false only when the kind
+ * was READ from a trailer, so the screen can tell a declaration from a guess.
+ */
+function commitKindEntry(subject, kindTrailers) {
+  const declared = commitKindOfTrailers(kindTrailers);
+  const kind = declared || commitKindOfSubject(subject);
+  const sliceId = sliceIdOfSubject(subject);
+  return { kind, slice_id: sliceId, label: `${kind}${sliceId || ''}`, inferred: !declared };
+}
+
 // ── Promote completion → cache invalidation (slice 362) ─────────────────────
 // A promote COMPLETING is an event, but until slice 362 nothing observed it:
 // _bustGitHubCache() fired only on dispatch, minutes earlier. So when main
@@ -473,19 +542,37 @@ function _getGitTips() {
     // unmerged commit onto stacked rows, so we send all of them (up to a sane
     // safety cap). If dev ever runs past the cap the renderer's dashed lead-in
     // marks the truncation honestly rather than silently showing a partial count.
+    //
+    // The kind letter (slice 405) rides the SAME call — one git invocation for the
+    // whole ribbon, not one per commit, because this is rebuilt every GIT_TTL_MS.
+    // `%(trailers:key=Kind,valueonly)` is git's OWN trailer reader, so only a real
+    // trailer counts: a `Kind:` written inside another trailer's text, or above a
+    // closing prose paragraph, is body prose and is ignored — which is the whole
+    // reason we do not grep `%B` ourselves.
+    //
+    // The trailer block IS newlines, so newline cannot separate records here. %x1e
+    // (record separator) and %x1f (field separator) can appear in neither a sha, a
+    // unix timestamp, nor a subject, and git emits them literally.
     const logOut = execFileSync('git',
-      ['log', 'origin/dev', '--not', 'origin/main', '--format=%H %ct %s', '--max-count=60', '--reverse'],
+      ['log', 'origin/dev', '--not', 'origin/main',
+       '--format=%x1e%H %ct %s%x1f%(trailers:key=Kind,valueonly)', '--max-count=60', '--reverse'],
       { cwd: REPO_ROOT, encoding: 'utf8', timeout: 5000 }).trim();
     if (logOut) {
-      result.dev_commits = logOut.split('\n').filter(Boolean).map(line => {
+      result.dev_commits = logOut.split(GIT_LOG_RS).filter(Boolean).map(record => {
+        const fieldAt = record.indexOf(GIT_LOG_FS);
+        const line = fieldAt === -1 ? record : record.slice(0, fieldAt);
+        const kindValues = fieldAt === -1 ? []
+          : record.slice(fieldAt + 1).split('\n').map(v => v.trim()).filter(Boolean);
         const sp1 = line.indexOf(' ');
         const sp2 = sp1 !== -1 ? line.indexOf(' ', sp1 + 1) : -1;
         const sha = sp1 !== -1 ? line.slice(0, sp1) : line;
         const ct = sp2 !== -1 ? parseInt(line.slice(sp1 + 1, sp2), 10) * 1000 : NaN;
         const subj = sp2 !== -1 ? line.slice(sp2 + 1) : '';
+        const { kind, label, inferred } = commitKindEntry(subj, kindValues);
         return { sha: sha.slice(0, 7), full_sha: sha, slice_id: sliceIdOfSubject(subj),
                  _ct: isNaN(ct) ? 0 : ct,
-                 subject: subj, age_s: isNaN(ct) ? null : Math.round((now - ct) / 1000) };
+                 subject: subj, age_s: isNaN(ct) ? null : Math.round((now - ct) / 1000),
+                 kind, label, inferred };
       });
     }
 
@@ -4937,4 +5024,4 @@ if (require.main === module) {
   startDevSuiteRouting();
 }
 
-module.exports = { QUEUE_SUFFIX_STATE, QUEUE_SIDECAR_SUFFIXES, queueStateOf, isQueueSidecar, readQaStage, sliceIdOfSubject, routeDevSuiteRun, startDevSuiteRouting, withDevSuiteFixRequest, readDevSuiteState, DEV_SUITE_STATE, getPinnedClassification, getTestChanges, getTestsNeeded, mergeLockRefusal, buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, buildStagesById, stagesForSlice, STALE_DONE_DAYS, deriveHistoryOutcome, deriveReviewStatus, authoringStateFor, draftDetailFor, lineDiff, liveGuardsForTag, kickOffAuthoring, recordAuthoringDispatch, applyPlanFor, applyDraftFor, createRevertCommit, resolveSquashSha, mapPromotePhases, parseGateFailures, isFreshPromoteCompletion, isReconciling, _promoteTtlMs };
+module.exports = { QUEUE_SUFFIX_STATE, QUEUE_SIDECAR_SUFFIXES, queueStateOf, isQueueSidecar, readQaStage, sliceIdOfSubject, commitKindOfTrailers, commitKindOfSubject, commitKindEntry, routeDevSuiteRun, startDevSuiteRouting, withDevSuiteFixRequest, readDevSuiteState, DEV_SUITE_STATE, getPinnedClassification, getTestChanges, getTestsNeeded, mergeLockRefusal, buildSliceInvestigation, parseFrontmatter, extractBody, parseRoundsArray, extractRoundSections, getCachedFile, getCachedDir, _cache, getCachedBridgeData, getCachedCostsData, buildBridgeData, buildCostsData, buildStagesById, stagesForSlice, STALE_DONE_DAYS, deriveHistoryOutcome, deriveReviewStatus, authoringStateFor, draftDetailFor, lineDiff, liveGuardsForTag, kickOffAuthoring, recordAuthoringDispatch, applyPlanFor, applyDraftFor, createRevertCommit, resolveSquashSha, mapPromotePhases, parseGateFailures, isFreshPromoteCompletion, isReconciling, _promoteTtlMs };
