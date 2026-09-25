@@ -34,6 +34,9 @@
  *   slice-396-ac-8 — the log is written while the session runs, never rewritten
  *   slice-396-ac-9 — Jordan's review numbers equal what his whole stdout gives
  *   traps 1-5     — split chunks, stdin, ENOENT, pause/resume/abort, stderr-only
+ *   slice-410-ac-5 — the helper itself, loaded directly: a result written in two
+ *                    writes is retained whole (and that require() is what makes this
+ *                    file lib/session-stream.js's guard in COVERAGE.lock)
  *
  * Fixture isolation (#99992): every byte of state lives under fs.mkdtempSync(os.tmpdir())
  * with a LOCAL BARE origin and its own copy of bridge/ and lib/, whose bridge.config.json
@@ -54,6 +57,7 @@
 // @ac-hash: slice-396-ac-7 sha256:dca249b59494e18d0d90cac06e152daa5db0055a0a02edeec2885aedabc90104
 // @ac-hash: slice-396-ac-8 sha256:4c0c1d580fec1a50a470ff8549ead2732e360726a651121611f499bf87b3c981
 // @ac-hash: slice-396-ac-9 sha256:80ecfda5d1d956e45f90f3191411f64aee75e38c5f597b731f50e1ccb1a1dfcf
+// @ac-hash: slice-410-ac-5 sha256:86b56224fd0a912d131160a554c01f2ce15a3077a109ec088a6c0c1f443175c8
 
 const { test, after } = require('node:test');
 const assert = require('node:assert/strict');
@@ -1363,4 +1367,47 @@ test('J-session-streamed — trap 5: a session that writes only to stderr is not
     assert.deepEqual(r.eventsOf('ERROR'), [], 'and no inactivity_timeout is filed against it');
     assert.equal(r.eventsOf('DONE').length, 1, 'it runs to its end');
   } finally { dropFixture(fx); }
+});
+
+// ═══ slice 410 ══════════════════════════════════════════════════════════════
+// Trap 4 above already drives streamSession directly, but for its pid — the chunk seam
+// is still only ever proved through the whole daemon (trap 1). This one holds the helper
+// on its own, which is also what earns this file its place in bySource of
+// lib/session-stream.js: the merge gate now counts a require() as coverage, and until
+// slice 410 it counted only a readFileSync, so this module read as untested.
+
+test('slice-410-ac-5 — a result event the child writes in two separate writes is retained as one whole result', async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'j-session-streamed-ac5-'));
+  tmpDirs.push(tmp);
+
+  // Cut inside the four bytes of 🜂, so neither half is valid UTF-8 and neither half is
+  // valid JSON: only a stream that joins lines AND characters across chunks reads it.
+  const event = resultLine({ session_id: 'sess-two-writes', pad: 'héllo 🜂 wörld' });
+  const line = Buffer.from(JSON.stringify(event) + '\n', 'utf8');
+  const cut = line.indexOf(Buffer.from('🜂', 'utf8')) + 2;
+  assert.ok(cut > 2 && cut < line.length - 1, 'the fixture really does cut the line in two');
+
+  const script = path.join(tmp, 'two-writes.js');
+  fs.writeFileSync(script, [
+    `const head = Buffer.from(${JSON.stringify(line.subarray(0, cut).toString('base64'))}, 'base64');`,
+    `const tail = Buffer.from(${JSON.stringify(line.subarray(cut).toString('base64'))}, 'base64');`,
+    "process.stdout.write(head);",
+    "setTimeout(() => process.stdout.write(tail), 120);",
+  ].join('\n'));
+
+  const logPath = path.join(tmp, 'session.log');
+  const outcome = await new Promise((resolve) => {
+    streamSession({ command: process.execPath, args: [script], cwd: tmp, prompt: 'go', logPath }, resolve);
+  });
+
+  assert.equal(outcome.code, 0, 'the session ran to its end');
+  assert.equal(outcome.spawnError, null);
+  assert.ok(outcome.retained.resultLine, 'the two writes are one retained result line, not two fragments');
+  assert.deepEqual(JSON.parse(outcome.retained.resultLine), event,
+    'and every field of it survives the seam — the numbers the run records are read off this line');
+  assert.equal(outcome.retained.sessionIdLine, outcome.retained.resultLine,
+    'the session id is read off that same rejoined line');
+  assert.equal(outcome.retained.stdoutBytes, line.length, 'both writes are counted');
+  assert.equal(fs.readFileSync(logPath).toString('utf8'), line.toString('utf8'),
+    'the log is the stdout across the cut, with the split character whole');
 });
