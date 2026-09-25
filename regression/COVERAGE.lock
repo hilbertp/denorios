@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 849,
+  "guardCount": 851,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -1294,6 +1294,16 @@
         "tag": "slice-392-ac-4",
         "file": "regression/observability/j-build-timing.test.js",
         "guardAcHash": "sha256:b65a2435afed2c31dc55424550351017f3d0a9e3b20e5699aad5710c48aee480"
+      },
+      {
+        "tag": "slice-397-ac-1",
+        "file": "regression/gate-merge/j-dev-commit-list.test.js",
+        "guardAcHash": "sha256:56e362e4524817e15d48a5f11bf2f01613c2e6d6deae680fb949719969f32789"
+      },
+      {
+        "tag": "slice-397-ac-2",
+        "file": "regression/gate-merge/j-dev-commit-list.test.js",
+        "guardAcHash": "sha256:b5358737bf7582fc2e44d1e4c4f206d903ecc6cd528c9fa499534f5021b47897"
       },
       {
         "tag": "slice-401-ac-1",
@@ -3852,6 +3862,18 @@
         "tag": "slice-359-ac-5",
         "file": "regression/gate-merge/j-authoring-containment.test.js",
         "guardAcHash": "sha256:4792476b9eb1c830acd8ffd00a4f6e0fbc994a6ce62876bc43eb3e341abea2a1"
+      }
+    ],
+    "regression/gate-merge/j-dev-commit-list.test.js": [
+      {
+        "tag": "slice-397-ac-1",
+        "file": "regression/gate-merge/j-dev-commit-list.test.js",
+        "guardAcHash": "sha256:56e362e4524817e15d48a5f11bf2f01613c2e6d6deae680fb949719969f32789"
+      },
+      {
+        "tag": "slice-397-ac-2",
+        "file": "regression/gate-merge/j-dev-commit-list.test.js",
+        "guardAcHash": "sha256:b5358737bf7582fc2e44d1e4c4f206d903ecc6cd528c9fa499534f5021b47897"
       }
     ],
     "regression/gate-merge/j-draft-contract.test.js": [

@@ -3884,7 +3884,12 @@ body.lcars-mode .lore-tag { display: inline; }
   .topo-commits .topo-c-row { display: flex; gap: 8px; align-items: baseline; max-width: 100%; }
   .topo-commits .topo-c-k { color: var(--ink-muted); width: 44px; flex: none; }
   .topo-commits .topo-c-sha { color: var(--info, #3b82f6); font-weight: 600; flex: none; }
-  .topo-commits .topo-c-subj { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* A commit subject says why the commit exists, so it is shown whole: it wraps onto as
+     many lines as it needs instead of being cut off with an ellipsis. flex:1 1 auto keeps
+     .topo-c-age at the right end of the row, and overflow-wrap breaks one unbroken word
+     rather than pushing a horizontal scrollbar out of #topo-svg-wrap. */
+  .topo-commits .topo-c-subj { color: var(--ink-2); flex: 1 1 auto; min-width: 0;
+    white-space: normal; overflow-wrap: anywhere; }
   .topo-commits .topo-c-age { color: var(--ink-muted); flex: none; margin-left: auto; }
   /* slice 362 — "the graph above is out of date" note; warn-toned, uses the same
      token as the running-gate states so it reads as transient, not as a failure. */
@@ -11065,14 +11070,23 @@ body:not(.lcars-mode) .staged-details-body pre code {
     }
     svg += '</svg>';
 
-    // ── commit details (draft style: newest + base) ──
+    // ── commit details: one row per commit on dev, newest first, then base ──
     let info = '<div class="topo-commits">';
-    if (n > 0) {
-      const head  = commits[n - 1];
-      const hSha  = (head.sha || '').slice(0, 7);
-      const hSubj = head.subject ? _promoteEsc(head.subject) : '';
-      const hAge  = head.age_s != null ? formatAgeShort(head.age_s) : '';
-      info += `<div class="topo-c-row"><span class="topo-c-k">newest</span><span class="topo-c-sha">${hSha}</span><span class="topo-c-subj">${hSubj || (head.slice_id ? 'S' + head.slice_id : 'origin/dev')}</span>${hAge ? `<span class="topo-c-age">· ${hAge}</span>` : ''}</div>`;
+    // `commits` is the array _lastBranchState hands to the Regression panel, which reads
+    // its LAST entry as "the tested commit (dev tip)". Walk the index backwards for
+    // newest-first — reverse() would flip that array in place and rename the dev tip to
+    // the oldest commit on dev.
+    for (let i = n - 1; i >= 0; i--) {
+      const c      = commits[i];
+      const cSha   = (c.sha || '').slice(0, 7);
+      const cAge   = c.age_s != null ? formatAgeShort(c.age_s) : '';
+      const isHead = i === n - 1;
+      // No subject: name the slice if the commit carries one, else fall back to
+      // "origin/dev" on the tip row only — an unlabelled row below it says nothing
+      // that its sha has not already said.
+      const cSubj  = c.subject ? _promoteEsc(c.subject)
+        : (c.slice_id != null ? 'S' + c.slice_id : (isHead ? 'origin/dev' : ''));
+      info += `<div class="topo-c-row topo-c-dev"><span class="topo-c-k">${isHead ? 'newest' : ''}</span><span class="topo-c-sha">${cSha}</span><span class="topo-c-subj">${cSubj}</span>${cAge ? `<span class="topo-c-age">· ${cAge}</span>` : ''}</div>`;
     }
     if (mainSha && reconciling) {
       // Same sha, honest label: this is where main WAS. Its age belongs to the previous
