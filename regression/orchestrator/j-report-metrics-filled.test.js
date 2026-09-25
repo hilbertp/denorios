@@ -443,7 +443,7 @@ test('J-report-metrics-filled — trap 4: invokeRom builds its prompt with build
   assert.ok(verifyIdx < doneIdx, 'verification still runs before the DONE event');
 
   // One telemetry object per session, computed once from the session output.
-  assert.match(SRC, /const telemetry = sessionTelemetry\(stdout \|\| '', durationMs\);/,
+  assert.match(SRC, /const telemetry = sessionTelemetry\(telemetryLine, durationMs\);/,
     'the exit handler computes the session numbers once');
   assert.equal((SRC.match(/= sessionTelemetry\(/g) || []).length, 1,
     'exactly one call site — a second would be a second set of numbers');

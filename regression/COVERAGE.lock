@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 834,
+  "guardCount": 849,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -609,6 +609,51 @@
         "tag": "slice-395-ac-4",
         "file": "regression/dispatch-execution/j-no-nameless-commits.test.js",
         "guardAcHash": "sha256:ba711619a1ecb1458369da07f61887d0360046b02a4a631e9a5b642983ca301e"
+      },
+      {
+        "tag": "slice-396-ac-1",
+        "file": "regression/dispatch-execution/j-session-streamed.test.js",
+        "guardAcHash": "sha256:7130134a4c9f43e3668b12b2ee00aa1fc9b7ea7e8b2df1db06c1443ca662eddd"
+      },
+      {
+        "tag": "slice-396-ac-2",
+        "file": "regression/dispatch-execution/j-session-streamed.test.js",
+        "guardAcHash": "sha256:e09741a8d93434282eb9d2af2beeaa48a27804dfaf5506723454bdeedb8de1c7"
+      },
+      {
+        "tag": "slice-396-ac-3",
+        "file": "regression/dispatch-execution/j-session-streamed.test.js",
+        "guardAcHash": "sha256:630ca488eb03a20da6dc88e0255ec6c49598beeeae06d948c6cd28231474157b"
+      },
+      {
+        "tag": "slice-396-ac-4",
+        "file": "regression/dispatch-execution/j-session-streamed.test.js",
+        "guardAcHash": "sha256:f9600abf9dd72b0f8828fa9608dee730e7d9d7687089535429c2f763aa241266"
+      },
+      {
+        "tag": "slice-396-ac-5",
+        "file": "regression/dispatch-execution/j-session-streamed.test.js",
+        "guardAcHash": "sha256:c6f5fe2e180f9a560242644956c4e6575061bcec117256bfc412513aba5f29a3"
+      },
+      {
+        "tag": "slice-396-ac-6",
+        "file": "regression/dispatch-execution/j-session-streamed.test.js",
+        "guardAcHash": "sha256:71fbe87a47e811cf05824d07851ed4c22845032a5d5b6572fa3d19e9e9f32d27"
+      },
+      {
+        "tag": "slice-396-ac-7",
+        "file": "regression/dispatch-execution/j-session-streamed.test.js",
+        "guardAcHash": "sha256:dca249b59494e18d0d90cac06e152daa5db0055a0a02edeec2885aedabc90104"
+      },
+      {
+        "tag": "slice-396-ac-8",
+        "file": "regression/dispatch-execution/j-session-streamed.test.js",
+        "guardAcHash": "sha256:4c0c1d580fec1a50a470ff8549ead2732e360726a651121611f499bf87b3c981"
+      },
+      {
+        "tag": "slice-396-ac-9",
+        "file": "regression/dispatch-execution/j-session-streamed.test.js",
+        "guardAcHash": "sha256:80ecfda5d1d956e45f90f3191411f64aee75e38c5f597b731f50e1ccb1a1dfcf"
       },
       {
         "tag": "slice-400-ac-1",
@@ -2860,6 +2905,32 @@
         "guardAcHash": "sha256:1e6fe4552f48c95b862a3eff68039bf245ad516e4dbf0ae348042c649f80b1e8"
       }
     ],
+    "lib/session-stream.js": [
+      {
+        "tag": "slice-99777-ac-1",
+        "file": "regression/observability/j-watch-slice-live-log.test.js"
+      },
+      {
+        "tag": "slice-99777-ac-2",
+        "file": "regression/observability/j-watch-slice-live-log.test.js"
+      },
+      {
+        "tag": "slice-99777-ac-3",
+        "file": "regression/observability/j-watch-slice-live-log.test.js"
+      },
+      {
+        "tag": "slice-99777-ac-4",
+        "file": "regression/observability/j-watch-slice-live-log.test.js"
+      },
+      {
+        "tag": "slice-99777-ac-6",
+        "file": "regression/observability/j-watch-slice-live-log.test.js"
+      },
+      {
+        "tag": "slice-99777-ac-9",
+        "file": "regression/observability/j-watch-slice-live-log.test.js"
+      }
+    ],
     "lib/test-drift.js": [
       {
         "tag": "slice-99830-ac-1",
@@ -3621,6 +3692,53 @@
         "tag": "slice-372-ac-2",
         "file": "regression/dispatch-execution/j-runtime-state-survives-landing.test.js",
         "guardAcHash": "sha256:a2fadb2068c1cfaec5213252e4c814a2629583888bf6e962df2f174becb34488"
+      }
+    ],
+    "regression/dispatch-execution/j-session-streamed.test.js": [
+      {
+        "tag": "slice-396-ac-1",
+        "file": "regression/dispatch-execution/j-session-streamed.test.js",
+        "guardAcHash": "sha256:7130134a4c9f43e3668b12b2ee00aa1fc9b7ea7e8b2df1db06c1443ca662eddd"
+      },
+      {
+        "tag": "slice-396-ac-2",
+        "file": "regression/dispatch-execution/j-session-streamed.test.js",
+        "guardAcHash": "sha256:e09741a8d93434282eb9d2af2beeaa48a27804dfaf5506723454bdeedb8de1c7"
+      },
+      {
+        "tag": "slice-396-ac-3",
+        "file": "regression/dispatch-execution/j-session-streamed.test.js",
+        "guardAcHash": "sha256:630ca488eb03a20da6dc88e0255ec6c49598beeeae06d948c6cd28231474157b"
+      },
+      {
+        "tag": "slice-396-ac-4",
+        "file": "regression/dispatch-execution/j-session-streamed.test.js",
+        "guardAcHash": "sha256:f9600abf9dd72b0f8828fa9608dee730e7d9d7687089535429c2f763aa241266"
+      },
+      {
+        "tag": "slice-396-ac-5",
+        "file": "regression/dispatch-execution/j-session-streamed.test.js",
+        "guardAcHash": "sha256:c6f5fe2e180f9a560242644956c4e6575061bcec117256bfc412513aba5f29a3"
+      },
+      {
+        "tag": "slice-396-ac-6",
+        "file": "regression/dispatch-execution/j-session-streamed.test.js",
+        "guardAcHash": "sha256:71fbe87a47e811cf05824d07851ed4c22845032a5d5b6572fa3d19e9e9f32d27"
+      },
+      {
+        "tag": "slice-396-ac-7",
+        "file": "regression/dispatch-execution/j-session-streamed.test.js",
+        "guardAcHash": "sha256:dca249b59494e18d0d90cac06e152daa5db0055a0a02edeec2885aedabc90104"
+      },
+      {
+        "tag": "slice-396-ac-8",
+        "file": "regression/dispatch-execution/j-session-streamed.test.js",
+        "guardAcHash": "sha256:4c0c1d580fec1a50a470ff8549ead2732e360726a651121611f499bf87b3c981"
+      },
+      {
+        "tag": "slice-396-ac-9",
+        "file": "regression/dispatch-execution/j-session-streamed.test.js",
+        "guardAcHash": "sha256:80ecfda5d1d956e45f90f3191411f64aee75e38c5f597b731f50e1ccb1a1dfcf"
       }
     ],
     "regression/dispatch-execution/j-untracked-runtime-state.test.js": [

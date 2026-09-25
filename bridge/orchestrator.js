@@ -548,7 +548,7 @@ function reviewTelemetry(stdout) {
 }
 
 /**
- * recordBuildTiming(stdout, id, logsDir)
+ * recordBuildTiming(split, id, logsDir)
  *
  * The other half of the session's numbers (slice 392). sessionTelemetry says
  * what the run cost; this says where it went — model seconds and tool seconds
@@ -563,6 +563,11 @@ function reviewTelemetry(stdout) {
  * malformed log must not cost the run its DONE. Returns {} when there is
  * nothing to say, so the caller can spread it unconditionally.
  *
+ * The first argument is the split an incremental attributor already produced
+ * from the session as it streamed (slice 396) — the daemon no longer holds the
+ * session's text to attribute. A string is still accepted and still attributed
+ * here, because a log on disk is a string and every test of this path is one.
+ *
  * lib/build-timing is required here and not at module scope, the way
  * buildHashLines reaches for lib/ac-block: the daemon has to boot in a tree that
  * has no lib/ at all — the sandbox repo behind slice 393's recovery guard is
@@ -570,14 +575,18 @@ function reviewTelemetry(stdout) {
  * A missing lib/ is then just another attribution failure: a warn, and a DONE
  * event without phases.
  */
-function recordBuildTiming(stdout, id, logsDir) {
+function recordBuildTiming(split, id, logsDir) {
   let timing = null;
-  try {
-    const { attributeRun } = require('../lib/build-timing');
-    timing = attributeRun(stdout || '');
-  } catch (err) {
-    log('warn', 'complete', { id, msg: 'Build-timing attribution failed — the DONE event goes without phases', error: err.message });
-    return {};
+  if (split && typeof split === 'object') {
+    timing = split;
+  } else {
+    try {
+      const { attributeRun } = require('../lib/build-timing');
+      timing = attributeRun(split || '');
+    } catch (err) {
+      log('warn', 'complete', { id, msg: 'Build-timing attribution failed — the DONE event goes without phases', error: err.message });
+      return {};
+    }
   }
 
   try {
@@ -3143,41 +3152,75 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
     printProgressTick(Date.now() - pickupTime);
   }, 60000);
 
-  // Live build log: tee Rom's output to a per-slice log file (bridge/logs/rom-<id>.log)
-  // so the operator can watch the build in real time via GET /api/log/<id>. Mirrors the
-  // Nog reviewer log. Best-effort — never fail the run on a log-write error.
+  // Live build log: the session is teed to a per-slice log file
+  // (bridge/logs/rom-<id>.log) as it arrives, so the operator can watch the build
+  // in real time via GET /api/log/<id>. The write stream lives inside the session
+  // helper now (slice 396); this is where its path is decided.
   const romLogPath = path.join(LOGS_DIR, `rom-${id}.log`);
-  let romLogStream = null;
-  try { romLogStream = fs.createWriteStream(romLogPath, { flags: 'w' }); } catch (_) { romLogStream = null; }
 
-  const child = execFile(
-    config.claudeCommand,
-    clauseArgs,
+  // Both reached for HERE and not at module scope, the way recordBuildTiming
+  // reaches for lib/build-timing inside itself: the daemon has to boot in a tree
+  // that has no lib/ at all (slice 393's recovery sandbox is exactly that).
+  const { streamSession } = require('../lib/session-stream');
+  // Where the minutes went (slice 392), attributed one event at a time now that
+  // there is no session text left to attribute afterwards.
+  let attributor = null;
+  try { attributor = require('../lib/build-timing').createAttributor(); } catch (_) { attributor = null; }
+
+  const child = streamSession(
     {
+      command: config.claudeCommand,
+      args: clauseArgs,
       cwd: worktreePath,
-      encoding: 'utf-8',
-      // No timeout here — we handle killing via inactivity check below.
-      // 256 MB: a dashboard slice that reads screenshots logs 160-420 KB per image, and slices
-      // 358 and 363 were killed at 10 MB with ERR_CHILD_PROCESS_STDIO_MAXBUFFER, 688 lines of
-      // work left uncommitted (2026-09-14). The log is already teed line by line; a streaming
-      // parser that drops the buffer entirely is slice 396.
-      maxBuffer: 256 * 1024 * 1024,
+      prompt,
+      logPath: romLogPath,
+      // Output is what keeps a session alive. Every chunk — stdout or stderr —
+      // resets the inactivity clock; a chunk that did not reach here would be a
+      // session killed as inactivity_timeout while it was still talking.
+      onActivity: () => {
+        lastActivityTs = Date.now();
+        currentLastActivityTs = new Date();
+      },
+      onEvent: attributor ? (ev) => attributor.event(ev) : null,
     },
-    (err, stdout, stderr) => {
+    ({ code, signal, spawnError, retained }) => {
       clearInterval(tickInterval);
       clearInterval(inactivityCheck);
-      try { if (romLogStream) romLogStream.end(); } catch (_) {}
 
       // Reset module-level activity state.
       currentLastActivityTs = null;
+
+      // All that is left of the session's output: the last 64 KB of each stream.
+      // Everything below quotes these — the ERROR file, the rescue summary, the
+      // register's stderr tail — and nothing below may assume more (slice 396).
+      const stdoutTail = retained.stdoutTail;
+      const stderrTail = retained.stderrTail;
+
+      // execFile's `err`, rebuilt from the child's own close: null on a clean
+      // exit, and otherwise the three fields every reader below asks it for. A
+      // command that could not be started keeps its own code (ENOENT), as it did
+      // when spawn's failure arrived as a callback argument.
+      const err = spawnError
+        ? { code: spawnError.code, signal: null, killed: !!child.killed, message: spawnError.message }
+        : (code === 0 && !signal)
+          ? null
+          : {
+              code,
+              signal,
+              killed: !!child.killed,
+              message: `Command failed: ${config.claudeCommand} ${signal ? `killed with ${signal}` : `exited ${code}`}`,
+            };
 
       const durationMs = Date.now() - pickupTime;
 
       // The session's real numbers, read once (slice 386). Everything below —
       // the report, the register event, the timesheet row, the terminal block
       // and the rounds telemetry — is fed from this one object, so one run can
-      // no longer produce three different cost figures.
-      const telemetry = sessionTelemetry(stdout || '', durationMs);
+      // no longer produce three different cost figures. The line it reads is the
+      // session's result event, kept as it streamed past; the last JSON object on
+      // the stream stands in when the session never reached one.
+      const telemetryLine = retained.resultLine || retained.lastJsonLine || '';
+      const telemetry = sessionTelemetry(telemetryLine, durationMs);
       const { tokensIn, tokensOut, costUsd } = telemetry;
 
       // And where those minutes went (slice 392). One number per build could not
@@ -3185,7 +3228,9 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
       // around it; this attributes every tool call in the run to a phase and
       // parks the split next to the log. Best-effort by construction — it never
       // fails the run.
-      const buildTiming = recordBuildTiming(stdout, id, LOGS_DIR);
+      let buildSplit = null;
+      try { buildSplit = attributor ? attributor.result() : null; } catch (_) { buildSplit = null; }
+      const buildTiming = recordBuildTiming(buildSplit, id, LOGS_DIR);
 
       // ── POST-INVOCATION BRANCH VERIFICATION (worktree) ──────────────────
       // With worktrees, verify the branch state inside the worktree, not
@@ -3281,14 +3326,14 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
             const honest = classifyHonestNonProduct(id, sliceBranch);
 
             if (!honest) {
-              writeErrorFile(errorPath, id, verify.reason, null, stdout, stderr, { detail: verify.detail, durationMs });
+              writeErrorFile(errorPath, id, verify.reason, null, stdoutTail, stderrTail, { detail: verify.detail, durationMs });
               registerEvent(id, 'ERROR', {
                 reason: verify.reason,
                 phase: 'rom_verification',
                 detail: verify.detail,
                 durationMs,
                 actualTokensOut: tokensOut,
-                stderr_tail: truncStderr(stderr),
+                stderr_tail: truncStderr(stderrTail),
               });
               appendOperationalEvent({
                 event: 'ERROR',
@@ -3460,19 +3505,19 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
           // Rescue or wipe based on classification
           let rescuePath = null;
           if (classifiedReason !== 'rom_self_terminated_empty') {
-            rescuePath = rescueWorktree(id, sliceBranch, noReportClass, stdout, stderr);
+            rescuePath = rescueWorktree(id, sliceBranch, noReportClass, stdoutTail, stderrTail);
           } else {
             try { cleanupWorktree(id, sliceBranch); } catch (_) {}
           }
 
-          writeErrorFile(errorPath, id, classifiedReason, null, stdout, stderr, { durationMs, rescue_path: rescuePath });
+          writeErrorFile(errorPath, id, classifiedReason, null, stdoutTail, stderrTail, { durationMs, rescue_path: rescuePath });
           log('info', 'state', { id, from: 'IN_PROGRESS', to: 'ERROR', reason: classifiedReason });
           registerEvent(id, 'ERROR', {
             reason: classifiedReason,
             phase: 'rom_invocation',
             command: [config.claudeCommand, ...config.claudeArgs].join(' '),
             exit_code: null,
-            stderr_tail: truncStderr(stderr),
+            stderr_tail: truncStderr(stderrTail),
             durationMs,
             rescue_path: rescuePath,
           });
@@ -3530,12 +3575,15 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
         // Only a REJECTED rate-limit event or the CLI's own limit message is a rate limit. The
         // CLI also emits "approaching your limit" warnings at 90% utilisation mid-session (13 in
         // slice 363's log); matching those paused dispatch for eight hours over a buffer crash.
-        const isRateLimit = reason === 'crash' && stdout &&
-          (stdout.includes('hit your limit') || /"rate_limit_event"[^\n]*"status":"rejected"/.test(stdout));
+        // Asked of the whole session, not of its last 64 KB: a limit announced in
+        // the first minute of a 40-minute session is still a limit (slice 396).
+        const isRateLimit = reason === 'crash' &&
+          (retained.flags.hitYourLimit || retained.flags.rateLimitRejected);
 
         if (isRateLimit) {
-          // Calculate how long to wait before retrying.
-          const parsedWaitMs = parseRateLimitResetMs(stdout);
+          // Calculate how long to wait before retrying. The reset time is the
+          // CLI's last word on the subject, so the tail is where it is read.
+          const parsedWaitMs = parseRateLimitResetMs(stdoutTail);
           const waitMs       = parsedWaitMs != null ? parsedWaitMs + 60000 : 3600000; // +1 min buffer; default 1h
           rateLimitUntil     = Date.now() + waitMs;
           const waitMin      = Math.round(waitMs / 60000);
@@ -3579,8 +3627,8 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
         // move the slice back to QUEUED for automatic retry instead of losing it.
         // A retry-count embedded in the frontmatter limits retries to MAX_API_RETRIES.
         const MAX_API_RETRIES = 3;
-        const isApiError = reason === 'crash' && stdout &&
-          (stdout.includes('"api_error"') || /API Error: 5\d\d/.test(stdout));
+        const isApiError = reason === 'crash' &&
+          (retained.flags.apiError || retained.flags.apiError5xx);
 
         if (isApiError) {
           // Parse current retry count from IN_PROGRESS frontmatter
@@ -3644,14 +3692,14 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
           recordSessionResult(false, tokensIn, tokensOut, costUsd);
         } else {
         // ──────���──────────────────────────────────────────────────────────────
-        writeErrorFile(errorPath, id, reason, err, stdout, stderr, extra);
+        writeErrorFile(errorPath, id, reason, err, stdoutTail, stderrTail, extra);
         log('info', 'state', { id, from: 'IN_PROGRESS', to: 'ERROR', reason });
         registerEvent(id, 'ERROR', {
           reason,
           phase: 'rom_invocation',
           command: [config.claudeCommand, ...config.claudeArgs].join(' '),
           exit_code: err.code != null ? err.code : null,
-          stderr_tail: truncStderr(stderr),
+          stderr_tail: truncStderr(stderrTail),
           durationMs,
         });
         appendOperationalEvent({
@@ -3681,7 +3729,11 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
           log('info', 'state', { id, msg: 'Parked slice', from: 'IN_PROGRESS', to: 'PARKED' });
 
           // Capture Rom's session_id for potential resume on rework rounds.
-          const sessionId = extractSessionId(stdout || '');
+          // Same answer the whole text gave: the id on the result event, or on the
+          // last JSON object when there was none, and failing both the first line
+          // of the session that carried one (the init event).
+          const sessionId = extractSessionId(telemetryLine)
+            || extractSessionId(retained.sessionIdLine || '');
           if (sessionId) {
             try {
               const parkedContent = fs.readFileSync(parkedPath, 'utf-8');
@@ -3720,20 +3772,6 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
   // Track child process for pause/resume/abort.
   activeChildren.set(String(id), { child, worktreePath });
 
-  // Activity listeners: update lastActivityTs on any stdout/stderr output AND tee the
-  // output to the per-slice rom log for the live-log viewer. These run in addition to
-  // execFile's internal buffering — no conflict.
-  child.stdout.on('data', (chunk) => {
-    lastActivityTs = Date.now();
-    currentLastActivityTs = new Date();
-    try { if (romLogStream) romLogStream.write(chunk); } catch (_) {}
-  });
-  child.stderr.on('data', (chunk) => {
-    lastActivityTs = Date.now();
-    currentLastActivityTs = new Date();
-    try { if (romLogStream) romLogStream.write('[stderr] ' + chunk); } catch (_) {}
-  });
-
   // Inactivity check: every 30s, kill the child if no output for effectiveInactivityMs.
   const inactivityCheck = setInterval(() => {
     const silentMs = Date.now() - lastActivityTs;
@@ -3750,10 +3788,6 @@ function invokeRom(sliceContent, donePath, inProgressPath, errorPath, id, effect
       child.kill('SIGTERM');
     }
   }, 30000);
-
-  // Feed the prompt to claude via stdin, then close stdin to signal EOF.
-  child.stdin.write(prompt);
-  child.stdin.end();
 }
 
 /**
@@ -5230,30 +5264,43 @@ function invokeNog(id) {
   // Log file for Nog's output.
   const nogLogPath = path.join(LOGS_DIR, `nog-${id}-round${round}.log`);
 
-  const child = execFile(
-    config.claudeCommand,
-    config.claudeArgs,
+  // Read as it arrives, like Sam's (slice 396). A 10 MB cap on a review is a
+  // review killed for the size of the diff it was asked to read; the log the
+  // operator tails IS the record now, written once, while the review runs, and
+  // never rewritten at the end.
+  const { streamSession } = require('../lib/session-stream');
+
+  const child = streamSession(
     {
+      command: config.claudeCommand,
+      args: config.claudeArgs,
       cwd: nogWorktreePath,
-      encoding: 'utf-8',
-      maxBuffer: 10 * 1024 * 1024,
+      prompt,
+      logPath: nogLogPath,
     },
-    (err, stdout, stderr) => {
+    ({ code, signal, spawnError, retained }) => {
       clearInterval(tickInterval);
       try { fs.renameSync(NOG_ACTIVE_FILE, path.join(TRASH_DIR, 'nog-active.json.done')); } catch (_) {}
       const durationMs = Date.now() - pickupTime;
 
+      // execFile's `err`, rebuilt from the child's own close (slice 396): null on
+      // a clean exit, and otherwise what the verdict branch below reads it for.
+      const err = spawnError
+        ? { code: spawnError.code, signal: null, killed: !!child.killed, message: spawnError.message }
+        : (code === 0 && !signal)
+          ? null
+          : {
+              code,
+              signal,
+              killed: !!child.killed,
+              message: `Command failed: ${config.claudeCommand} ${signal ? `killed with ${signal}` : `exited ${code}`}`,
+            };
+
       // What this review cost, read once from Jordan's own session and spread
       // onto whatever event the round ends up writing (slice 402). `{}` when
       // the session recorded nothing — no verdict path estimates in its place.
-      const reviewUsage = reviewTelemetry(stdout);
-
-      // Write Nog's output to log file.
-      try {
-        fs.writeFileSync(nogLogPath, (stdout || '') + '\n--- stderr ---\n' + (stderr || ''));
-      } catch (logErr) {
-        log('warn', 'nog', { id, msg: 'Failed to write Nog log', error: logErr.message });
-      }
+      // The line is his result event, kept as it streamed past.
+      const reviewUsage = reviewTelemetry(retained.resultLine || retained.lastJsonLine || '');
 
       // Read Nog's verdict file.
       const nogVerdictPath = path.join(QUEUE_DIR, `${id}-NOG.md`);
@@ -5669,15 +5716,6 @@ function invokeNog(id) {
     }
   );
 
-  // Stream to log file as well.
-  try {
-    const logStream = fs.createWriteStream(nogLogPath, { flags: 'w' });
-    child.stdout.on('data', (chunk) => { try { logStream.write(chunk); } catch (_) {} });
-    child.stderr.on('data', (chunk) => { try { logStream.write('[stderr] ' + chunk); } catch (_) {} });
-  } catch (_) {}
-
-  child.stdin.write(prompt);
-  child.stdin.end();
 }
 
 /**
@@ -9900,4 +9938,4 @@ function mergeDevToMain() {
 // Exports — for use by helper scripts (e.g. bridge/next-id.js)
 // ---------------------------------------------------------------------------
 
-module.exports = { resolveLane, laneEventFields, applyLaneArgs, romSpawnArgs, registerCommissioned, sessionTelemetry, reviewTelemetry, recordBuildTiming, fillDoneMetrics, validateDoneMetrics, extractRomTelemetry, buildDoneTemplate, buildHashLines, regenerateLocksAtLanding, newestDoneEvent, isLockDeriverInput, LOCK_FILES, checkDispatchProvenance, parkUnprovenancedSlice, hasPreCutoverHistory, fileIsPreCutover, provenanceRootId, parseFrontmatter, readNogVerdict, NOG_VERDICTS, handleNogReturn, startGate, abortGate, buildBashirPrompt, startQaStage, finishQaStage, startQaStageOrArchive, recoverOrphanedQaStages, qaStageSourceDoc, qaStageResultPath, setQaStageInBranchState, QA_STAGE_TIMEOUT_MS, qaStage, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, classifyHonestNonProduct, doneSummarySection, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, recordArchivedQueueRename, validateIntakeMeta, ensureIntegrationIsFresh, ensureMainIsFresh: ensureIntegrationIsFresh, fastForwardIntegrationRef, branchNamesFrom, INTEGRATION_BRANCH, TRUNK_BRANCH, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, provisionWorkspaceDeps, releaseDispatch, _testSetHeartbeatFile: (p) => { HEARTBEAT_FILE = p; }, _testGetDispatchState: () => ({ processing, heartbeat: { ...heartbeatState } }), _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted, hasTerminalLandedEvent, crashRecovery, trashEntryRecordsStaging, STAGING_TRASH_SUFFIXES, countUnreadableVerdicts, unreadableBackoffMs, retryBackoffElapsed, MAX_UNREADABLE_ATTEMPTS, UNREADABLE_BACKOFF_MS, porcelainPaths, isVolatileRuntimePath, isPipelineOwnedPath, recoverRuntimeStateAfterGit, stageablePathsFrom, autoCommitDirtyTree, shQuote, stageQueueArchiveForLanding, revertQueueArchiveStaging, hasArchivedEvent, pipelineCommitSubject: gitFinalizer.pipelineCommitSubject, refillLandedDoneReport, _testResetRefusalEmitted: () => { _refusalEmitted.clear(); }, _testGetRefusalEmitted: () => _refusalEmitted };
+module.exports = { invokeRom, invokeNog, resolveLane, laneEventFields, applyLaneArgs, romSpawnArgs, registerCommissioned, sessionTelemetry, reviewTelemetry, recordBuildTiming, fillDoneMetrics, validateDoneMetrics, extractRomTelemetry, buildDoneTemplate, buildHashLines, regenerateLocksAtLanding, newestDoneEvent, isLockDeriverInput, LOCK_FILES, checkDispatchProvenance, parkUnprovenancedSlice, hasPreCutoverHistory, fileIsPreCutover, provenanceRootId, parseFrontmatter, readNogVerdict, NOG_VERDICTS, handleNogReturn, startGate, abortGate, buildBashirPrompt, startQaStage, finishQaStage, startQaStageOrArchive, recoverOrphanedQaStages, qaStageSourceDoc, qaStageResultPath, setQaStageInBranchState, QA_STAGE_TIMEOUT_MS, qaStage, buildBashirNonGatePrompt, invokeBashirNonGate, _gateTestsUpdated, _gateAbort, _checkForEvent, _parseFailedAcs, _parseSuiteSize, _updateBranchStateOnFail, mergeDevToMain, BASHIR_HEARTBEAT_PATH, BASHIR_NON_GATE_PROMPT_TEMPLATE, BASHIR_STDOUT_LOG, BASHIR_HEARTBEAT_POLL_MS, BASHIR_HEARTBEAT_STALE_MS, BASHIR_TIMEOUT_MS, BASHIR_NON_GATE_DEFAULT_TIMEOUT_MS, REGRESSION_STDOUT_LOG, REGRESSION_STDERR_LOG, REGRESSION_TIMEOUT_MS, nextSliceId, getQueueSnapshot, classifyNoReportExit, rescueWorktree, isRomSelfTerminated, verifyRomActuallyWorked, classifyHonestNonProduct, doneSummarySection, assertMergeIntegrity, verifyOriginAdvanced, latestRestagedTs, latestAttemptStartTs, hasReviewEvent, hasMergedEvent, isTerminal, depsAreMet, restagedBootstrap, backfillArchive, backfillAcceptedFiles, backfillBranches, acceptAndMerge, archiveAcceptedSlice, archiveSiblingStateFiles, recordArchivedQueueRename, validateIntakeMeta, ensureIntegrationIsFresh, ensureMainIsFresh: ensureIntegrationIsFresh, fastForwardIntegrationRef, branchNamesFrom, INTEGRATION_BRANCH, TRUNK_BRANCH, extractSessionId, shouldForceFreshSession, appendRoundEntry, computeNextAttemptNumber, auditLegacyFiles, CANONICAL_LIVE_SUFFIXES, CANONICAL_SUFFIX_RE, handleReturnToStage, findOriginalSliceBody, reconcileBranchState, squashSliceToDev, drainDeferredAfterGate, readSliceMeta, provisionWorkspaceDeps, releaseDispatch, _testSetHeartbeatFile: (p) => { HEARTBEAT_FILE = p; }, _testGetDispatchState: () => ({ processing, heartbeat: { ...heartbeatState } }), _testSetRegisterFile: (p) => { REGISTER_FILE = p; }, _testSetDirs: (q, s, t) => { QUEUE_DIR = q; STAGED_DIR = s; TRASH_DIR = t; }, _testSetProjectDir: (dir) => { PROJECT_DIR = dir; BRANCH_STATE_PATH = path.join(dir, 'bridge', 'state', 'branch-state.json'); }, _testResetDeferredEmitted: () => { _deferredEmitted.clear(); }, _testGetDeferredEmitted: () => _deferredEmitted, hasTerminalLandedEvent, crashRecovery, trashEntryRecordsStaging, STAGING_TRASH_SUFFIXES, countUnreadableVerdicts, unreadableBackoffMs, retryBackoffElapsed, MAX_UNREADABLE_ATTEMPTS, UNREADABLE_BACKOFF_MS, porcelainPaths, isVolatileRuntimePath, isPipelineOwnedPath, recoverRuntimeStateAfterGit, stageablePathsFrom, autoCommitDirtyTree, shQuote, stageQueueArchiveForLanding, revertQueueArchiveStaging, hasArchivedEvent, pipelineCommitSubject: gitFinalizer.pipelineCommitSubject, refillLandedDoneReport, _testResetRefusalEmitted: () => { _refusalEmitted.clear(); }, _testGetRefusalEmitted: () => _refusalEmitted };

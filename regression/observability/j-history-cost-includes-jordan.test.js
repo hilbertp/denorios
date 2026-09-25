@@ -326,8 +326,8 @@ test('slice-402-ac-1 — a review that reached a verdict writes its own tokens a
 
   // One read per review, shared by every path out of the callback: two reads
   // would be two different bills for one session.
-  assert.match(ORCH_SRC, /const reviewUsage = reviewTelemetry\(stdout\);/,
-    "invokeNog's exit handler reads Jordan's session once");
+  assert.match(ORCH_SRC, /const reviewUsage = reviewTelemetry\(retained\.resultLine \|\| retained\.lastJsonLine \|\| ''\);/,
+    "invokeNog's exit handler reads Jordan's session once — off the result line the stream kept (slice 396)");
   assert.equal((ORCH_SRC.match(/= reviewTelemetry\(/g) || []).length, 1,
     'exactly one call site');
 

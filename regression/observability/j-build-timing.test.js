@@ -343,7 +343,9 @@ test('slice-392-ac-2 the session\'s end puts phases, first_product_edit_s and ca
   // own numbers, and the DONE event spreads it last so it can take nothing away.
   const orchSrc = fs.readFileSync(ORCH_PATH, 'utf8');
   const telemetryIdx = orchSrc.indexOf('const telemetry = sessionTelemetry(');
-  const timingIdx = orchSrc.indexOf('const buildTiming = recordBuildTiming(stdout, id, LOGS_DIR);');
+  // The session's text is gone (slice 396): the split is produced by an incremental
+  // attributor fed event by event, and recordBuildTiming is handed the finished split.
+  const timingIdx = orchSrc.indexOf('const buildTiming = recordBuildTiming(buildSplit, id, LOGS_DIR);');
   assert.ok(telemetryIdx > 0 && timingIdx > telemetryIdx,
     'recordBuildTiming runs in the exit callback, after sessionTelemetry');
 

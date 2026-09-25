@@ -64,6 +64,9 @@ const { makeTmpDir, removeTmpDir } = require('../helpers/tmp-dir');
 
 const SERVER_SRC = path.resolve(__dirname, '..', '..', 'dashboard', 'server.js');
 const ORCH_SRC = path.resolve(__dirname, '..', '..', 'bridge', 'orchestrator.js');
+// The live log's write stream moved here with slice 396 — invokeRom decides the
+// path, lib/session-stream.js opens it and tees the session into it.
+const STREAM_SRC = path.resolve(__dirname, '..', '..', 'lib', 'session-stream.js');
 const DASHBOARD_SRC = path.resolve(__dirname, '..', '..', 'dashboard', 'lcars-dashboard.html');
 
 const SLICE_ID = '99777';
@@ -268,13 +271,19 @@ test('J-watch-slice-live-log slice-99777-ac-2 — the orchestrator persists Rom\
   const src = fs.readFileSync(ORCH_SRC, 'utf8');
   // A per-slice rom log path under LOGS_DIR.
   assert.match(src, /rom-\$\{id\}\.log/, 'invokeRom must target a per-slice rom-<id>.log');
+  // invokeRom decides the path and hands it to the session stream, which owns the
+  // write (slice 396 — the stream moved out of the orchestrator with the buffer).
+  assert.match(src, /streamSession\(\s*\{[\s\S]{0,600}?logPath: romLogPath/,
+    "invokeRom must hand the rom log path to the session stream");
+  const stream = fs.readFileSync(STREAM_SRC, 'utf8');
   // It is a write STREAM (grows incrementally), not a single end-of-run writeFile.
-  assert.match(src, /createWriteStream\(romLogPath/, 'the rom log must be a growing write stream');
+  assert.match(stream, /createWriteStream\(logPath/, 'the session log must be a growing write stream');
   // Rom's stdout is teed to that stream as data arrives (the live source).
-  assert.match(src, /child\.stdout\.on\('data',[\s\S]{0,200}?romLogStream\.write/,
-    'Rom child stdout must be teed to the rom log as it arrives');
+  assert.match(stream, /child\.stdout\.on\('data',[\s\S]{0,400}?tee\(chunk\)/,
+    'child stdout must be teed to the session log as it arrives');
+  assert.match(stream, /logStream\.write\(chunk\)/, 'the tee writes the chunk to the log stream');
   // The stream is closed when the run ends so the file is flushed for post-mortem.
-  assert.match(src, /romLogStream\.end\(\)/, 'the rom log stream must be closed on completion');
+  assert.match(stream, /logStream\.end\(finish\)/, 'the session log stream must be closed on completion');
 });
 
 // ---------------------------------------------------------------------------
