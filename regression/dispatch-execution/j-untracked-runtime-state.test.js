@@ -34,6 +34,11 @@
  *   slice-372-ac-6 — the existing autocommit history is intact, not rewritten
  *   slice-391-ac-1 — that survival check passes in a fresh copy of the code
  *   slice-391-ac-2 — and names the file, and fails, when one does not survive
+ *   slice-408-ac-1 — that autocommit reader reads the whole function, not a fixed
+ *                    window an edit above the git calls can push them out of
+ *   slice-408-ac-2 — and it still goes red when either marker leaves the function,
+ *                    however deep in the body it sat
+ *   slice-408-ac-3 — and a marker only the NEXT function has does not read as present
  */
 
 //
@@ -94,6 +99,43 @@ function write(root, rel, body) {
   const abs = path.join(root, rel);
   fs.mkdirSync(path.dirname(abs), { recursive: true });
   fs.writeFileSync(abs, body);
+}
+
+/**
+ * The source of one top-level function: its declaration through to the start of
+ * the next top-level function, or end of file.
+ *
+ * (slice 408) This used to be a fixed 1600 characters. Slice 405 added a comment
+ * and a `const commitBody` above autoCommitDirtyTree's `git add -u`, which moved
+ * that line to character 1706 — outside the window — and the guard below went red
+ * on dev while the code it guards was still correct. A window that ends at the
+ * next declaration cannot go stale that way, and still ends BEFORE that
+ * declaration: a marker that moved out of the function into its neighbour must
+ * read as gone, not as present.
+ */
+function topLevelFunctionSource(src, name) {
+  const start = src.indexOf(`function ${name}(`);
+  if (start < 0) return null;
+  // Searched past this declaration's own keyword, and anchored with /m, so only a
+  // `function` (or `async function`) at column 0 closes the window — never one of
+  // the function's own nested or indented declarations.
+  const next = /^(?:async\s+)?function\s/m.exec(src.slice(start + 1));
+  return next ? src.slice(start, start + 1 + next.index) : src.slice(start);
+}
+
+/**
+ * The two properties the autocommit must keep, read out of autoCommitDirtyTree's
+ * own source. The slice-372-ac-1 guard and the slice-408 guards on it both go
+ * through here, so the guards can never drift from what they guard.
+ */
+function autocommitMarkers(src) {
+  const body = topLevelFunctionSource(src, 'autoCommitDirtyTree');
+  return {
+    found: body !== null,
+    body: body || '',
+    skipsUntracked: body !== null && body.includes("!l.startsWith('??')"),
+    addsTrackedOnly: body !== null && body.includes('git add -u'),
+  };
 }
 
 /**
@@ -158,13 +200,14 @@ test('slice-372-ac-1 a slice run leaves no runtime file staged for autocommit', 
   // The autocommit stages tracked modifications only (`git add -u`, with untracked
   // "??" entries filtered out). An ignored, untracked file therefore cannot reach
   // it — this asserts the property the fix relies on rather than the file list.
-  const src = fs.readFileSync(ORCHESTRATOR_SRC, 'utf8');
-  const fnStart = src.indexOf('function autoCommitDirtyTree(');
-  assert.ok(fnStart > 0, 'autoCommitDirtyTree must still exist');
-  const body = src.slice(fnStart, fnStart + 1600);
-  assert.ok(body.includes("!l.startsWith('??')"),
+  // The whole function, start to the next top-level declaration (slice 408). A
+  // fixed-size window read the code correctly right up until an edit above these
+  // lines pushed them out of it.
+  const marks = autocommitMarkers(fs.readFileSync(ORCHESTRATOR_SRC, 'utf8'));
+  assert.ok(marks.found, 'autoCommitDirtyTree must still exist');
+  assert.ok(marks.skipsUntracked,
     'autocommit must keep skipping untracked files');
-  assert.ok(body.includes('git add -u'),
+  assert.ok(marks.addsTrackedOnly,
     'autocommit must keep staging tracked modifications only — never `git add -A`');
 
   // Now prove it end to end: a throwaway repo carrying this repo's ignore rules,
@@ -198,6 +241,100 @@ test('slice-372-ac-1 a slice run leaves no runtime file staged for autocommit', 
   } finally {
     removeTmpDir(tmp);
   }
+});
+
+// ---------------------------------------------------------------------------
+// slice-408-ac-1..3 — the guard above reads the whole function, not a window
+// ---------------------------------------------------------------------------
+
+// A stand-in orchestrator: autoCommitDirtyTree, each marker present or dropped,
+// its git calls optionally pushed `padTo` characters deep, and optionally one more
+// top-level function after it. `padTo` is what slice 405 did for real — a comment
+// and a `const` above the `git add -u` moved that line to character 1706.
+function fakeOrchestrator({ addU = true, skipUntracked = true, padTo = 0, neighbour = '' } = {}) {
+  const head = 'function autoCommitDirtyTree(reason, sliceId) {\n';
+  const body = [
+    "  const status = runGit('git status --porcelain').trim();\n",
+    // Indented, so the window must not mistake it for the next top-level function.
+    '  const lines = function split(s) { return s.split(String.fromCharCode(10)); };\n',
+  ];
+  while (head.length + body.join('').length < padTo) {
+    body.push('  // padding — the kind of comment slice 405 added above the git calls\n');
+  }
+  body.push(skipUntracked
+    ? "  const tracked = lines(status).filter(l => l && !l.startsWith('??'));\n"
+    : '  const tracked = lines(status);\n');
+  body.push(addU
+    ? "  runGit('git add -u -- ' + tracked.join(' '));\n"
+    : "  runGit('git add -A');\n");
+  body.push('  return true;\n}\n');
+  return head + body.join('') + neighbour;
+}
+
+// A following function that does both of the things autoCommitDirtyTree must do,
+// behind a doc comment, because the real next function has one too.
+const NEIGHBOUR_WITH_BOTH_MARKERS = [
+  '\n/**\n * @deprecated Retained as dead code.\n */\n',
+  'function fuseSafeCheckoutMain(id) {\n',
+  "  const tracked = lines(status).filter(l => l && !l.startsWith('??'));\n",
+  "  runGit('git add -u -- .');\n",
+  '}\n',
+].join('');
+
+// @ac-hash: slice-408-ac-1 sha256:71af6a6912ed0616c0db797d40db49ba0339faafd821d90836352dc9973f733f
+test('slice-408-ac-1 the autocommit guard is green against the orchestrator as it stands', () => {
+  const marks = autocommitMarkers(fs.readFileSync(ORCHESTRATOR_SRC, 'utf8'));
+  assert.ok(marks.found, 'autoCommitDirtyTree must still exist in bridge/orchestrator.js');
+  assert.deepEqual(
+    { skipsUntracked: marks.skipsUntracked, addsTrackedOnly: marks.addsTrackedOnly },
+    { skipsUntracked: true, addsTrackedOnly: true },
+    'the slice-372-ac-1 reader must find both markers in the live autoCommitDirtyTree — this is the guard that went red on dev when slice 405 pushed `git add -u` to character 1706',
+  );
+
+  // And the window still ends at the function: exactly one top-level declaration
+  // in it, its own. Named by shape, not by the neighbour's name, which may change.
+  const declarations = marks.body.match(/^(?:async\s+)?function\s+\w+/gm) || [];
+  assert.deepEqual(declarations, ['function autoCommitDirtyTree'],
+    'the window must hold autoCommitDirtyTree and nothing after it');
+});
+
+// @ac-hash: slice-408-ac-2 sha256:94834f18012b6c169069a436c7e789f063a992820e0ff0b77cb4ad788a545413
+test('slice-408-ac-2 a dropped marker reads as red however deep in the function it sat', () => {
+  // 0 is where slice 372's window worked; 2400 is past the 1600 characters it read,
+  // which is the overflow that faked a failure on dev. Both must behave the same.
+  for (const padTo of [0, 2400]) {
+    const both = autocommitMarkers(fakeOrchestrator({ padTo }));
+    assert.deepEqual(
+      { skipsUntracked: both.skipsUntracked, addsTrackedOnly: both.addsTrackedOnly },
+      { skipsUntracked: true, addsTrackedOnly: true },
+      `both markers must be found with the git calls ${padTo} characters into the function — a truncating reader calls a correct autocommit broken`,
+    );
+
+    const noAddU = autocommitMarkers(fakeOrchestrator({ padTo, addU: false }));
+    assert.equal(noAddU.addsTrackedOnly, false,
+      `an autocommit that traded \`git add -u\` for \`git add -A\` must read as red at depth ${padTo}`);
+
+    const noSkip = autocommitMarkers(fakeOrchestrator({ padTo, skipUntracked: false }));
+    assert.equal(noSkip.skipsUntracked, false,
+      `an autocommit that stopped filtering untracked "??" entries must read as red at depth ${padTo}`);
+  }
+});
+
+// @ac-hash: slice-408-ac-3 sha256:eefb6086842eba8348e22b8e20e406abf45c115a6cab1a72b09c91bf18a3c3f6
+test('slice-408-ac-3 a marker only the next function has does not read as present', () => {
+  const src = fakeOrchestrator({
+    addU: false,
+    skipUntracked: false,
+    neighbour: NEIGHBOUR_WITH_BOTH_MARKERS,
+  });
+  assert.ok(src.includes('git add -u') && src.includes("!l.startsWith('??')"),
+    'the fixture must put both markers in the file, just not in autoCommitDirtyTree, or it proves nothing');
+
+  const marks = autocommitMarkers(src);
+  assert.equal(marks.addsTrackedOnly, false,
+    'a `git add -u` in the function AFTER autoCommitDirtyTree must not read as autoCommitDirtyTree keeping it');
+  assert.equal(marks.skipsUntracked, false,
+    'an untracked filter in the function AFTER autoCommitDirtyTree must not read as autoCommitDirtyTree keeping it');
 });
 
 // ---------------------------------------------------------------------------
