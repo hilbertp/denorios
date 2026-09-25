@@ -2244,6 +2244,7 @@
     align-self: start;
     padding-top: 8px;
   }
+  .topo-kind-info { cursor: help; }
   .topo-foot {
     display: flex;
     align-items: center;
@@ -10958,6 +10959,21 @@ body:not(.lcars-mode) .staged-details-body pre code {
     } catch (_) {}
   })();
 
+  // What each kind letter slice 405 sends means, one line each. This table is the ONLY
+  // place the wording lives: the node hovers and the graph's (i) both read it, so the
+  // legend can never drift from what a node says about itself.
+  const KIND_MEANINGS = {
+    S: 'a slice landing: the finished work of the slice with that number',
+    P: 'pipeline bookkeeping for the slice with that number: archiving its brief or saving files left uncommitted',
+    H: 'a hand commit: made directly on dev, not by the slice pipeline',
+  };
+  // The meaning of one commit's kind, or '' when the kind is absent or a letter this
+  // table has no line for (slice 405 may start sending T). Typed check, not truthiness:
+  // an inherited key like "toString" must read as no meaning, never as a function body.
+  function kindMeaning(kind) {
+    return typeof KIND_MEANINGS[kind] === 'string' ? KIND_MEANINGS[kind] : '';
+  }
+
   // "S349 · abc1234" — if the commit has a slice_id; otherwise just "abc1234".
   function commitLabel(slice_id, sha7) {
     return (slice_id ? `S${slice_id} · ` : '') + (sha7 || '');
@@ -11053,7 +11069,14 @@ body:not(.lcars-mode) .staged-details-body pre code {
       const isHead = i === n - 1;
       const age = d.age_s != null ? formatAgeShort(d.age_s) : '';
       const subj = d.subject ? _promoteEsc(d.subject) : '';
-      const tip = `${isHead ? 'origin/dev' : 'dev'}: ${sha7}${subj ? ` — ${subj}` : ''}${age ? ` · ${age}` : ''}`;
+      // The label the server worked out (S402, P402, H) — never rebuilt from slice_id
+      // here, or slice 402's archive commit would claim to BE the landing it filed.
+      const label = typeof d.label === 'string' ? _promoteEsc(d.label) : '';
+      const meaning = kindMeaning(d.kind);
+      // A labelled node says what its letter means first, then today's line underneath.
+      // With no meaning to add the first line is the bare label — no trailing dash.
+      const kindLine = label ? `${label}${meaning ? ` \u2014 ${meaning}` : ''}\n` : '';
+      const tip = `${kindLine}${isHead ? 'origin/dev' : 'dev'}: ${sha7}${subj ? ` — ${subj}` : ''}${age ? ` · ${age}` : ''}`;
       if (isHead) {
         svg += `<rect x="${x - 28}" y="${devY - 27}" width="56" height="14" rx="7" fill="var(--branch-dev)" />`;
         // `ahead` counts commits a successful promote has already carried to main.
@@ -11061,13 +11084,23 @@ body:not(.lcars-mode) .staged-details-body pre code {
         // not go on asserting the number they disclaim.
         const headLabel = reconciling ? 'dev ↻' : `dev +${ahead}`;
         svg += `<text x="${x}" y="${devY - 17}" text-anchor="middle" font-size="8.5" font-weight="700" letter-spacing="0.3" fill="#fff">${headLabel}</text>`;
-        svg += `<circle cx="${x}" cy="${devY}" r="6.5" fill="var(--branch-dev)" stroke="var(--bg-panel)" stroke-width="1.5"><title>${tip}</title></circle>`;
+        svg += `<circle class="topo-dev-node" data-sha="${sha7}" cx="${x}" cy="${devY}" r="6.5" fill="var(--branch-dev)" stroke="var(--bg-panel)" stroke-width="1.5"><title>${tip}</title></circle>`;
       } else {
-        svg += `<circle cx="${x}" cy="${devY}" r="4.5" fill="var(--branch-dev)"><title>${tip}</title></circle>`;
+        svg += `<circle class="topo-dev-node" data-sha="${sha7}" cx="${x}" cy="${devY}" r="4.5" fill="var(--branch-dev)"><title>${tip}</title></circle>`;
       }
-      // slice label beneath each node
-      if (d.slice_id != null) svg += `<text x="${x}" y="${devY + 18}" text-anchor="middle" font-size="9" font-weight="500" fill="var(--ink-3, #6b7280)">S${d.slice_id}</text>`;
+      // kind label beneath each node. Only `label` decides it: a commit the server sent
+      // no label for stays bare even when it carries a slice_id, and an inferred kind
+      // looks exactly like a declared one.
+      if (label) svg += `<text class="topo-node-label" data-sha="${sha7}" x="${x}" y="${devY + 18}" text-anchor="middle" font-size="9" font-weight="500" fill="var(--ink-3, #6b7280)">${label}</text>`;
     }
+    // The legend for the letters under the nodes, at the right end of the dev line where
+    // the nodes stop — clear of the dashed tail (headX + 28) and inside the 72 units of
+    // rightPad. No nodes, no letters to explain, so no (i).
+    if (n > 0) {
+      const kindTip = ['S', 'P', 'H'].map(k => `${k} \u2014 ${KIND_MEANINGS[k]}`).join('\n');
+      svg += `<text class="topo-kind-info" x="${headX + 38}" y="${devY + 3.5}" text-anchor="start" font-size="10" fill="var(--ink-3, #6b7280)">(i)<title>${kindTip}</title></text>`;
+    }
+
     svg += '</svg>';
 
     // ── commit details: one row per commit on dev, newest first, then base ──

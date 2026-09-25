@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 869,
+  "guardCount": 875,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -1419,6 +1419,36 @@
         "tag": "slice-402-ac-7",
         "file": "regression/observability/j-history-cost-includes-jordan.test.js",
         "guardAcHash": "sha256:6335e3ba0ec2ae55b1eeb482870ba08e7ef2dc13b68607b71ef92d19ff8a2b68"
+      },
+      {
+        "tag": "slice-406-ac-1",
+        "file": "regression/direct-controls/j-topo-node-kind.test.js",
+        "guardAcHash": "sha256:8e9e10c9b9daa2e47d4a7ba33d0aa7098639fe29c30cb59be8ade72bd82e6f69"
+      },
+      {
+        "tag": "slice-406-ac-2",
+        "file": "regression/direct-controls/j-topo-node-kind.test.js",
+        "guardAcHash": "sha256:0c4613bf3e3519edf90de6d3b3387138949434cefe63f3128f9953f14c079e3c"
+      },
+      {
+        "tag": "slice-406-ac-3",
+        "file": "regression/direct-controls/j-topo-node-kind.test.js",
+        "guardAcHash": "sha256:2f0ec220176aa93e356e3cd1cf7f912005514ec4ff66bfa49743377d0238eb5e"
+      },
+      {
+        "tag": "slice-406-ac-4",
+        "file": "regression/direct-controls/j-topo-node-kind.test.js",
+        "guardAcHash": "sha256:32aeacb94dfe22d235315421a0511c72365f893ccc2153b271f51dfec7937ffe"
+      },
+      {
+        "tag": "slice-406-ac-5",
+        "file": "regression/direct-controls/j-topo-node-kind.test.js",
+        "guardAcHash": "sha256:e198745c900b48930c9f96a5ee5e5bd77f93e47e0a5c764adec57cb51680fa45"
+      },
+      {
+        "tag": "slice-406-ac-6",
+        "file": "regression/direct-controls/j-topo-node-kind.test.js",
+        "guardAcHash": "sha256:00dc75a84b9d2a5e11786657c64f127b27aaf008931a7cbf8951b627d8b2747d"
       },
       {
         "tag": "slice-901-ac-8",
@@ -3660,6 +3690,38 @@
         "tag": "slice-382-ac-4",
         "file": "regression/direct-controls/j-qa-and-branches.test.js",
         "guardAcHash": "sha256:055a0fc4119fba6811aab051a56322ce993936f63fbb64b95377ee7eed8f4d72"
+      }
+    ],
+    "regression/direct-controls/j-topo-node-kind.test.js": [
+      {
+        "tag": "slice-406-ac-1",
+        "file": "regression/direct-controls/j-topo-node-kind.test.js",
+        "guardAcHash": "sha256:8e9e10c9b9daa2e47d4a7ba33d0aa7098639fe29c30cb59be8ade72bd82e6f69"
+      },
+      {
+        "tag": "slice-406-ac-2",
+        "file": "regression/direct-controls/j-topo-node-kind.test.js",
+        "guardAcHash": "sha256:0c4613bf3e3519edf90de6d3b3387138949434cefe63f3128f9953f14c079e3c"
+      },
+      {
+        "tag": "slice-406-ac-3",
+        "file": "regression/direct-controls/j-topo-node-kind.test.js",
+        "guardAcHash": "sha256:2f0ec220176aa93e356e3cd1cf7f912005514ec4ff66bfa49743377d0238eb5e"
+      },
+      {
+        "tag": "slice-406-ac-4",
+        "file": "regression/direct-controls/j-topo-node-kind.test.js",
+        "guardAcHash": "sha256:32aeacb94dfe22d235315421a0511c72365f893ccc2153b271f51dfec7937ffe"
+      },
+      {
+        "tag": "slice-406-ac-5",
+        "file": "regression/direct-controls/j-topo-node-kind.test.js",
+        "guardAcHash": "sha256:e198745c900b48930c9f96a5ee5e5bd77f93e47e0a5c764adec57cb51680fa45"
+      },
+      {
+        "tag": "slice-406-ac-6",
+        "file": "regression/direct-controls/j-topo-node-kind.test.js",
+        "guardAcHash": "sha256:00dc75a84b9d2a5e11786657c64f127b27aaf008931a7cbf8951b627d8b2747d"
       }
     ],
     "regression/dispatch-execution/j-archive-rename-recorded.test.js": [
