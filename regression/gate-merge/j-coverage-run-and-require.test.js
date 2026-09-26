@@ -60,7 +60,14 @@ const FIX_HEAD = [
   "const path = require('path');",
   'const ROOT = ' + REPO_CONST + ';',
 ];
-const tagged = (tag) => 'test(' + JSON.stringify('J-fixture ' + (tag || FIX_TAG) + ' the behaviour holds') + ', () => {});';
+// One template literal, not a concatenation. The slice-316-ac-9 tag scanner reads every
+// regression source for a test-call opener followed straight away by a quote, and takes
+// what comes next for a test name. When this line built the opener as its own string
+// chunk, the quote closing that chunk was the quote the scanner wanted, and the join that
+// followed read as the name of a test that does not exist. Nothing here opens a quote
+// right after the opener, so there is nothing for the scanner to take. Same bytes out —
+// slice-411-ac-3 pins them.
+const tagged = (tag) => `test(${JSON.stringify(`J-fixture ${tag || FIX_TAG} the behaviour holds`)}, () => {});`;
 
 const roots = [];
 after(() => { for (const r of roots) { try { fs.rmSync(r, { recursive: true, force: true }); } catch (_) {} } });
@@ -307,4 +314,36 @@ test('slice-410-ac-7 the range of the failed promote 36190555313 no longer lists
     'the install script is run by a test, so it is not new behaviour without a test');
   assert.ok(!flagged.includes('scripts/dev.denorios.dashboard.plist'),
     'the plist is linted by a test, so it is not new behaviour without a test');
+});
+
+// ── AC-3 (slice 411) — the fixture assembly is not itself a test name ───────
+//
+// The helper above used to build the fixture by concatenating a chunk that ended in a
+// test-call opener. The slice-316-ac-9 scanner in j-gate-fail-retry.test.js reads every
+// regression source for that opener followed by a quote, so the quote closing the chunk
+// handed it a "test name" made of the join that came next — an untagged name for a test
+// that has never existed, and a red merge gate nobody can clear by fixing a test. This
+// guard keeps the assembly out of the scanner's way without letting the fixture bytes move.
+
+// @ac-hash: slice-411-ac-3 sha256:540c135fb02ca94a557a8dd992d10831cdbd116dfea801cef43941697932d3fa
+test('slice-411-ac-3 no string in this file reads to the slice-316-ac-9 scanner as an untagged test name, and the fixture bytes are the ones slice 410 verified', () => {
+  // Byte-for-byte, the fixture line every derive() above feeds the deriver. Written out
+  // here, not built from the helper, so a helper that starts emitting something else is
+  // caught rather than agreed with.
+  assert.equal(tagged(), `test("J-fixture ${FIX_TAG} the behaviour holds", () => {});`);
+  assert.equal(tagged('slice-99411-ac-2'), 'test("J-fixture slice-99411-ac-2 the behaviour holds", () => {});');
+
+  // The scanner of j-gate-fail-retry.test.js slice-316-ac-9, over this file alone. Copied
+  // rather than imported: requiring that file here would register its whole suite inside
+  // this one. It must stay in step with the original, which this slice may not touch.
+  const nameRe = /\btest(?:\.skip)?\s*\(\s*(['"`])((?:\\.|(?!\1)[^\\])*)\1/g;
+  const isTagged = name =>
+    /slice-\d+-ac-\d+/.test(name) ||
+    /(?:^|[^\w-])J-[A-Za-z0-9]/.test(name) ||
+    /journey-/.test(name);
+
+  const names = [...fs.readFileSync(__filename, 'utf8').matchAll(nameRe)].map(m => m[2]);
+  assert.ok(names.length >= 7, 'sanity: the names the scanner reads out of this file were found');
+  assert.deepEqual(names.filter(n => !isTagged(n)), [],
+    'a string in this file reads as an untagged test name, which reds the merge gate over a test that does not exist');
 });

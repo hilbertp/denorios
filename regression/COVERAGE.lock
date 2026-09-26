@@ -1,6 +1,6 @@
 {
   "generator": "scripts/build-coverage-map.js",
-  "guardCount": 1089,
+  "guardCount": 1100,
   "bySource": {
     ".github/workflows/promote.yml": [
       {
@@ -1778,6 +1778,16 @@
         "tag": "slice-406-ac-6",
         "file": "regression/direct-controls/j-topo-node-kind.test.js",
         "guardAcHash": "sha256:00dc75a84b9d2a5e11786657c64f127b27aaf008931a7cbf8951b627d8b2747d"
+      },
+      {
+        "tag": "slice-411-ac-1",
+        "file": "regression/gate-merge/j-dev-commit-list.test.js",
+        "guardAcHash": "sha256:a4cde7a24bb7fd1e656b769b314d78d4a3d7a79a14f4c476ea9a643bc6d28cf4"
+      },
+      {
+        "tag": "slice-411-ac-2",
+        "file": "regression/gate-merge/j-dev-commit-list.test.js",
+        "guardAcHash": "sha256:812ed030a1631fcfeaba7c830064f8efd155626e6ae1b73432403c525c4140c6"
       },
       {
         "tag": "slice-901-ac-8",
@@ -3786,6 +3796,10 @@
     ],
     "lib/tests-needed.js": [
       {
+        "tag": "slice-316-ac-9",
+        "file": "regression/gate-merge/j-coverage-run-and-require.test.js"
+      },
+      {
         "tag": "slice-365-ac-1",
         "file": "regression/gate-merge/j-unrun-test-dir.test.js",
         "guardAcHash": "sha256:4ab372ff3c9d9f8c30534d25fc3b8139489f78becf507e0a281970c13729c875"
@@ -3879,6 +3893,15 @@
         "tag": "slice-410-ac-7",
         "file": "regression/gate-merge/j-coverage-run-and-require.test.js",
         "guardAcHash": "sha256:dff76d9cac9ea434fa4c88405c18c796385b7e2e9398ac22b6efa1a9819e9bc2"
+      },
+      {
+        "tag": "slice-411-ac-3",
+        "file": "regression/gate-merge/j-coverage-run-and-require.test.js",
+        "guardAcHash": "sha256:540c135fb02ca94a557a8dd992d10831cdbd116dfea801cef43941697932d3fa"
+      },
+      {
+        "tag": "slice-99411-ac-2",
+        "file": "regression/gate-merge/j-coverage-run-and-require.test.js"
       },
       {
         "tag": "slice-99821-ac-1",
@@ -4167,6 +4190,10 @@
     ],
     "regression/COVERAGE.lock": [
       {
+        "tag": "slice-316-ac-9",
+        "file": "regression/gate-merge/j-coverage-run-and-require.test.js"
+      },
+      {
         "tag": "slice-356-ac-1",
         "file": "regression/gate-merge/j-check-draft-review.test.js"
       },
@@ -4226,6 +4253,15 @@
         "tag": "slice-410-ac-7",
         "file": "regression/gate-merge/j-coverage-run-and-require.test.js",
         "guardAcHash": "sha256:dff76d9cac9ea434fa4c88405c18c796385b7e2e9398ac22b6efa1a9819e9bc2"
+      },
+      {
+        "tag": "slice-411-ac-3",
+        "file": "regression/gate-merge/j-coverage-run-and-require.test.js",
+        "guardAcHash": "sha256:540c135fb02ca94a557a8dd992d10831cdbd116dfea801cef43941697932d3fa"
+      },
+      {
+        "tag": "slice-99411-ac-2",
+        "file": "regression/gate-merge/j-coverage-run-and-require.test.js"
       },
       {
         "tag": "slice-99822-ac-1",
@@ -4930,6 +4966,11 @@
         "tag": "slice-410-ac-7",
         "file": "regression/gate-merge/j-coverage-run-and-require.test.js",
         "guardAcHash": "sha256:dff76d9cac9ea434fa4c88405c18c796385b7e2e9398ac22b6efa1a9819e9bc2"
+      },
+      {
+        "tag": "slice-411-ac-3",
+        "file": "regression/gate-merge/j-coverage-run-and-require.test.js",
+        "guardAcHash": "sha256:540c135fb02ca94a557a8dd992d10831cdbd116dfea801cef43941697932d3fa"
       }
     ],
     "regression/gate-merge/j-dev-commit-list.test.js": [
@@ -4942,6 +4983,16 @@
         "tag": "slice-397-ac-2",
         "file": "regression/gate-merge/j-dev-commit-list.test.js",
         "guardAcHash": "sha256:b5358737bf7582fc2e44d1e4c4f206d903ecc6cd528c9fa499534f5021b47897"
+      },
+      {
+        "tag": "slice-411-ac-1",
+        "file": "regression/gate-merge/j-dev-commit-list.test.js",
+        "guardAcHash": "sha256:a4cde7a24bb7fd1e656b769b314d78d4a3d7a79a14f4c476ea9a643bc6d28cf4"
+      },
+      {
+        "tag": "slice-411-ac-2",
+        "file": "regression/gate-merge/j-dev-commit-list.test.js",
+        "guardAcHash": "sha256:812ed030a1631fcfeaba7c830064f8efd155626e6ae1b73432403c525c4140c6"
       }
     ],
     "regression/gate-merge/j-draft-contract.test.js": [
@@ -5834,6 +5885,10 @@
     ],
     "scripts/build-coverage-map.js": [
       {
+        "tag": "slice-316-ac-9",
+        "file": "regression/gate-merge/j-coverage-run-and-require.test.js"
+      },
+      {
         "tag": "slice-357-ac-1",
         "file": "regression/gate-merge/j-draft-contract.test.js",
         "guardAcHash": "sha256:7ec02336cea12356cb363c89ac2d0f0c2dedf8272cc2021895f938c4475bfa25"
@@ -5932,6 +5987,15 @@
         "tag": "slice-410-ac-7",
         "file": "regression/gate-merge/j-coverage-run-and-require.test.js",
         "guardAcHash": "sha256:dff76d9cac9ea434fa4c88405c18c796385b7e2e9398ac22b6efa1a9819e9bc2"
+      },
+      {
+        "tag": "slice-411-ac-3",
+        "file": "regression/gate-merge/j-coverage-run-and-require.test.js",
+        "guardAcHash": "sha256:540c135fb02ca94a557a8dd992d10831cdbd116dfea801cef43941697932d3fa"
+      },
+      {
+        "tag": "slice-99411-ac-2",
+        "file": "regression/gate-merge/j-coverage-run-and-require.test.js"
       },
       {
         "tag": "slice-99822-ac-1",

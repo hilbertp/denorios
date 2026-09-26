@@ -18,31 +18,40 @@ const path = require('node:path');
 const DASH = path.resolve(__dirname, '..', '..', 'dashboard', 'lcars-dashboard.html');
 const SRC = fs.readFileSync(DASH, 'utf8');
 
-// Brace-match a top-level `function f(` declaration out of the source.
-function extractBlock(header) {
-  const start = SRC.search(header);
+// Brace-match a top-level `function f(` declaration — or a `const X = {` table — out of
+// the source. `src` defaults to the page as it is on disk; slice-411-ac-2 passes a copy
+// with one line rewritten, to prove the renderer really reads what it was handed.
+function extractBlock(header, src = SRC) {
+  const start = src.search(header);
   assert.notEqual(start, -1, `${header} must exist in lcars-dashboard.html`);
   let depth = 0;
-  for (let j = SRC.indexOf('{', start); j < SRC.length; j++) {
-    if (SRC[j] === '{') depth++;
-    else if (SRC[j] === '}' && --depth === 0) return SRC.slice(start, j + 1);
+  for (let j = src.indexOf('{', start); j < src.length; j++) {
+    if (src[j] === '{') depth++;
+    else if (src[j] === '}' && --depth === 0) return src.slice(start, j + 1);
   }
   throw new Error(`unbalanced braces while extracting ${header}`);
 }
 
+const KIND_TABLE = /\n\s*const KIND_MEANINGS\s*=/;
+
 const UNRENDERED = '<<never-rendered>>';  // sentinel: still here ⇒ the renderer never wrote
 
 // Run the page's own renderTopoSvg() over `bs`. Returns the html it wrote to #topo-svg-wrap.
-function render(bs) {
+// Everything renderTopoSvg reaches for has to be copied in beside it, the KIND_MEANINGS
+// table included: slice 406 gave it a kindMeaning() call and this factory went red because
+// it lifted the caller without the callee.
+function render(bs, src = SRC) {
   const wrap = { innerHTML: UNRENDERED };
   const document = {
     getElementById: (id) => (id === 'topo-svg-wrap' ? wrap : null),
   };
   const factory = new Function('document', `
-    ${extractBlock(/\n\s*function formatAgeShort\s*\(/)}
-    ${extractBlock(/\n\s*function _promoteEsc\s*\(/)}
-    ${extractBlock(/\n\s*function _ghReconciling\s*\(/)}
-    ${extractBlock(/\n\s*function renderTopoSvg\s*\(/)}
+    ${extractBlock(KIND_TABLE, src)};
+    ${extractBlock(/\n\s*function formatAgeShort\s*\(/, src)}
+    ${extractBlock(/\n\s*function _promoteEsc\s*\(/, src)}
+    ${extractBlock(/\n\s*function _ghReconciling\s*\(/, src)}
+    ${extractBlock(/\n\s*function kindMeaning\s*\(/, src)}
+    ${extractBlock(/\n\s*function renderTopoSvg\s*\(/, src)}
     return renderTopoSvg;
   `);
   factory(document)(bs);
@@ -133,4 +142,68 @@ test('J-dev-commit-list slice-397-ac-2 — the rows run newest first with only t
     'reconciling keeps the commit rows first, then base, then the note');
   assert.match(rec[3].cls, /topo-c-premerge/, 'the base row is marked pre-merge');
   assert.match(rec[4].cls, /topo-c-reconciling/, 'the reconciling note comes last');
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Slice 411 — the lift carries the kind table with it
+//
+// Slice 406 taught renderTopoSvg() to spell out what an S, a P and an H mean, in the node
+// hovers and in the legend's (i). Both readings come from one const, KIND_MEANINGS, via
+// kindMeaning(). The factory above lifted renderTopoSvg without either, so every guard in
+// this file threw ReferenceError the moment 406 landed on dev. These two hold the lift
+// honest: one that it runs at all over commits that carry kinds, one that the wording it
+// renders is the page's and not a copy that can drift.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const kinded = [
+  { sha: 'aaaaaaa111', subject: 'S411: the slice', age_s: 300, kind: 'S', label: 'S411' },
+  { sha: 'bbbbbbb222', subject: 'S411: archive',   age_s: 200, kind: 'P', label: 'P411' },
+  { sha: 'ccccccc333', subject: 'a hand commit',   age_s: 100, kind: 'H', label: 'H'    },
+];
+
+// @ac-hash: slice-411-ac-1 sha256:a4cde7a24bb7fd1e656b769b314d78d4a3d7a79a14f4c476ea9a643bc6d28cf4
+test('J-dev-commit-list slice-411-ac-1 — the renderer lifted out of the live page runs over commits carrying kind letters: every function and table it reaches for is lifted with it', () => {
+  // Nothing is stubbed here. A callee the factory forgets to copy is a ReferenceError out
+  // of new Function, which is how slices 397 and 406 collided in the first place.
+  const html = render(state(kinded));
+
+  const all = rows(html);
+  const dev = all.filter(r => /\btopo-c-dev\b/.test(r.cls));
+  assert.equal(dev.length, kinded.length, 'three commits on dev still render three commit rows');
+  assert.equal(all[all.length - 1].k, 'base', 'and the base row for origin/main still follows them');
+
+  // The two places the page reads the kind table: a hover per labelled node, and the (i)
+  // legend at the end of the dev line. Both run inside renderTopoSvg, so a table that is
+  // missing only from the second path still reds this.
+  for (const c of kinded) {
+    assert.match(html, new RegExp(`<text class="topo-node-label" data-sha="${c.sha.slice(0, 7)}"`),
+      `the ${c.kind} commit renders its kind letter under the node`);
+  }
+  assert.match(html, /<text class="topo-kind-info"[^>]*>\(i\)<title>S \u2014 [^\n]+\nP \u2014 [^\n]+\nH \u2014 /,
+    'the (i) legend spells out all three letters from the table');
+});
+
+// @ac-hash: slice-411-ac-2 sha256:812ed030a1631fcfeaba7c830064f8efd155626e6ae1b73432403c525c4140c6
+test('J-dev-commit-list slice-411-ac-2 — reword the S line of KIND_MEANINGS in the page and the S hover this test renders changes with it, so the wording is never a copy kept here', () => {
+  // The hover of the first (oldest, non-head) dev node — the S commit.
+  const sHover = (src) => {
+    const html = render(state(kinded), src);
+    const m = new RegExp(`<circle class="topo-dev-node" data-sha="${kinded[0].sha.slice(0, 7)}"[^>]*>\\s*<title>([\\s\\S]*?)</title>`).exec(html);
+    assert.ok(m, 'the S commit must render a node with a hover title');
+    return m[1];
+  };
+
+  const table = extractBlock(KIND_TABLE);
+  const sLine = /\n\s*S:\s*'([^']*)',/.exec(table);
+  assert.ok(sLine, 'the page must still carry an S line in KIND_MEANINGS');
+  assert.ok(sHover(SRC).startsWith(`S411 \u2014 ${sLine[1]}`),
+    'as shipped, the S hover opens with the label and the wording the page ships for S');
+
+  const REWORDED = 'a slice landing, reworded by slice-411-ac-2';
+  const mutated = SRC.replace(table, table.replace(sLine[0], `\n    S: '${REWORDED}',`));
+  assert.notEqual(mutated, SRC, 'sanity: the S line was rewritten in the copy of the page source');
+  assert.ok(sHover(mutated).startsWith(`S411 \u2014 ${REWORDED}`),
+    'rewording S in the page must reword the hover; if it does not, this file is reading a table of its own');
+  assert.ok(!sHover(mutated).includes(sLine[1]),
+    'and the shipped wording must be gone from that hover, not merely joined by the new one');
 });
