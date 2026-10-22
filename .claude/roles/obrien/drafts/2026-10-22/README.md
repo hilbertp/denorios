@@ -31,7 +31,10 @@ machine, and a second slice in flight hides which one broke what. Slice 5 is the
 Julian's stage: two browser assertions in `e2e/lcars-mode.spec.js` go red and he has to move them.
 
 Before slice 1: `cp .env.example .env`, put the `claude setup-token` value in it, keep
-`DS9_USE_GATE_FLOW=1`, and run `npm install` and `npx playwright install --with-deps chromium`.
+`DS9_USE_GATE_FLOW=1`, run `npm install` and `npx playwright install --with-deps chromium`, and give
+git push access to origin (`gh auth login && gh auth setup-git`; prove it with
+`git push --dry-run origin dev`). The orchestrator pushes dev before every build and at every landing;
+without credentials every approval fails instantly at `worktree_setup` with `branch_creation_failed`.
 Slice 4 writes exactly this into the README; the machine needs it first.
 
 Merge this PR into dev before staging slice 4: its last criterion links `docs/HISTORY.md`, which

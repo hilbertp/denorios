@@ -15,12 +15,13 @@
 - `.github/workflows/ci.yml:103-107`: the browser suite needs `npm install` and `npx playwright install --with-deps chromium`; Julian's stage runs it locally (`playwright.config.js`).
 - `dashboard/server.js:819-823` calls `gh run list`; without `gh` the GitHub panels fall back silently (non-fatal, worth one line).
 - `scripts/orch-start.sh`, `orch-stop.sh` and `install-dashboard-service.sh` call `launchctl`; `start.sh` and `stop.sh` do not. The README does not say which to use on which OS.
+- `bridge/orchestrator.js` `ensureIntegrationIsFresh` (line 1955) runs `git push origin dev` before every build when local dev is ahead, and every landing pushes dev. A machine without git push credentials for origin fails every approval at `worktree_setup` with `branch_creation_failed` (seen on the first WSL run, 2026-10-22, seven slices). The README never says the pipeline pushes.
 
 ## Tasks
 
-1. In `README.md`, replace "Quick start" with steps that work on a fresh clone, in this order: clone; `npm install`; `cp .env.example .env`; put the token from `claude setup-token` into `CLAUDE_CODE_OAUTH_TOKEN` (one sentence on why an API key does not work); keep `DS9_USE_GATE_FLOW=1` (one sentence on what 0 does); `npx playwright install --with-deps chromium` (needed for Julian's stage and the promote run); optional `gh auth login` for the GitHub panels; `./scripts/start.sh`; open `http://localhost:4747`; stop with `./scripts/stop.sh`.
+1. In `README.md`, replace "Quick start" with steps that work on a fresh clone, in this order: clone; `npm install`; `cp .env.example .env`; put the token from `claude setup-token` into `CLAUDE_CODE_OAUTH_TOKEN` (one sentence on why an API key does not work); keep `DS9_USE_GATE_FLOW=1` (one sentence on what 0 does); `npx playwright install --with-deps chromium` (needed for Julian's stage and the promote run); `gh auth login` followed by `gh auth setup-git` so that `git push origin dev` works without a prompt (the pipeline pushes dev on every landing; `gh` also feeds the GitHub panels); a check: `git push --dry-run origin dev` prints no authentication error; `./scripts/start.sh`; open `http://localhost:4747`; stop with `./scripts/stop.sh`.
 2. Add a short "Running as a service" paragraph: on macOS, `scripts/orch-start.sh` and `scripts/install-dashboard-service.sh` register launchd agents; on Linux and WSL there is no service wrapper yet, `start.sh` is the way, and the processes die with the shell session unless run under `nohup` or a terminal multiplexer.
-3. Update "Requirements" to match: Node >= 20, `claude` CLI, an OAuth token, Playwright's Chromium, `gh` optional, and point to `docs/runbooks/RUNBOOK-CLAUDE-AUTH.md` for the token.
+3. Update "Requirements" to match: Node >= 20, `claude` CLI, an OAuth token, Playwright's Chromium, git push access to origin (via `gh auth setup-git` or an SSH remote), and point to `docs/runbooks/RUNBOOK-CLAUDE-AUTH.md` for the token.
 4. Add a "Read next" line pointing at `docs/HOW-A-SLICE-TRAVELS.md` and `docs/HISTORY.md`.
 
 Write a safety-net test only for a criterion that asserts behaviour; otherwise write none, then stop.
@@ -41,8 +42,8 @@ Write a safety-net test only for a criterion that asserts behaviour; otherwise w
 
 ## Acceptance criteria
 
-- slice-NNN-ac-1: `README.md` "Quick start" contains, in order, `npm install`, `cp .env.example .env`, `claude setup-token`, `DS9_USE_GATE_FLOW=1`, `npx playwright install --with-deps chromium`, `./scripts/start.sh` and `./scripts/stop.sh`.
-- slice-NNN-ac-2: `README.md` says, in one sentence each, that the token is an OAuth token and not an API key, and that `DS9_USE_GATE_FLOW=0` merges accepted slices straight to main.
+- slice-NNN-ac-1: `README.md` "Quick start" contains, in order, `npm install`, `cp .env.example .env`, `claude setup-token`, `DS9_USE_GATE_FLOW=1`, `npx playwright install --with-deps chromium`, `gh auth setup-git`, `git push --dry-run origin dev`, `./scripts/start.sh` and `./scripts/stop.sh`.
+- slice-NNN-ac-2: `README.md` says, in one sentence each, that the token is an OAuth token and not an API key, that `DS9_USE_GATE_FLOW=0` merges accepted slices straight to main, and that the pipeline pushes `dev` to origin on every landing so the machine needs push credentials.
 - slice-NNN-ac-3: `README.md` says which scripts are macOS launchd wrappers and that `start.sh` and `stop.sh` are the Linux and WSL path.
 - slice-NNN-ac-4: `README.md` links `docs/HOW-A-SLICE-TRAVELS.md`, `docs/HISTORY.md` and `docs/runbooks/RUNBOOK-CLAUDE-AUTH.md`, and every path it names exists on the branch.
 
@@ -61,8 +62,8 @@ No criterion is retired or reworded. No trailer is authorized or needed.
 
 ## REQUIRED — declare the ACs as commit trailers
 
-    AC: slice-NNN-ac-1: `README.md` "Quick start" contains, in order, `npm install`, `cp .env.example .env`, `claude setup-token`, `DS9_USE_GATE_FLOW=1`, `npx playwright install --with-deps chromium`, `./scripts/start.sh` and `./scripts/stop.sh`.
-    AC: slice-NNN-ac-2: `README.md` says, in one sentence each, that the token is an OAuth token and not an API key, and that `DS9_USE_GATE_FLOW=0` merges accepted slices straight to main.
+    AC: slice-NNN-ac-1: `README.md` "Quick start" contains, in order, `npm install`, `cp .env.example .env`, `claude setup-token`, `DS9_USE_GATE_FLOW=1`, `npx playwright install --with-deps chromium`, `gh auth setup-git`, `git push --dry-run origin dev`, `./scripts/start.sh` and `./scripts/stop.sh`.
+    AC: slice-NNN-ac-2: `README.md` says, in one sentence each, that the token is an OAuth token and not an API key, that `DS9_USE_GATE_FLOW=0` merges accepted slices straight to main, and that the pipeline pushes `dev` to origin on every landing so the machine needs push credentials.
     AC: slice-NNN-ac-3: `README.md` says which scripts are macOS launchd wrappers and that `start.sh` and `stop.sh` are the Linux and WSL path.
     AC: slice-NNN-ac-4: `README.md` links `docs/HOW-A-SLICE-TRAVELS.md`, `docs/HISTORY.md` and `docs/runbooks/RUNBOOK-CLAUDE-AUTH.md`, and every path it names exists on the branch.
     Lane: surface
