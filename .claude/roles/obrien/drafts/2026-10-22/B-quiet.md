@@ -10,18 +10,20 @@ After this lands: `ci.yml` does not run on a push to dev (a person can still sta
 
 ## Why (evidence)
 
+Line numbers are from dev at 0df8720 (slice 411).
+
 - `.github/workflows/ci.yml:20-24`: `on: push: branches: [dev]`; lines 43-52 run the Test-Update Gate as an advisory step on every push. ADR-JULIAN-ALONGSIDE §2 item 3: six fix requests ever, none a slice bug.
-- `dashboard/server.js:557-712`: `DEV_SUITE_STATE` (`bridge/state/dev-suite.json`), `readDevSuiteState`, `withDevSuiteFixRequest` (overlaid at lines 518 and 545), `routeDevSuiteRun` (631-690: writes `REGRESSION-FAILURE-dev-<sha7>.md` into Alex's inbox, emits `DEV_SUITE_RED` / `DEV_SUITE_GREEN`), `startDevSuiteRouting` (703-712, armed from the `require.main` block). Exported at line 4940.
-- `dashboard/server.js:726`: `REPORT_WORKFLOWS = { 'CI': 'ci.yml', 'Promote dev to main': 'promote.yml' }`; the Regression panel downloads the newest report across both.
+- `dashboard/server.js:644-812`: `DEV_SUITE_STATE` (`bridge/state/dev-suite.json`, line 644), `readDevSuiteState` (652), `withDevSuiteFixRequest` (667, overlaid at lines 605 and 632), `downloadDevSuiteLog` (689), `routeDevSuiteRun` (718-788: writes `REGRESSION-FAILURE-dev-<sha7>.md` into Alex's inbox, emits `DEV_SUITE_RED` / `DEV_SUITE_GREEN`), `startDevSuiteRouting` (790-812, armed from the `require.main` block). Exported at line 5027.
+- `dashboard/server.js:813`: `REPORT_WORKFLOWS = { 'CI': 'ci.yml', 'Promote dev to main': 'promote.yml' }`; the Regression panel downloads the newest report across both.
 - `scripts/regression-report.js:32-33` (`OBRIEN_INBOX`, `OBRIEN_HANDOFF`), `:157` (`renderObrienHandoff`), `:211-215` (the inbox write), `:230` (exports `parse, renderObrienHandoff, OBRIEN_INBOX`).
-- `dashboard/lcars-dashboard.html:12843-12871`: the "Per-push checks (ci.yml)" line in the gate flow, reading `ci.fix_request`; `:9266` labels the report `ci.yml run` by default; the `.ci-strip` rules at 2355-2514 and 5367-5373 style the per-push strip.
+- `dashboard/lcars-dashboard.html:12911-12918`: the "Per-push checks (ci.yml)" line in the gate flow, reading `ci.fix_request`; `:9272` labels the report `ci.yml run` by default; the `.ci-strip` rules from 2356 and from 5373 style the per-push strip.
 - `.github/workflows/promote.yml:18`: the header comment still says "ci.yml still runs the fast suite on every dev push".
-- `bridge/nog-prompt.js` tells Jordan which machines run the suites (guarded by `regression/authoring-staging/j-reviewer-runs-nothing.test.js` ac-2, "names the three machines that do"); Sam's DONE template at `bridge/orchestrator.js:2936-2948` and the fixed block say "GitHub runs the safety-net suite when the slice lands on dev".
+- `bridge/nog-prompt.js:54`: "Regressions are caught by machines, not by you: GitHub runs the safety-net suite when the slice lands on dev, Julian's stage runs both suites, and the Promote button runs them again" (guarded by `regression/authoring-staging/j-reviewer-runs-nothing.test.js` ac-2, "names the three machines that do"). Sam's DONE template at `bridge/orchestrator.js:2995-2999`: "GitHub runs the safety-net suite when your slice lands on dev; if it goes red, Alex gets a fix request." The fixed block in every brief says the same.
 
 ## Tasks
 
 1. `.github/workflows/ci.yml`: remove the `push:` trigger (keep `pull_request` to main and `workflow_dispatch`); remove the advisory Test-Update Gate step; rewrite the header comment so it no longer calls the run early warning. The commit carries `Tests-Not-Needed: .github/workflows/ci.yml trigger removed, no product behaviour (ADR-JULIAN-ALONGSIDE Rule 5)`. Correct the `promote.yml` header comment at line 18 in the same commit.
-2. `dashboard/server.js`: delete `routeDevSuiteRun`, `startDevSuiteRouting`, `withDevSuiteFixRequest`, `readDevSuiteState`, `downloadDevSuiteLog`, `DEV_SUITE_STATE`, the two overlays at 518 and 545, the arming in the `require.main` block, and the exports. `REPORT_WORKFLOWS` keeps only `'Promote dev to main': 'promote.yml'`. Anything the promote-run status (`isReconciling`, `_promoteRunStale`, the `gh` cache) still needs from the shared CI poll stays; nothing else of the per-push poll stays.
+2. `dashboard/server.js`: delete `routeDevSuiteRun`, `startDevSuiteRouting`, `withDevSuiteFixRequest`, `readDevSuiteState`, `downloadDevSuiteLog`, `DEV_SUITE_STATE`, the two overlays at 605 and 632, the arming in the `require.main` block, and the exports. `REPORT_WORKFLOWS` keeps only `'Promote dev to main': 'promote.yml'`. Anything the promote-run status (`isReconciling`, `_promoteRunStale`, the `gh` cache) still needs from the shared CI poll stays; nothing else of the per-push poll stays.
 3. `scripts/regression-report.js`: delete `OBRIEN_INBOX`, `OBRIEN_HANDOFF`, `renderObrienHandoff` and the inbox write. Keep `parse`, `renderReport` and `regression/LAST-RUN.md`. Exports become `{ parse }`.
 4. `dashboard/lcars-dashboard.html`: remove the "Per-push checks (ci.yml)" line and its `fix_request` reader; remove the per-push red pill (the "mini pill reads a red per-push run before N ahead" path); the Regression panel label and overlay know only the promote run; remove the `.ci-strip` rules and markup that exist only for the per-push strip (keep whatever the promote report overlay uses).
 5. Prompts and templates: in `bridge/nog-prompt.js` and in Sam's DONE template in `bridge/orchestrator.js`, drop every statement that GitHub runs the safety-net suite on a push to dev or that Alex receives a fix request from it; the run they name is the merge press (safety-net and browser suites, once each). Make the same edit in `.claude/roles/rom/ROLE.md` and `.claude/roles/nog/ROLE.md`. Do not touch `.claude/roles/obrien/slice-body-template.md` (Alex edits his own template after this lands) and do not touch `.claude/roles/bashir/ROLE.md` (Philipp applies it).
@@ -32,7 +34,7 @@ Write one safety-net test per acceptance criterion, plus one for each trap, then
 
 ## Screen hooks
 
-- slice-NNN-ac-4: the gate-flow status line that today renders `Per-push checks (ci.yml): …` into the element holding `.gflow-ci-dot` (`lcars-dashboard.html:12871`) is absent; the Regression panel's report label (today `ci.yml run #N` at `:9266`) reads the promote run. Visible on the DevOps Station with any register. Rom to declare the stable name of the report label and of the panel the strip lived in.
+- slice-NNN-ac-4: the gate-flow status line that today renders `Per-push checks (ci.yml): …` into the element holding `.gflow-ci-dot` (`lcars-dashboard.html:12918`) is absent; the Regression panel's report label (today `ci.yml run #N` at `:9272`) reads the promote run. Visible on the DevOps Station with any register. Rom to declare the stable name of the report label and of the panel the strip lived in.
 
 ## Traps
 

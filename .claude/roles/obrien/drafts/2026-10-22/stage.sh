@@ -12,8 +12,8 @@ D=.claude/roles/obrien/drafts/2026-10-22
 case "${1:-}" in
   A)
     BODY=$D/A-checker-fixes.md
-    TITLE="Red means something: the checker credits require and script runs, a removed-coverage declaration covers one source, and the manifest records criterion wording again"
-    GOAL="A red at the merge press means a real problem: a test that requires or runs a file is credited to it, a Coverage-Removed trailer clears only the source it names, and every landing records the wording of its criteria."
+    TITLE="Red means something: a removed-coverage declaration covers one source, and the manifest records criterion wording again"
+    GOAL="A red at the merge press means a real problem: a Coverage-Removed trailer clears only the source it names, and every landing records the wording of its criteria."
     PRIO=high; LANE=core; TIMEOUT=30 ;;
   B)
     BODY=$D/B-quiet.md

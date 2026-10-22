@@ -21,8 +21,8 @@ It started on 6 April 2026 as "The Patch of Hormuz", was renamed "The Liberation
 | 2 | May | 43 | 303 | Hardening, FIFO dispatch, the Ruflo verdict |
 | 3 | June | 194 | ~347 | The gate: dev→main via GitHub Actions, rollback, the Test-Update Gate, AC custody |
 | 4 | July | 15 | 352 | Rebrand to Denorios, packaging ADR, then silence through August |
-| 5 | September | 122 | 404 | Test ownership: who writes which test, proof lanes, Julian's stage, History that tells the truth |
-| 6 | 25 Sep – 22 Oct | 0 | 404 | Quiet. ADR-JULIAN-ALONGSIDE proposed, nothing built |
+| 5 | September | 141 | 411 | Test ownership: who writes which test, proof lanes, Julian's stage, History that tells the truth |
+| 6 | 27 Sep – 22 Oct | 0 | 411 | Quiet. ADR-JULIAN-ALONGSIDE proposed; main not promoted since 24 Sep |
 
 ### Era 0 — 6 April: day one
 
@@ -68,26 +68,27 @@ The month settled who writes which test and what the machines run.
 - 11–15 Sep: the first lane runs. The first landing through the new code crashed the daemon (load-order bug in lock regeneration); 393 fixed four daemon faults; hotfix a8da61f gave the child a 256 MB buffer and made a rate limit a rejected event; 394 was retired because the fix had been made by hand on dev one minute before approval; 395 ended nameless commits on dev; 392 made every build say where its minutes went. 14 Sep: a full-disk outage; the dashboard has no supervisor; `bridge.log` never rotates (handoffs to Chris).
 - 17–24 Sep: the author-sandbox guard (359), **Julian's stage becomes a real step** with the `IN_QA` state and its packet (363), Jordan reviews without running the suites and writes his verdict in one exact shape (399), the verdict is read even without its closing fence (400), **History tells the truth** about time per role and cost (401, 402), and 404 made dev green after 402 changed a signature 400 had pinned.
 - 24 Sep: **ADR-JULIAN-ALONGSIDE** (Taylor, revision 2 after adversarial review). The line never waits for Julian; he works at his own bench on a card per landing and answers one question per criterion (does this slice need a test update?); his tests are landed by the pipeline; one merge button shows where Julian is and Philipp decides; nothing runs between landings; a red at the merge explains itself and Philipp routes it. It names seven work items A–G for Alex to slice, in order, and withdraws staged 377 and 378.
+- 24–26 Sep, on dev only (19 commits main does not have): the dashboard runs as a background service that restarts itself (403, answering Chris's 14 Sep handoff), the merge dialog stops asking for a second person (368), Sam's and Jordan's sessions are streamed so no output cap kills a build (396, item C), every dev commit says what kind it is and the branch graph lists them in full (397, 405, 406), files Julian's stage leaves behind never block a landing (407), **the merge gate sees tests that run a file or load it** (410, Rule 7 (a), direct loads only), and two green-again test fixes (408, 411). The promote press of 24 Sep (run 36190555313) had gone red on the checker's false "new behaviour, no test"; Alex unblocked it by hand (659bc18) and 410 fixed the cause. No press since.
 
-### Era 6 — 25 September to 22 October: quiet
+### Era 6 — 27 September to 22 October: quiet
 
-No commit since 9a8e46a (24 Sep). Four weeks.
+No commit on dev since 0df8720 (26 Sep) and none on main since 9a8e46a (24 Sep). main is 19 commits behind dev.
 
 ## 3. Where it stands on 22 October 2026
 
-**Last landed slice:** 404 (on dev, QA'd, archived). The highest id in git is 404. Slices 396, 397, 398 and 403 are not in git: the handoffs say 396 (streaming session logs), 397 (Kind letters for commits) and 398 (Julian's board) were staged on Philipp's machine; 403 is unaccounted for in the repo.
+**Last landed slice:** 411 (on dev, archived). main is at 404 and 19 commits behind dev; a promote press is due. 398 (Julian's board) is staged on Philipp's machine and becomes item G; 409 is unaccounted for in the repo.
 
-**The governing document:** `docs/adr/ADR-JULIAN-ALONGSIDE.md`, §7 (build constraints), §8 (what changes where) and §9 (order of work: A checker fixes, B quiet, C = 396, D bench and backlog, E merge button, F red report, G board and History).
+**The governing document:** `docs/adr/ADR-JULIAN-ALONGSIDE.md`, §7 (build constraints), §8 (what changes where) and §9 (order of work: A checker fixes, B quiet, C = 396, D bench and backlog, E merge button, F red report, G board and History). Done: C (396) and the direct-load half of A (410). Next: the rest of A, then B.
 
 **Decided but not built:**
 - The crew rename R1–R3. Only `bridge/roles.json` exists; `lib/roles.js`, `dashboard/dashboard.html` and `bridge/reviewer-prompt.js` do not. Folders still carry legacy keys.
 - Test-ownership slice 3 (the brief check): `bridge/new-slice.js` does not yet refuse a brief that lacks the fixed block or contains a forbidden phrase, although `docs/contracts/slice-format.md` says it does.
 - The machine break-it check at Julian's stage (staged 377). Dropped by ADR-JULIAN-ALONGSIDE §6; Julian's 24 Sep handoff about its blind spot on test-repair slices is therefore closed without a slice.
-- Staged 377 and 378 are to be withdrawn; 398 becomes G; 397 needs a Kind letter for `T<N>:` test landings before approval; 368's fixed block needs refreshing.
+- Staged 377 and 378 are to be withdrawn; 398 becomes G; 397 and 405 landed without the Kind letter for `T<N>:` test landings, so D adds it.
 
-**Known false reds and faults still open:** the coverage checker credits only `readFileSync` (two of the last three red merge runs; ADR §2.9); `Coverage-Removed` overrides the whole range, not one source; `AC-MANIFEST.lock` has recorded no criterion text since slice 383 (45 of 375 tags carry text); rollback writes no reversal trailers; the three giant files (`bridge/orchestrator.js` 9,903 lines, `dashboard/lcars-dashboard.html` 13,472, `dashboard/server.js` 4,940) are still on Taylor's desk.
+**Known false reds and faults still open:** the coverage checker credited only `readFileSync` until 410 (two of the last three red merge runs; ADR §2.9); it now credits direct `require` and child-process runs, and deliberately not transitive loads; `Coverage-Removed` still overrides the whole range, not one source; `AC-MANIFEST.lock` still records no criterion text since slice 383 (45 of 375 tags, unchanged through 411); rollback writes no reversal trailers; the three giant files (`bridge/orchestrator.js` 9,903 lines, `dashboard/lcars-dashboard.html` 13,472, `dashboard/server.js` 4,940) are still on Taylor's desk.
 
-**Open handoffs in Alex's inbox (11 files, Apr–Sep):** the five from Worf and Dax (test-ownership ruling and plumbing, rename, proof lanes) are acted on except the items above; Bashir's merge-warning requirements (1 Sep) landed as 361, 365, 366; Bashir's sequential-flow ruling (1 Sep) is amended by ADR-JULIAN-ALONGSIDE; Bashir's break-it blind spot (24 Sep) is closed by §6; the three Dax handoffs from April (Bet 3 tracking, evaluator, crew dossier) are history.
+**Open handoffs in Alex's inbox (12 files, Apr–Sep):** the five from Worf and Dax (test-ownership ruling and plumbing, rename, proof lanes) are acted on except the items above; Bashir's merge-warning requirements (1 Sep) landed as 361, 365, 366 and 368; Bashir's sequential-flow ruling (1 Sep) is amended by ADR-JULIAN-ALONGSIDE; Bashir's break-it blind spot (24 Sep) and item 1 of his 410-stage handoff (25 Sep) are closed by §6; item 2 of that handoff stands as a brief-writing rule (a criterion Julian should corroborate needs an observable the product answers for, never a historical git range); the three Dax handoffs from April (Bet 3 tracking, evaluator, crew dossier) are history.
 
 **Stale documents a reader will trust by mistake:** `.claude/roles/obrien/memory/MEMORY.md` (last updated 15 Jun), `docs/FEATURES.md` (12 Apr), `docs/SPRINT3-SCOPE.md` (14 Apr), `.claude/CLAUDE.md` and `README.md` (pre-ruling wording; the prose sweep R4 is Chris's and Philipp's).
 
@@ -111,6 +112,6 @@ No commit since 9a8e46a (24 Sep). Four weeks.
 1. **Code changes to the daemon do nothing until it is restarted.** Day one, and again on 13 Sep. Every orchestrator slice ends with `launchctl kickstart`.
 2. **A hand edit on dev while a slice for the same change is staged wastes a dispatch** (394). Withdraw the slice in the same breath.
 3. **Rules that infer intent from shape throw away honest work.** "One commit plus a long report" killed 366 and 371; "undo the product files and see if the tests go red" would have called 404 hollow. Decide from the diff and from what the report says.
-4. **The checker's false reds are the most expensive reds** because they teach the operator to tick through the dialog. Four of one class before 77293b1; two of the last three merge reds.
+4. **The checker's false reds are the most expensive reds** because they teach the operator to tick through the dialog. Four of one class before 77293b1; two of the last three merge reds; fixed for direct loads and runs by 410 on 26 Sep.
 5. **Documents say the stage runs the suites; the code has had no caller for `_gateTestsUpdated` since 363.** Measure before slicing (ADR-JULIAN-ALONGSIDE §2 was a read-only investigation by six agents and a critic).
 6. **Briefs override everything the builder reads** (371). The brief must say exactly what to run and what not to write, and the fixed block must be verbatim.
