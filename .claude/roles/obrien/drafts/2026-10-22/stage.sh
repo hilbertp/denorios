@@ -3,12 +3,18 @@
 # Mints the id through bridge/new-slice.js (never by hand), then writes the id into
 # the NNN placeholders of the staged file.
 #
+#   .claude/roles/obrien/drafts/2026-10-22/stage.sh all   # stage all seven, ids in order
 #   .claude/roles/obrien/drafts/2026-10-22/stage.sh 1     # shakedown slices 1..5 (surface lane), in order
 #   .claude/roles/obrien/drafts/2026-10-22/stage.sh A     # checker fixes (ADR-JULIAN-ALONGSIDE item A)
 #   .claude/roles/obrien/drafts/2026-10-22/stage.sh B     # quiet between landings (item B)
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 D=.claude/roles/obrien/drafts/2026-10-22
+
+if [ "${1:-}" = "all" ]; then
+  for x in 1 2 3 4 5 A B; do "$0" "$x" || exit 1; done
+  exit 0
+fi
 
 case "${1:-}" in
   A)
@@ -46,7 +52,7 @@ case "${1:-}" in
     TITLE="The crew list shows Julian, the name Philipp chose"
     GOAL="The Ops crew tile, owner chips and person labels show the QA engineer as Julian in light mode, as decided on 2026-09-03, with Bashir still shown in the LCARS skin."
     PRIO=normal; LANE=surface; TIMEOUT=15 ;;
-  *) echo "usage: $0 1|2|3|4|5|A|B" >&2; exit 2 ;;
+  *) echo "usage: $0 1|2|3|4|5|A|B|all" >&2; exit 2 ;;
 esac
 
 # Mint the id the way new-slice.js will: next free queue id, bumped past any staged file.

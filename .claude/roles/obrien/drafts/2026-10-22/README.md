@@ -18,8 +18,12 @@ the staged file must come from the live queue).
 | `B-quiet.md` | ADR item B, Rule 5 | core | high | 7, after A shows "accepted" |
 
 ```bash
-.claude/roles/obrien/drafts/2026-10-22/stage.sh 1   # then 2, 3, 4, 5, A, B
+.claude/roles/obrien/drafts/2026-10-22/stage.sh all   # stages all seven as 412..418; or one at a time: stage.sh 1
 ```
+
+Staged files are never committed: `bridge/staged/` is pipeline-owned (slice 395), and
+`verifyWorkingTreeMatchesMain` would resurrect a tracked staged file from HEAD after every checkout,
+offering an already-approved slice again. Stage on the pipeline machine, after pulling this branch.
 
 Stage one, approve it in Ops, watch it travel (Sam, Jordan, landing, Julian's stage), then stage the
 next. One at a time on the first day: the point of the shakedown is to see each step work on this
