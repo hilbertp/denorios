@@ -1,21 +1,37 @@
 # Alex's drafts — 2026-10-22
 
-Two briefs for the first two items of `docs/adr/ADR-JULIAN-ALONGSIDE.md` §9, written on onboarding
-after reading the ADR, the inbox, and the archived slice records. The bodies carry `NNN` where the
+Seven briefs. Five are surface-lane shakedown slices for the WSL machine, each a few minutes for Sam,
+each a real chore the repo owes, and each a row in a History that starts empty on this machine.
+Two are the first items of `docs/adr/ADR-JULIAN-ALONGSIDE.md` §9. The bodies carry `NNN` where the
 slice id goes; `stage.sh` mints the id through `bridge/new-slice.js` and fills it in. Stage on the
 machine that runs the pipeline (the bodies are validated against `new-slice.js` here, but the id and
 the staged file must come from the live queue).
 
-| Draft | ADR item | Lane | Priority | Lands |
+| Draft | What | Lane | Priority | Order |
 |---|---|---|---|---|
-| `A-checker-fixes.md` | A, Rule 7 (b) and (c); 7 (a) landed as slice 410 | core | high | first |
-| `B-quiet.md` | B, Rule 5 | core | high | after A shows "accepted" in History |
+| `1-root-debris.md` | three dead root files go | surface | normal | 1 |
+| `2-slice-template.md` | the template nothing reads goes | surface | normal | 2 |
+| `3-docs-taxonomy.md` | `docs/README.md` tells the truth | surface | normal | 3 |
+| `4-readme-fresh-clone.md` | the quick start works on a fresh clone | surface | normal | 4 |
+| `5-julian-not-priya.md` | the crew list says Julian; first slice that touches the screen | surface | normal | 5 |
+| `A-checker-fixes.md` | ADR item A, Rule 7 (b) and (c); 7 (a) landed as slice 410 | core | high | 6 |
+| `B-quiet.md` | ADR item B, Rule 5 | core | high | 7, after A shows "accepted" |
 
 ```bash
-.claude/roles/obrien/drafts/2026-10-22/stage.sh A
-# approve A in Ops; wait for SLICE_SQUASHED_TO_DEV
-.claude/roles/obrien/drafts/2026-10-22/stage.sh B
+.claude/roles/obrien/drafts/2026-10-22/stage.sh 1   # then 2, 3, 4, 5, A, B
 ```
+
+Stage one, approve it in Ops, watch it travel (Sam, Jordan, landing, Julian's stage), then stage the
+next. One at a time on the first day: the point of the shakedown is to see each step work on this
+machine, and a second slice in flight hides which one broke what. Slice 5 is the one to watch at
+Julian's stage: two browser assertions in `e2e/lcars-mode.spec.js` go red and he has to move them.
+
+Before slice 1: `cp .env.example .env`, put the `claude setup-token` value in it, keep
+`DS9_USE_GATE_FLOW=1`, and run `npm install` and `npx playwright install --with-deps chromium`.
+Slice 4 writes exactly this into the README; the machine needs it first.
+
+Merge this PR into dev before staging slice 4: its last criterion links `docs/HISTORY.md`, which
+this PR adds.
 
 ## By hand, before approving A (ADR §9 step 0 and "Staged work")
 
