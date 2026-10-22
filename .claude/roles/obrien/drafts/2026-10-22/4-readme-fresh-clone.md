@@ -13,7 +13,7 @@
 - `.env.example`: `CLAUDE_CODE_OAUTH_TOKEN` "REQUIRED for headless claude -p", from `claude setup-token`, "NOT an Anthropic API key"; `DS9_USE_GATE_FLOW=1`.
 - `README.md:56-62` ("Requirements") lists only Node >= 20, the `claude` CLI and `claude login`. No `.env`, no `npm install`, no Playwright, no `gh`.
 - `.github/workflows/ci.yml:103-107`: the browser suite needs `npm install` and `npx playwright install --with-deps chromium`; Julian's stage runs it locally (`playwright.config.js`).
-- `dashboard/server.js:819-823` calls `gh run list`; without `gh` the GitHub panels fall back silently (non-fatal, worth one line).
+- `dashboard/server.js` requires `gh`: the merge button dispatches the promotion with `gh workflow run promote.yml --ref dev` (lines 4808 and 4927), the red report reads `gh run view` (1585, 1658), and the Regression panel downloads reports with `gh run download` (694, 868). Without `gh` nothing can be promoted to main. The README does not mention `gh` at all; the first WSL run (2026-10-22) found it absent.
 - `scripts/orch-start.sh`, `orch-stop.sh` and `install-dashboard-service.sh` call `launchctl`; `start.sh` and `stop.sh` do not. The README does not say which to use on which OS.
 - `bridge/orchestrator.js` `ensureIntegrationIsFresh` (line 1955) runs `git push origin dev` before every build when local dev is ahead, and every landing pushes dev. A machine without git push credentials for origin fails every approval at `worktree_setup` with `branch_creation_failed` (seen on the first WSL run, 2026-10-22, seven slices). The README never says the pipeline pushes.
 
@@ -21,7 +21,7 @@
 
 1. In `README.md`, replace "Quick start" with steps that work on a fresh clone, in this order: clone; `npm install`; `cp .env.example .env`; put the token from `claude setup-token` into `CLAUDE_CODE_OAUTH_TOKEN` (one sentence on why an API key does not work); keep `DS9_USE_GATE_FLOW=1` (one sentence on what 0 does); `npx playwright install --with-deps chromium` (needed for Julian's stage and the promote run); `gh auth login` followed by `gh auth setup-git` so that `git push origin dev` works without a prompt (the pipeline pushes dev on every landing; `gh` also feeds the GitHub panels); a check: `git push --dry-run origin dev` prints no authentication error; `./scripts/start.sh`; open `http://localhost:4747`; stop with `./scripts/stop.sh`.
 2. Add a short "Running as a service" paragraph: on macOS, `scripts/orch-start.sh` and `scripts/install-dashboard-service.sh` register launchd agents; on Linux and WSL there is no service wrapper yet, `start.sh` is the way, and the processes die with the shell session unless run under `nohup` or a terminal multiplexer.
-3. Update "Requirements" to match: Node >= 20, `claude` CLI, an OAuth token, Playwright's Chromium, git push access to origin (via `gh auth setup-git` or an SSH remote), and point to `docs/runbooks/RUNBOOK-CLAUDE-AUTH.md` for the token.
+3. Update "Requirements" to match: Node >= 20, `claude` CLI, an OAuth token, Playwright's Chromium, the GitHub CLI `gh` logged in (required: the merge button and the red report run it) with `gh auth setup-git` so git pushes without a prompt, and point to `docs/runbooks/RUNBOOK-CLAUDE-AUTH.md` for the token. On Debian and Ubuntu say to install `gh` from GitHub's apt repository, not the distribution package, which can be years old.
 4. Add a "Read next" line pointing at `docs/HOW-A-SLICE-TRAVELS.md` and `docs/HISTORY.md`.
 
 Write a safety-net test only for a criterion that asserts behaviour; otherwise write none, then stop.
